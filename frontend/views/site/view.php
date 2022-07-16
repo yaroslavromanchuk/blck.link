@@ -16,8 +16,8 @@ $this->title = $track->artist.' '.$track->name;
       <?=$track->sharing?$this->render('sharing.php', ['sharing'=> $track->url, 'id'=>$track->id]):''?>
   </div>
     <?=$this->render('services.php', ['services' => $track])?>
+	<?=$this->render('link.php', ['link' => $track->artists, 'id'=>$track->id])?>
     <?=$this->render('subscription.php')?>
-    <?=$this->render('link.php', ['link' => $track->artists, 'id'=>$track->id])?>
 </div>
 </div>
     </div>
