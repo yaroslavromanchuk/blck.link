@@ -37,5 +37,6 @@ phpunit.phar
 # ignore generated files
 /frontend/web/index-test.php
 /frontend/web/robots.txt
+/frontend/web/images
 /backend/web/index-test.php
 /backend/web/robots.txt
