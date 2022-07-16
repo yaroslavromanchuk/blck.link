@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="48px" height="47px" viewBox="0 0 48 47" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: Sketch 48.2 (47327) - http://www.bohemiancoding.com/sketch -->
+    <title>Artboard</title>
+    <desc>Created with Sketch.</desc>
+    <defs>
+        <path d="M11.5,9.42506347 L21.0314287,0.459412875 C21.4431073,0.0721711887 22.1050293,0.0774711606 22.5098729,0.471250694 C22.9147164,0.865030227 22.9091756,1.49817302 22.497497,1.88541471 L12.2345937,11.5391202 C12.2340749,11.5396105 12.2335557,11.5401002 12.2330361,11.5405892 C11.8250015,11.9243993 11.1711383,11.9225919 10.7654063,11.5391202 L0.502503041,1.88541471 C0.090824438,1.49817302 0.0852835582,0.865030227 0.49012714,0.471250694 C0.894970721,0.0774711606 1.55689274,0.0721711887 1.96857134,0.459412875 L11.5,9.42506347 Z" id="path-1"></path>
+    </defs>
+    <g id="link-page" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="Artboard">
+            <g id="Group" transform="translate(23.000000, 23.000000) scale(-1, 1) translate(-23.000000, -23.000000) ">
+                <circle id="Oval" fill="#F8F8F8" opacity="0.800000012" cx="23" cy="23" r="23"></circle>
+                <g id="icon/arow/simple" transform="translate(23.500000, 23.500000) rotate(-90.000000) translate(-23.500000, -23.500000) translate(12.000000, 12.000000)">
+                    <g id="color/black" transform="translate(0.000000, 6.000000)">
+                        <mask id="mask-2" fill="white">
+                            <use xlink:href="#path-1"></use>
+                        </mask>
+                        <g id="Mask"></g>
+                        <g id="color/dark-gray" mask="url(#mask-2)" fill="#3C3C3C">
+                            <rect id="Rectangle-8" x="0" y="0" width="23" height="12"></rect>
+                        </g>
+                    </g>
+                </g>
+            </g>
+        </g>
+    </g>
+</svg>

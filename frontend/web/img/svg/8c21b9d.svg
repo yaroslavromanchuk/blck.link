@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="34px" height="34px" viewBox="0 0 34 34" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: Sketch 48.2 (47327) - http://www.bohemiancoding.com/sketch -->
+    <title>yandex</title>
+    <desc>Created with Sketch.</desc>
+    <defs></defs>
+    <g id="test-page" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd" transform="translate(-368.000000, -1254.000000)">
+        <g id="yandex" transform="translate(368.000000, 1254.000000)">
+            <circle id="Oval-3" fill="#EFEFEF" cx="17" cy="17" r="17"></circle>
+            <g id="icon_main" transform="translate(8.206897, 2.931034)" fill-rule="nonzero">
+                <path d="M17.0366379,16.2327024 C17.0366379,20.6162755 13.2228648,24.4252874 8.51831897,24.4252874 C3.81377309,24.4252874 0,20.6162755 0,16.2327024 C0,11.2189305 3.81377309,7.40991864 8.51831897,7.40991864 C13.2228648,7.40991864 17.0366379,11.2189305 17.0366379,16.2327024" id="Fill-1" fill="#FFCC02"></path>
+                <path d="M12.7774784,15.917603 C12.7774784,18.2672708 10.8709238,20.1714452 8.51831897,20.1714452 C6.16571415,20.1714452 4.25915948,18.2672708 4.25915948,15.917603 C4.25915948,13.5679353 6.16571415,11.6637608 8.51831897,11.6637608 C10.8709238,11.6637608 12.7774784,13.5679353 12.7774784,15.917603" id="Fill-2" fill="#EE0000"></path>
+                <polygon id="Fill-3" fill="#EE0000" points="10.3044181 3.01885574 12.7774784 3.01885574 12.7774784 15.7803823 10.3044181 15.7803823"></polygon>
+                <polygon id="Fill-4" fill="#EE0000" points="10.3044181 0 10.3044181 4.75698481 17.5862069 7.13547721 17.5862069 2.3784924"></polygon>
+            </g>
+        </g>
+    </g>
+</svg>

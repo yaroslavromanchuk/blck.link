@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="280px" height="280px" viewBox="0 0 280 280" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: Sketch 48.2 (47327) - http://www.bohemiancoding.com/sketch -->
+    <title>Group</title>
+    <desc>Created with Sketch.</desc>
+    <defs>
+        <linearGradient x1="9.91210938%" y1="80.8872768%" x2="84.5396205%" y2="15.906808%" id="linearGradient-1">
+            <stop stop-color="#FF2D7C" offset="0%"></stop>
+            <stop stop-color="#FF2732" offset="100%"></stop>
+        </linearGradient>
+        <linearGradient x1="0%" y1="100%" x2="84.8261527%" y2="4.85294118%" id="linearGradient-2">
+            <stop stop-color="#FF2F8A" offset="0%"></stop>
+            <stop stop-color="#FF272E" offset="100%"></stop>
+        </linearGradient>
+    </defs>
+    <g id="tidal-copy-2" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd" transform="translate(-3.000000, -3.000000)">
+        <g id="Group" transform="translate(3.000000, 3.000000)">
+            <circle id="Oval" stroke="url(#linearGradient-1)" stroke-width="21.816" cx="140" cy="140" r="129.092"></circle>
+            <path d="M132.448971,187 L96,187 L96,93 L132.448971,93 L156.677455,93 C168.828746,93 178.89058,102.438243 179.666956,114.564706 L179.998645,119.745468 C180.542062,128.233275 174.101861,135.554529 165.614054,136.097946 C165.286492,136.118918 164.958343,136.129412 164.63011,136.129412 L148.53954,136.129412 L165.208422,136.129412 C176.14366,136.129412 185.008422,144.994174 185.008422,155.929412 C185.008422,156.430063 184.989434,156.930533 184.951497,157.429744 L184.63727,161.564706 C183.546852,175.913662 171.586067,187 157.195738,187 L132.448971,187 Z M131.344457,149.4 L131.344457,161.564706 L141.829818,161.564706 C145.189008,161.564706 147.91217,158.841544 147.91217,155.482353 C147.91217,152.123162 145.189008,149.4 141.829818,149.4 L131.344457,149.4 Z M131.344457,120.647059 L131.344457,129.494118 L141.279613,129.494118 C143.72266,129.494118 145.703142,127.513636 145.703142,125.070588 C145.703142,122.62754 143.72266,120.647059 141.279613,120.647059 L131.344457,120.647059 Z" id="Combined-Shape" fill="url(#linearGradient-2)"></path>
+        </g>
+    </g>
+</svg>

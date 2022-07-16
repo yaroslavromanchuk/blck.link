@@ -1,0 +1,38 @@
+RewriteEngine On  
+ RewriteCond %{SERVER_PORT} 80
+ RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+# Кэширование / поддерживается не на всех хостингах
+<ifmodule mod_expires.c>
+    <filesmatch "\.(jpg|jpeg|png|gif|js|css|swf|ico|woff|mp3|svg)$">
+        ExpiresActive on
+        ExpiresDefault "access plus 7 days"
+    </filesmatch>
+</ifmodule>
+
+  # если /admin, то в backend
+    RewriteCond %{REQUEST_URI} ^/(admin)
+    RewriteRule ^admin/assets/(.*)$ backend/web/assets/$1 [L]
+    RewriteRule ^admin/css/(.*)$ backend/web/css/$1 [L]
+    RewriteRule ^admin/js/(.*)$ backend/web/js/$1 [L]
+    RewriteRule ^admin/img/(.*)$ backend/web/img/$1 [L]
+    RewriteRule ^admin/fonts/(.*)$ backend/web/fonts/$1 [L]
+    RewriteRule ^admin/plugins/(.*)$ backend/web/plugins/$1 [L]
+
+    RewriteCond %{REQUEST_URI} !^/backend/web/(assets|js|css|img|fonts)/
+    RewriteCond %{REQUEST_URI} ^/(admin)
+    RewriteRule ^.*$ backend/web/index.php [L]
+
+    RewriteCond %{REQUEST_URI} ^/(assets|css|js|uploads|img)
+    RewriteRule ^assets/(.*)$ frontend/web/assets/$1 [L]
+    RewriteRule ^css/(.*)$ frontend/web/css/$1 [L]
+    RewriteRule ^js/(.*)$ frontend/web/js/$1 [L]
+    #RewriteRule ^uploads/(.*)$ frontend/web/uploads/$1 [L]
+   # RewriteRule ^uploads_thumbs/(.*)$ frontend/web/uploads_thumbs/$1 [L]
+   # RewriteRule ^img/(.*)$ frontend/web/img/$1 [L]
+   # RewriteRule ^img_thumbs/(.*)$ frontend/web/img_thumbs/$1 [L]
+    RewriteRule ^(.*)$ frontend/web/$1 [L]
+    RewriteCond %{REQUEST_URI} !^/(frontend|backend)/web/(assets|css|js)/
+    RewriteCond %{REQUEST_URI} !index.php
+    RewriteCond %{REQUEST_FILENAME} !-f [OR]
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^.*$ frontend/web/index.php

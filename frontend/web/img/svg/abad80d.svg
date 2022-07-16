@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="37px" height="37px" viewBox="0 0 37 37" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: Sketch 51 (57462) - http://www.bohemiancoding.com/sketch -->
+    <title>icon/sharing/telegram</title>
+    <desc>Created with Sketch.</desc>
+    <defs>
+        <ellipse id="path-1" cx="18.0331008" cy="18.5" rx="18.0331008" ry="18.5"></ellipse>
+        <linearGradient x1="65.97%" y1="43.69%" x2="85.12%" y2="80.24%" id="linearGradient-3">
+            <stop stop-color="#EFF7FC" offset="0%"></stop>
+            <stop stop-color="#FFFFFF" offset="100%"></stop>
+        </linearGradient>
+    </defs>
+    <g id="icon/sharing/telegram" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <mask id="mask-2" fill="white">
+            <use xlink:href="#path-1"></use>
+        </mask>
+        <use id="Mask" fill="#37AEE2" xlink:href="#path-1"></use>
+        <path d="M15.1316712,25.4381674 C14.600569,25.4381674 14.6908165,25.2304797 14.5076439,24.706754 L12.9458408,19.3833889 L24.967908,11.9969697" id="Shape" fill="#C8DAEA" fill-rule="nonzero" mask="url(#mask-2)"></path>
+        <path d="M15.1316712,25.4381674 C15.5415144,25.4381674 15.7225968,25.2440482 15.9513576,25.0137085 L18.137188,22.8124648 L15.4106378,21.1096773" id="Shape" fill="#A9C9DD" fill-rule="nonzero" mask="url(#mask-2)"></path>
+        <path d="M15.4103646,21.1101017 L22.017037,26.1652654 C22.7709435,26.596077 23.315065,26.3730239 23.5028552,25.4403604 L26.1921096,12.3156676 C26.4674423,11.17243 25.7713236,10.6539111 25.0500952,10.9930254 L9.2588367,17.2992109 C8.18093542,17.7469726 8.18721968,18.3697811 9.06235787,18.6472923 L13.1147508,19.9572148 L22.4964715,13.8273213 C22.9393618,13.5491734 23.3458442,13.6987116 23.0122182,14.0053676" id="Shape" fill="url(#linearGradient-3)" fill-rule="nonzero" mask="url(#mask-2)"></path>
+    </g>
+</svg>
