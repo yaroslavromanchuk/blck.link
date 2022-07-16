@@ -30,7 +30,9 @@ class SiteController extends Controller
     {
       
 
-       if (empty($_SESSION["referal"])){ $_SESSION["referal"] = $_SERVER["HTTP_REFERER"];}
+       if (empty($_SESSION["referal"]) && isset($_SERVER["HTTP_REFERER"])) {
+       		$_SESSION["referal"] = $_SERVER["HTTP_REFERER"];
+       }
 
         return [
             'access' => [
