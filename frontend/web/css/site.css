@@ -306,6 +306,24 @@ h1.no-default-styles, h2.no-default-styles {
     display: flex;
     flex-wrap: wrap;
 }
+
+.card-link {
+    margin: 15px;
+}
+
+.card-link .link_header {
+    font-size: 22px;
+    color: #333;
+    text-align: left;
+    top: 5px;
+    position: relative;
+}
+
+.card-link .link_body {
+    padding: 1.25rem;
+    padding-bottom: 0.5rem;
+}
+
 .order-block.links-wrapper {
     display: flex;
     flex-wrap: wrap;
@@ -464,25 +482,20 @@ h1.no-default-styles, h2.no-default-styles {
     margin-right: auto;
 }
 .subscription{
-    padding: 15px 0;
+    padding: 15px;
+    padding-bottom: 0px;
     overflow-y: hidden;
+    width: 100%;
 }
 
 .subscription__header.mobile-header {
     font-size: 22px;
     color: #333;
-    padding: 0 0 0 15px;
 }
 
 .subscription__header {
-    padding: 0;
     position: relative;
-    color: #0e0c1e;
-    font-size: 24px;
     font-family: Proxima-Nova-Bold,sans-serif;
-    line-height: 27px;
-    text-align: left;
-    cursor: pointer;
     margin-bottom: 8px;
 }
 .telegram-block {

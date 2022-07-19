@@ -22,71 +22,59 @@ $mass = [
     
 ];
 ?>
-<div class="card-footer footer order-block order-1">
-    <?php
-    if($link->facebook){ ?>
+<div class="card-body">
+    <h6 class="card-subtitle mb-2 text-muted"><?=Yii::t('app', 'Подпишись на артиста')?></h6>
+    <div class="link_body">
         <div class="order-link facebook order-1"  >
-             <a rel="nofollow" href="<?=$link->facebook?>" data-name="facebook" data-id="<?=$id?>" target="_blank"  >
-                 <?=$mass['facebook']?>
-             </a>
-         </div>
-    <?php }
-    if($link->vk){ ?>
-        <div class="order-link vk order-1"  >
-             <a rel="nofollow" href="<?=$link->vk?>" data-name="vk" data-id="<?=$id?>" target="_blank"  >
-                 <?=$mass['vk']?>
-             </a>
-         </div>
-    <?php }
-    if($link->twitter){ ?>
-        <div class="order-link twitter order-1"  >
-             <a rel="nofollow" href="<?=$link->twitter?>" data-name="twitter" data-id="<?=$id?>" target="_blank"  >
-                 <?=$mass['twitter']?>
-             </a>
-         </div>
-    <?php }
-    if($link->youtube){ ?>
-        <div class="order-link youtube order-1"  >
-             <a rel="nofollow" href="<?=$link->youtube?>" data-name="youtube" data-id="<?=$id?>" target="_blank"  >
-                 <?=$mass['youtube']?>
-             </a>
-         </div>
-    <?php }
-    if($link->instagram){ ?>
-        <div class="order-link instagram order-1"  >
-             <a rel="nofollow" href="<?=$link->instagram?>" data-name="instagram" data-id="<?=$id?>" target="_blank"  >
-                 <?=$mass['instagram']?>
-             </a>
-         </div>
-    <?php }
-    if($link->telegram){ ?>
-        <div class="order-link telegram order-1"  >
-             <a rel="nofollow" href="<?=$link->telegram?>" data-name="telegram" data-id="<?=$id?>" target="_blank"  >
-                 <?=$mass['telegram']?>
-             </a>
-         </div>
-    <?php }
-     if($link->viber){ ?>
-        <div class="order-link viber order-1"  >
-             <a rel="nofollow" href="<?=$link->viber?>" data-name="viber" data-id="<?=$id?>" target="_blank"  >
-                 <?=$mass['viber']?>
-             </a>
-         </div>
-    <?php }
-    if($link->whatsapp){ ?>
-        <div class="order-link whatsapp order-1"  >
-             <a rel="nofollow" href="<?=$link->whatsapp?>" data-name="whatsapp" data-id="<?=$id?>" target="_blank"  >
-                 <?=$mass['whatsapp']?>
-             </a>
-         </div>
-    <?php }
-    if($link->ofsite){ ?>
-        <div class="order-link ofsite order-1"  >
-             <a rel="nofollow" href="<?=$link->ofsite?>" data-name="ofsite" data-id="<?=$id?>" target="_blank"  >
-                 <?=$mass['ofsite']?>
-             </a>
-         </div>
-    <?php } ?>
+		<?php
+		if($link->facebook){ ?>
+                <a rel="nofollow" href="<?=$link->facebook?>" data-name="facebook" data-id="<?=$id?>" target="_blank"  >
+					<?=$mass['facebook']?>
+                </a>
+		<?php }
+		if($link->vk){ ?>
+                <a rel="nofollow" href="<?=$link->vk?>" data-name="vk" data-id="<?=$id?>" target="_blank"  >
+					<?=$mass['vk']?>
+                </a>
+		<?php }
+		if($link->twitter){ ?>
+                <a rel="nofollow" href="<?=$link->twitter?>" data-name="twitter" data-id="<?=$id?>" target="_blank"  >
+					<?=$mass['twitter']?>
+                </a>
+		<?php }
+		if($link->youtube){ ?>
+                <a rel="nofollow" href="<?=$link->youtube?>" data-name="youtube" data-id="<?=$id?>" target="_blank"  >
+					<?=$mass['youtube']?>
+                </a>
+		<?php }
+		if($link->instagram){ ?>
+                <a rel="nofollow" href="<?=$link->instagram?>" data-name="instagram" data-id="<?=$id?>" target="_blank"  >
+					<?=$mass['instagram']?>
+                </a>
+		<?php }
+		if($link->telegram){ ?>
+                <a rel="nofollow" href="<?=$link->telegram?>" data-name="telegram" data-id="<?=$id?>" target="_blank"  >
+					<?=$mass['telegram']?>
+                </a>
+		<?php }
+		if($link->viber){ ?>
+                <a rel="nofollow" href="<?=$link->viber?>" data-name="viber" data-id="<?=$id?>" target="_blank"  >
+					<?=$mass['viber']?>
+                </a>
+		<?php }
+		if($link->whatsapp){ ?>
+                <a rel="nofollow" href="<?=$link->whatsapp?>" data-name="whatsapp" data-id="<?=$id?>" target="_blank"  >
+					<?=$mass['whatsapp']?>
+                </a>
+		<?php }
+		if($link->ofsite){ ?>
+                <a rel="nofollow" href="<?=$link->ofsite?>" data-name="ofsite" data-id="<?=$id?>" target="_blank"  >
+					<?=$mass['ofsite']?>
+                </a>
+		<?php } ?>
+    </div>
+    </div>
+
 </div>
 
      
