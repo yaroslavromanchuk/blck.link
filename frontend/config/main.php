@@ -70,7 +70,7 @@ return [
                     'suffix' => '.xml',
                     //карта сайта 
                 ],
-                '<link:([\w-_\d]+)>'=> 'site/view',
+                '<link:([\w\-_\d]+)>'=> 'site/view',
                  'about' => 'site/about',
                // 'contact' => 'site/contact',
                 '<action:\w+>' => 'site/<action>', 

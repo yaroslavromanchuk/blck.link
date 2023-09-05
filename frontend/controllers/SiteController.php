@@ -91,9 +91,10 @@ class SiteController extends Controller
         $this->view->registerMetaTag(['property' => 'og:image:width', 'content' => '200'],'og:image:width');
         $this->view->registerMetaTag(['property' => 'og:image:height', 'content' => '200'],'og:image:height');
         $this->view->registerMetaTag(['property' => 'og:image', 'content' => '/img/logo.png'],'og:image');
+
         return $this->render('index',[
             'list' => Track::find()
-				->andFilterWhere(['active'=>1])
+				->andFilterWhere(['active'=>1, 'sharing' => 1])
 				->andFilterWhere(['<=', '`date`',date('Y-m-d')])
 				->orderBy('date DESC')
 				->limit(100)
@@ -102,24 +103,33 @@ class SiteController extends Controller
     }
     
      public function actionView()
-    { 
+    {
          $track = Track::find()
-                ->andFilterWhere(['like', 'url', Yii::$app->request->get('link')])
-                ->andFilterWhere(['active'=>1])
+                ->andFilterWhere(['= BINARY', 'url', Yii::$app->request->get('link')])
+                ->andFilterWhere(['active' => 1])
                 ->andFilterWhere(['<=', '`date`', date('Y-m-d')])
                 ->one();
+
          if(!$track){
              return $this->redirect(['index']);
          }
-          $track->views = (int)($track->views+1);
-          $track->save();
+
+		$referal = !empty($_SESSION["referal"]) ? $_SESSION["referal"] : '';
+
+         if (empty($referal)) {
+			 $referal =  !empty($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : '';
+		 }
+
+		$track->views = (int)($track->views+1);
+		$track->save();
+
                     $view = new \common\models\Views();
                     $view->track_id = $track->id;
                     $view->view = 1;
                     $view->ip = Yii::$app->request->userIP;
                     $country = geoip_country_name_by_name(Yii::$app->request->userIP);
-                    $view->country = $country ? $country : null; 
-                    $view->referal = !empty($_SESSION["referal"]) ? $_SESSION["referal"] : $_SERVER['HTTP_REFERER'];    
+                    $view->country = $country ? $country : null;
+                    $view->referal = $referal;
                     $view->data = date("Y-m-d");
                     $view->save();
           
@@ -141,6 +151,7 @@ class SiteController extends Controller
             'track' => $track,
         ]);
     }
+
     public function actionAjax()
     {
         if(Yii::$app->request->isAjax){

@@ -49,7 +49,7 @@ foreach ($country as $c){
     if($c['value'] > $max){
         $max = $c['value'];
     }
-    $cc[] = [name => isset($map[$c['name']]) ? $map[$c['name']] : $c['name'], value => (float)$c['value']];
+    $cc[] = ['name' => isset($map[$c['name']]) ? $map[$c['name']] : $c['name'], 'value' => (float)$c['value']];
 }
         return $this->render('index', [
             'searchModel' => $searchModel,
