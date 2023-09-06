@@ -17,7 +17,7 @@ $this->title = $track->artist.' '.$track->name;
   </div>
     <?=$this->render('services.php', ['services' => $track])?>
         <?php
-        if (count($track->artists)) {
+        if (!empty($track->artists)) {
             echo $this->render('link.php', ['link' => $track->artists, 'id'=>$track->id]);
         }
         ?>

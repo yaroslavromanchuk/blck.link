@@ -39,26 +39,28 @@ class Upload
                  
         return $fileName;
     }
-    /**
-     * 
-     * @param type $model
-     * @param type $id
-     * @param type $current_image
-     * @param type $folder - папка куда хранить файл, от корня  /frontend/web/images/
-     * @param array $crop - [100, 100] - размер обрезки
-     * @return string
-     */
+
+	/**
+	 *
+	 * @param type $model
+	 * @param type $current_image
+	 * @param string $folder - папка куда хранить файл, от корня  /frontend/web/images/
+	 * @param array $crop - [100, 100] - размер обрезки
+	 * @return string
+	 * @throws \yii\base\Exception
+	 */
      public static  function updateImage($model, $current_image, $folder='', $crop = []) {
                     
                         $dir = Yii::getAlias('@app/../frontend/web/images/').($folder?$folder.'/':'');
       //  Yii::$app->controller->createDirectory($dir); //создаст папку если ее нет!
                       
-                     if(file_exists($dir.$current_image))
+                     if(is_file($dir.$current_image) && file_exists($dir.$current_image))
                         {
                             //удаляем файл
                             unlink($dir.$current_image);
                            // $model->image = '';
-                        }  
+                        }
+
                   $fileName = $model->id.'_'.Yii::$app->getSecurity()->generateRandomString(9) . '.' . $model->file->extension;
                   $img = $dir.$fileName;
                   

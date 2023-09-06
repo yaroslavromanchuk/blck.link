@@ -35,8 +35,8 @@ AppAsset::register($this);
     <link rel="icon" type="image/png" sizes="32x32" href="/img/favicon/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="96x96" href="/img/favicon/favicon-96x96.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/img/favicon/favicon-16x16.png">
-    <meta name="robots" content="noindex,follow">
-    <meta property="og:locale" content="ru_RU">
+    <meta name="robots" content="index,follow">
+    <meta property="og:locale" content="uk_UA">
     <meta property="og:type" content="website">
     <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","@id":"https://blck.link/#website","url":"https://blck.link/","name":"Black beats link","potentialAction":{"@type":"SearchAction","target":"https://blck.link/?s={search_term_string}","query-input":"required name=search_term_string"}}</script>
     <script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","url":"https://blck.link/","sameAs":[],"@id":"https://blck.link/#organization","name":"Blackbeatsmusic","logo":""}</script>
@@ -100,15 +100,6 @@ AppAsset::register($this);
         <?php // Alert::widget() ?>
     <?=$content?>
 </div>
-<!--
-<footer class="footer">
-    <div class="container">
-        <p class="pull-left">&copy; <?= Html::encode(Yii::$app->name) ?> <?= date('Y') ?></p>
-
-        <p class="pull-right"><?= Yii::powered() ?></p>
-    </div>
-</footer>-->
-
 <?php $this->endBody() ?>
 </body>
 </html>

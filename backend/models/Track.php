@@ -20,11 +20,11 @@ use Yii;
  * @property int $views
  * @property int $click
  * @property int $active
+ * @property string servise
  *
-* @property Log[] $logs
-* @property MusicServices $musicServices
-* @property OficialLink $oficialLink
- * @property Artist $artist
+ * @property Log[] $logs
+ * @property MusicServices $musicServices
+ * @property OficialLink $oficialLink
  */
 class Track extends \yii\db\ActiveRecord
 {
@@ -46,7 +46,7 @@ class Track extends \yii\db\ActiveRecord
        return [
            [['servise'], 'string'],
            [['file'], 'file', 'extensions' => 'png, jpg, jpeg'], 
-           [['artist_id', 'artist', 'date',  'name', 'img'], 'required'], 
+           [['artist_id', 'artist', 'date',  'name', 'img'], 'required'],
            [['artist_id',  'admin_id', 'sharing', 'views', 'click', 'active'], 'integer'],
            [['date'], 'safe'],
            [['artist', 'tag'], 'string', 'max' => 100],

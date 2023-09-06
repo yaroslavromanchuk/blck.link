@@ -1,6 +1,7 @@
 <?php
-use Yii;
+
 use yii\helpers\Url;
+use yii\helpers\Html;
 ?>
 
     <div  class="card">
@@ -41,7 +42,16 @@ use yii\helpers\Url;
         <div class="d-inline-table col-12 text-center">
             <a href="/admin/track/update?id=<?=$model->id?>" title="Редактировать" aria-label="Редактировать" data-pjax="0"><span  style="font-size: 2em" class="glyphicon glyphicon-pencil"></span></a>
         </div>
-        <?php } ?>
+        <?php
+			 echo '<div class="d-inline-table col-12 text-center">' .
+             Html::a('<span  style="font-size: 2em" class="glyphicon glyphicon-remove"></span>', ['delete', 'id' => $model->id], [
+				//'class' => 'btn btn-danger',
+				'data' => [
+					'confirm' => Yii::t('app', 'Вы уверены, что хотите удалить этот трек?'),
+					'method' => 'post',
+				],
+			]) . '</div>';
+        } ?>
         <div class="d-inline-table col-12 text-center">
             <a href="/admin/track/analitiks?id=<?=$model->id?>" title="Аналитика" aria-label="Аналитика" data-pjax="0"><span  style="font-size: 2em" class="glyphicon glyphicon-stats"></span></a>
         </div>

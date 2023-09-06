@@ -69,21 +69,25 @@ class ArtistController extends Controller
     public function actionCreate()
     {
         $model = new Artist();
-        
-if(Yii::$app->request->isAjax ){
-      if ($model->load(Yii::$app->request->post())){
-            Yii::$app->response->format = Response::FORMAT_JSON;
-            $valid = ActiveForm::validate($model);
-            if($valid){
-                 return $valid;
-           }
-      }
-}elseif ($model->load(Yii::$app->request->post())){
+
+		if (Yii::$app->request->isAjax ) {
+			if ($model->load(Yii::$app->request->post())){
+				Yii::$app->response->format = Response::FORMAT_JSON;
+
+				return ActiveForm::validate($model);
+			}
+			return true;
+		}
+
+		if ($model->load(Yii::$app->request->post())) {
             $id = Artist::find()->orderBy('id DESC')->one()->id;
-             $id++;
+            $id++;
+
            $file = UploadedFile::getInstance($model, 'file');
+
             if ($file && $file->tempName) {
                 $model->file = $file;
+
                 if ($model->validate(['file'])) {
                     $model->logo = Upload::createImage($model, $id, 'artist', [60, 60]);
                     
@@ -101,18 +105,20 @@ if(Yii::$app->request->isAjax ){
             'model' => $model,
         ]);
     }
+
     public function actionModal()
     {
         $model = new Artist();
-if(Yii::$app->request->isAjax ){
-      if ($model->load(Yii::$app->request->post())){
-            Yii::$app->response->format = Response::FORMAT_JSON;
-            $valid = ActiveForm::validate($model);
-            if($valid){
-                 return $valid;
-           }
-      }
-}elseif ($model->load(Yii::$app->request->post())){
+
+		if (Yii::$app->request->isAjax ) {
+			if ($model->load(Yii::$app->request->post())){
+				Yii::$app->response->format = Response::FORMAT_JSON;
+
+				return ActiveForm::validate($model);
+			}
+			return true;
+		}
+		if ($model->load(Yii::$app->request->post())) {
           //  Yii::$app->response->format = Response::FORMAT_JSON;
            // $valid = ActiveForm::validate($model);
           //  if($valid){
@@ -149,27 +155,31 @@ if(Yii::$app->request->isAjax ){
     public function actionUpdate($id)
     {
             $model = $this->findModel($id);
-             $current_image = $model->logo;
-        if(Yii::$app->request->isAjax ){
-        if ($model->load(Yii::$app->request->post())){
-            Yii::$app->response->format = Response::FORMAT_JSON;
-            $valid = ActiveForm::validate($model);
-            if($valid){
-                 return $valid;
-           }
-        }
-      }elseif($model->load(Yii::$app->request->post())){
+
+		if (Yii::$app->request->isAjax ) {
+			if ($model->load(Yii::$app->request->post())){
+				Yii::$app->response->format = Response::FORMAT_JSON;
+
+				return ActiveForm::validate($model);
+			}
+			return true;
+		}
+
+
+
+        if($model->load(Yii::$app->request->post())) {
             
             $file = UploadedFile::getInstance($model, 'file');
+
             if ($file && $file->tempName) {
                
                 $model->file = $file;
+
                 if ($model->validate(['file'])) {
-                   $model->logo = Upload::updateImage($model, $current_image, 'artist', [60, 60]);
+                   $model->logo = Upload::updateImage($model, $model->logo, 'artist', [60, 60]);
                 }
-            }//else{
-               // $model->logo = $current_image;
-           // }
+            }
+
              if($model->validate() && $model->save()) {
                  return $this->redirect(['view', 'id' => $model->id]);
              }

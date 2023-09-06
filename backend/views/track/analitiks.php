@@ -1,10 +1,17 @@
-<?php 
+<?php
+
 $mybarChartLink = [];
+$mybarChart = [
+        'labels' => [],
+        'data' => [],
+];
 
 foreach ($link as $l){
     $mybarChart['labels'][] = $l['name'];
     $mybarChart['data'][] = $l['ctn'];
 }
+
+
 $l_l = '"';
 $l_l .= implode('", "', $mybarChart['labels']);
 $l_l.= '"';
@@ -16,6 +23,7 @@ foreach ($servise as $s){
     $mybarChartServise['labels'][] = $s['name'];
     $mybarChartServise['data'][] = $s['ctn'];
 }
+
 $l_s = '"';
 $l_s .= implode('", "', $mybarChartServise['labels']);
 $l_s.= '"';

@@ -69,16 +69,17 @@ class TrackController extends Controller
     public function actionCreate()
     {
         $model = new Track();
-if(Yii::$app->request->isAjax ){
-        if ($model->load(Yii::$app->request->post())){
-            Yii::$app->response->format = Response::FORMAT_JSON;
-            $valid = ActiveForm::validate($model);
-            if($valid){
-                 return $valid;
-           }
-        }
+
+		if(Yii::$app->request->isAjax ) {
+        	if ($model->load(Yii::$app->request->post())){
+            	Yii::$app->response->format = Response::FORMAT_JSON;
+
+        	    return ActiveForm::validate($model);
+       		}
+        	return true;
       }
-        if ($model->load(Yii::$app->request->post())){
+
+        if ($model->load(Yii::$app->request->post())) {
             $id = Track::find()->orderBy('id DESC')->one()->id;
              $id++;
             $file = UploadedFile::getInstance($model, 'file');
@@ -88,15 +89,17 @@ if(Yii::$app->request->isAjax ){
                     $model->img = Upload::createImage($model, $id, 'track', [500, 500]);
                 }
             }
-            if(!$model->url){
+
+            if (empty($model->url)) {
                 $model->url = trim(Yii::$app->translit->t($model->name));//     Yii::$app->getSecurity()->generateRandomString(8);
             }
+
              $model->servise = serialize($model->servise);
+
             if($model->validate() && $model->save()) {
 
-            return $this->redirect(['view', 'id' => $model->id]);
-               }
-           // return $this->redirect(['view', 'id' => $model->id]);
+            	return $this->redirect(['view', 'id' => $model->id]);
+            }
         }
 
         return $this->render('create', [
@@ -115,68 +118,57 @@ if(Yii::$app->request->isAjax ){
         
     }
 
-    /**
-     * Updates an existing Track model.
-     * If update is successful, the browser will be redirected to the 'view' page.
-     * @param integer $id
-     * @return mixed
-     * @throws NotFoundHttpException if the model cannot be found
-     */
+	/**
+	 * Updates an existing Track model.
+	 * If update is successful, the browser will be redirected to the 'view' page.
+	 * @param integer $id
+	 * @return mixed
+	 * @throws NotFoundHttpException if the model cannot be found
+	 * @throws \yii\base\Exception
+	 */
     public function actionUpdate($id)
     {
         $model = $this->findModel($id);
-        if(Yii::$app->request->isAjax ){
-        if ($model->load(Yii::$app->request->post())){
-            Yii::$app->response->format = Response::FORMAT_JSON;
-            $valid = ActiveForm::validate($model);
-            if($valid){
-                 return $valid;
-           }
-        }
-      }
-          $current_image = $model->img;
 
-        if (/*Yii::$app->request->isAjax &&*/ $model->load(Yii::$app->request->post())){
-           
-          // Yii::$app->response->format = Response::FORMAT_JSON;
-           //  return Yii::$app->request->post();
-           // $valid = ActiveForm::validate($model);
-           // if($valid){
-              //   
-           //      return $valid;
-          // }
-            //&& $model->save()) {
+        if (Yii::$app->request->isAjax ) {
+			if ($model->load(Yii::$app->request->post())){
+				Yii::$app->response->format = Response::FORMAT_JSON;
+				return ActiveForm::validate($model);
+			}
+
+			return true;
+        }
+
+        if ($model->load(Yii::$app->request->post())) {
              $file = UploadedFile::getInstance($model, 'file');
             if ($file && $file->tempName) {
                
                 $model->file = $file;
                 if ($model->validate(['file'])) {
-                   $model->img = Upload::updateImage($model, $current_image, 'track', [500, 500]);
+                   $model->img = Upload::updateImage($model, $model->img, 'track', [500, 500]);
                 }
-            }else{
-                $model->img = $current_image;
             }
          
            $model->servise = serialize($model->servise);
              
-        if($model->validate() && $model->save()){
-            return $this->redirect(['view', 'id' => $model->id]);
+			if ($model->validate() && $model->save()) {
+				return $this->redirect(['view', 'id' => $model->id]);
+			}
         }
-        }
-      
 
         return $this->render('update', [
             'model' => $model,
         ]);
     }
 
-    /**
-     * Deletes an existing Track model.
-     * If deletion is successful, the browser will be redirected to the 'index' page.
-     * @param integer $id
-     * @return mixed
-     * @throws NotFoundHttpException if the model cannot be found
-     */
+	/**
+	 * Deletes an existing Track model.
+	 * If deletion is successful, the browser will be redirected to the 'index' page.
+	 * @param integer $id
+	 * @return mixed
+	 * @throws NotFoundHttpException if the model cannot be found
+	 * @throws \yii\db\StaleObjectException
+	 */
     public function actionDelete($id)
     {
         $this->findModel($id)->delete();

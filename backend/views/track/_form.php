@@ -9,6 +9,7 @@ use yii\jui\DatePicker;
 //use backend\widgets\jui\DatePickerLanguageAsset;
 //use backend\widgets\jui\DatePicker;
 use kartik\select2\Select2;
+
 /* @var $this yii\web\View */
 /* @var $model backend\models\Track */
 /* @var $form yii\widgets\ActiveForm */
@@ -70,7 +71,7 @@ use backend\widgets\CreateArtist;
                         <span class="card-title">Релиз</span>
                     <div class="row">
                           <div class="col-sm-12">
-                               <?= $form->field($model, 'sharing')->checkbox([ 'value' => 1,  'checked ' => true, 'label' => 'Отобразить', ]) ?>
+                               <?= $form->field($model, 'sharing')->checkbox([ 'value' => 1,  'checked' => (bool) $model->sharing, 'label' => 'Отобразить', ]) ?>
                         </div>
                         <div class="col-sm-12">
                              <?= $form->field($model, 'date')->widget(DatePicker::class, [
@@ -89,14 +90,14 @@ use backend\widgets\CreateArtist;
                          </div>
                         <div class="col-sm-12">
     <?php if($model->url){
-        echo $form->field($model, 'url')->textInput(['disabled' => true]);
-    }else{
+        echo $form->field($model, 'url',  ['enableAjaxValidation' => true])->textInput(['maxlength' => true]);
+    } else {
         echo $form->field($model, 'url', ['enableAjaxValidation' => true])->textInput(['maxlength' => true]);
     }  ?>
                     </div>
     <div class="col-sm-12">           
     <?php // $form->field($model, 'img')->textInput(['maxlength' => true]) ?>
-    <?php if($model->img){ echo Html::img($model->image,['alt'=>'yii2 - картинка в gridview', 'style' => 'width: 200px;']);}?>
+    <?php if($model->img){ echo Html::img($model->image,['alt'=>'yii2 - картинка в gridview', 'style' => 'width: 200px; margin-top: 15px;']);}?>
     <?= $form->field($model, 'file')->fileInput() ?>
     </div> 
  <div class="col-sm-12">  
@@ -114,12 +115,20 @@ use backend\widgets\CreateArtist;
                 <div class="card" style="padding: 20px">
                         <span class="card-title">Площадки</span>
                     <div class="row">
-                        <?php foreach (unserialize($model->servise) as $key => $servise){ ?>
+                        <?php
+
+                        if (!is_null($model->servise)) {
+							$services = unserialize($model->servise);
+						if (is_array($services)) {
+                            foreach ($services as $key => $service) { ?>
+
                         <div class="col-sm-12">
     <?= $form->field($model, 'servise[]', ['template'=>'<div class="input-group">{input}<span class="input-group-btn">
-    <a class="btn btn-sm btn-danger" data-toggle="reroute" data-tag="dell">Удалить</a></span>{error}</div>'])->textInput(['maxlength' => true, 'value'=>$servise, 'id'=>'servise-'.$key]) ?>
+    <a class="btn btn-sm btn-danger" data-toggle="reroute" data-tag="dell">Удалить</a></span>{error}</div>'])->textInput(['maxlength' => true, 'value' => $service, 'id'=>'servise-'.$key]) ?>
                           </div>
-                        <?php } ?>
+                        <?php }
+                        }
+                        } ?>
                         <?= Html::a('+', null, [
         'class' => 'btn btn-success',
         'data' => [

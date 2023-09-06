@@ -42,19 +42,19 @@ class LogController extends Controller
 		$map = [
 			'Russian Federation' => 'Russia',
 			'United States' => 'United States of America'
-
 		];
 
 		$cc = [];
 		$max = 0;
 
-		foreach ($country as $c){
-			if($c['value'] > $max){
+		foreach ($country as $c) {
+			if ($c['value'] > $max) {
 				$max = $c['value'];
 			}
 
 			$cc[] = ['name' => $map[$c['name']] ?? $c['name'], 'value' => (float) $c['value']];
 		}
+
         return $this->render('index', [
             'searchModel' => $searchModel,
             'dataProvider' => $dataProvider,
