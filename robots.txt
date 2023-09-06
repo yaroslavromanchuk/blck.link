@@ -1,37 +1,5 @@
 User-agent: *
+Allow: /
 Disallow: /admin
-Disallow: /*?utm
-Disallow: /*&utm
 
-
-User-agent: Yandex
-Allow: *.css
-Allow: *.js
-Disallow: /admin
-Disallow: /*?utm
-Disallow: /*&utm
-
-
-Host: http://blck.link
-
-User-agent: Googlebot
-Allow: *.css
-Allow: *.js
-Disallow: /admin
-Disallow: /*?utm
-Disallow: /*&utm
-
-
-User-agent: Googlebot-Image
-Allow: *images*
-Allow: *jpg*
-Allow: *jpeg*
-Allow: *png*
-
-User-agent: YandexImages
-Allow: *images*
-Allow: *jpg*
-Allow: *jpeg*
-Allow: *png*
-
-Sitemap: http://blck.link/sitemap.xml
+Sitemap: https://blck.link/sitemap.xml

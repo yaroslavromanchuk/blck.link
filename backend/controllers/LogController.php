@@ -37,20 +37,24 @@ class LogController extends Controller
     {
         $searchModel = new LogSearch();
         $dataProvider = $searchModel->search(Yii::$app->request->queryParams);
-$country = \common\models\Views::find()->select('views.country as name, count(views.id) as value')->groupBy(['country'])->asArray()->all();
-$map = [
-    'Russian Federation' => 'Russia',
-    'United States' => 'United States of America'
-    
-];
-$cc = [];
-$max = 0;
-foreach ($country as $c){
-    if($c['value'] > $max){
-        $max = $c['value'];
-    }
-    $cc[] = [name => isset($map[$c['name']]) ? $map[$c['name']] : $c['name'], value => (float)$c['value']];
-}
+
+		$country = \common\models\Views::find()->select('views.country as name, count(views.id) as value')->groupBy(['country'])->asArray()->all();
+		$map = [
+			'Russian Federation' => 'Russia',
+			'United States' => 'United States of America'
+
+		];
+
+		$cc = [];
+		$max = 0;
+
+		foreach ($country as $c){
+			if($c['value'] > $max){
+				$max = $c['value'];
+			}
+
+			$cc[] = ['name' => $map[$c['name']] ?? $c['name'], 'value' => (float) $c['value']];
+		}
         return $this->render('index', [
             'searchModel' => $searchModel,
             'dataProvider' => $dataProvider,
@@ -97,7 +101,7 @@ foreach ($country as $c){
      * @return mixed
      * @throws NotFoundHttpException if the model cannot be found
      */
-    public function actionUpdate($id)
+    public function actionUpdate(int $id)
     {
         $model = $this->findModel($id);
 

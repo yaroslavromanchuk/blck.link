@@ -15,7 +15,7 @@ return [
             'writeCallback' => function () {
                 return [
                     'user_id' => Yii::$app->user->id
-                        ]; 
+                ];
     
             }
         ],

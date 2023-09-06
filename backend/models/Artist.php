@@ -31,16 +31,16 @@ class Artist extends \yii\db\ActiveRecord
     /**
      * {@inheritdoc}
      */
-    public static function tableName()
-    {
+    public static function tableName(): string
+	{
         return 'artist';
     }
 
     /**
      * {@inheritdoc}
      */
-    public function rules()
-    {
+    public function rules(): array
+	{
         return [
             [['name'], 'required'],
             [['active', 'admin_id'], 'integer'],
@@ -56,8 +56,8 @@ class Artist extends \yii\db\ActiveRecord
     /**
      * {@inheritdoc}
      */
-    public function attributeLabels()
-    {
+    public function attributeLabels(): array
+	{
         return [
             'id' => Yii::t('app', '№'),
             'name' => Yii::t('app', 'Имя'),
@@ -74,7 +74,7 @@ class Artist extends \yii\db\ActiveRecord
             'viber' => Yii::t('app', 'Viber'),
             'whatsapp' => Yii::t('app', 'Whatsapp'),
             'ofsite' => Yii::t('app', 'Оф.Сайт'),
-            'reliz' => Yii::t('app', 'Релизы'),
+            //'reliz' => Yii::t('app', 'Релизы'),
             'admin_id' => Yii::t('app', 'Создал'),
             'file' => Yii::t('app', 'Иконка'),
         ];
@@ -87,7 +87,7 @@ class Artist extends \yii\db\ActiveRecord
      */
     public function getTracks()
     {
-        return $this->hasMany(Track::className(), ['artist_id' => 'id']);
+        return $this->hasMany(Track::class, ['artist_id' => 'id']);
     }
     /**
      * Gets query for [Admin]].
@@ -98,8 +98,8 @@ class Artist extends \yii\db\ActiveRecord
     {
         return $this->hasOne(User::className(), ['id' => 'admin_id']);
     }
-    public function getLogo()
-    {
+    public function getLogo(): string
+	{
         return Yii::getAlias('@site').'/images/artist/'.$this->logo;
     }
 }

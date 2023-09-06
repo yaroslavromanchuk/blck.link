@@ -38,12 +38,8 @@ AppAsset::register($this);
 <div class="container body" style="width: 100%; max-width: 100%; padding: 0">
 
     <div class="main_container">
-
-        
                     <?= $this->render('left.php')?>
                     <?= $this->render('header.php')?>
-       
-
         <!-- page content -->
         <div class="right_col" role="main">
             <?php if (isset($this->params['h1'])): ?>

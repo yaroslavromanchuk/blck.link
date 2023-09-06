@@ -22,11 +22,11 @@ $this->params['breadcrumbs'][] = $this->title;
             ['class' => 'yii\grid\SerialColumn'],
 
             'id',
-            [                                                  // name свойство зависимой модели owner
+            [// name свойство зависимой модели owner
                        // 'attribute' => 'admin_id',
-                        'label' => 'Доступ',
-                        'value' => function($data){ return $data->role;},   
-                    ],
+                        'label' => Yii::t('app', 'Доступ'),
+                        'value' => function($data){ return $data->role;},
+            ],
             'username',
             'email:email',
             'lastName',

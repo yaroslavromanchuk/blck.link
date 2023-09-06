@@ -7,7 +7,7 @@
 <div class="site-index">
     <?php
 echo '<pre>';
-//print_r(Yii::$app->authManager->getRoles());
+print_r(Yii::$app->authManager->getRoles());
 //print_r(Yii::$app->authManager->getRolesByUser(Yii::$app->user->getId()));
    // print_r(Yii::$app->user->identity->role->name);    
 //print_r(geoip_record_by_name(Yii::$app->request->userIP));

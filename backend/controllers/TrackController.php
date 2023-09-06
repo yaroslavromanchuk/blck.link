@@ -13,7 +13,6 @@ use yii\web\UploadedFile;
 use yii\web\Response;
 use yii\bootstrap\ActiveForm;
 
-
 /**
  * TrackController implements the CRUD actions for Track model.
  */

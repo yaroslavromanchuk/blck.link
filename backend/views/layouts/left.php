@@ -5,7 +5,7 @@ use yii\helpers\Html;
             <div class="left_col scroll-view">
 
                 <div class="navbar nav_title" style="border: 0;">
-                    <?= Html::a('<i class="fa fa-paw"></i><span>'.Yii::$app->name.'</span>', Yii::$app->homeUrl, ['class' => 'site_title']) ?>
+                    <?= Html::a('<i class="fa fa-paw"></i><span> ' . Yii::$app->name. '</span>', Yii::$app->homeUrl, ['class' => 'site_title']) ?>
                 </div>
                 <div class="clearfix"></div>
                 <br />
@@ -18,7 +18,7 @@ use yii\helpers\Html;
                         <?php
                          $items[] = ["label" => Yii::t('app', 'Главная'), "url" =>  Yii::$app->homeUrl, "icon" => "home"];
                          $items[] = ["label" => Yii::t('app', 'Артисты'), "url" => ['/artist'], "icon" => "files-o"];
-                         $items[] = ["label" => Yii::t('app', 'Релизы'), "url" => ['/track'], "icon" => "files-o"];
+                         $items[] = ["label" => Yii::t('app', 'Треки'), "url" => ['/track'], "icon" => "files-o"];
                          $items[] = ['label' => Yii::t('app', 'Аналитика'),  'url' => ['/log']];
                         // $items[] = ["label" => Yii::t('app', 'Официальные ссылки'), "url" => ["/link"], "icon" => "close"];
                         // $items[] = ["label" => Yii::t('app', 'Музыкальные Сервисы'), "url" => ['/services'], "icon" => "files-o"];

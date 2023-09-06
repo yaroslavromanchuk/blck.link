@@ -15,8 +15,8 @@ class ArtistSearch extends Artist
     /**
      * {@inheritdoc}
      */
-    public function rules()
-    {
+    public function rules(): array
+	{
         return [
             [['id', 'active'], 'integer'],
             [['name',  'phone', 'email'], 'safe'],
@@ -27,8 +27,8 @@ class ArtistSearch extends Artist
     /**
      * {@inheritdoc}
      */
-    public function scenarios()
-    {
+    public function scenarios(): array
+	{
         // bypass scenarios() implementation in the parent class
         return Model::scenarios();
     }
@@ -40,8 +40,8 @@ class ArtistSearch extends Artist
      *
      * @return ActiveDataProvider
      */
-    public function search($params)
-    {
+    public function search(array $params): ActiveDataProvider
+	{
         $query = Artist::find();
 
         // add conditions that should always apply here
@@ -49,12 +49,11 @@ class ArtistSearch extends Artist
         $dataProvider = new ActiveDataProvider([
             'query' => $query,
             'sort'=> [
-               
                 'enableMultiSort' => false,
                 'defaultOrder' => [
                     'id' => SORT_DESC
-                    ]
-    ],
+                ]
+    		],
         ]);
 
         $this->load($params);

@@ -11,7 +11,9 @@ return [
     'basePath' => dirname(__DIR__),
     'controllerNamespace' => 'backend\controllers',
     'bootstrap' => ['log', 'languages'],
-    'sourceLanguage' => 'ru-RU',
+    'sourceLanguage' => 'uk-UA',
+	'language'=>'uk',
+	'name' => 'BLCK',
     'modules' => [
         'languages' => [
         'class' => 'common\modules\languages\LModule',
@@ -21,25 +23,29 @@ return [
             'RU' => 'ru',
             'UA' => 'uk',
         ], 
-        'default_language' => 'ru', //основной язык (по-умолчанию)
+        'default_language' => 'uk', //основной язык (по-умолчанию)
         'show_default' => false, //true - показывать в URL основной язык, false - нет
     ],
     ],
     'as access' => [
         'class' => 'yii\filters\AccessControl',
-        'except' => ['site/login','site/signup', 'site/request-password-reset', 'site/reset-password', 'site/error'],
+        'except' => [
+			'site/login',
+			'site/signup',
+			'site/request-password-reset',
+			'site/reset-password', 'site/error'
+		],
         'rules' => [
             [
                 'allow' => true,
                 'roles' => ['@'],
             ],
         ],
-        ],
-        
+    ],
     'components' => [
         'request' => [
-           'baseUrl' => '/admin',
-            'csrfParam' => '_backend',
+			'baseUrl' => '/admin',
+			'csrfParam' => '_backend',
         ],
         'user' => [
             'identityClass' => 'common\models\User',
@@ -63,8 +69,8 @@ return [
             'errorAction' => 'site/error',
         ],
         'translit' => [
-      'class' => 'common\models\Translit',
-    ],
+     		'class' => 'common\models\Translit',
+    	],
          'urlManager' => [
             'enablePrettyUrl' => true,
             'showScriptName' => false,
@@ -74,7 +80,7 @@ return [
             ],
         ],
 
-        'language'=>'ru-RU',
+        'language'=>'uk-UA',
         'i18n' => [
             'translations' => [
             'app*' => [
@@ -85,7 +91,10 @@ return [
                 'main' => 'main.php',
                 'main/error' => 'error.php',
             ],
-            'on missingTranslation' => ['common\components\TranslationEventHandler', 'handleMissingTranslation']
+            'on missingTranslation' => [
+				'common\components\TranslationEventHandler',
+				'handleMissingTranslation'
+			]
         ],
 
     ],

@@ -56,21 +56,21 @@ class User extends \yii\db\ActiveRecord
     /**
      * {@inheritdoc}
      */
-    public function attributeLabels()
-    {
+    public function attributeLabels(): array
+	{
         return [
-            'id' => 'ID',
-            'username' => 'Логин',
+            'id' => 'Id',
+            'username' => Yii::t('app', 'Логин'),
             'email' => 'Email',
-            'lastName' => 'Фамилия',
-            'firstName' => 'Имя',
-            'middleName' => 'Отчество',
-            'sex' => 'Пол',
-            'logo' => 'Иконка',
+            'lastName' => Yii::t('app', 'Фамилия'),
+            'firstName' => Yii::t('app', 'Имя'),
+            'middleName' => Yii::t('app', 'Отчество'),
+            'sex' => Yii::t('app', 'Пол'),
+            'logo' => Yii::t('app', 'Иконка'),
             'auth_key' => 'Auth Key',
             'password_hash' => 'Password Hash',
             'password_reset_token' => 'Password Reset Token',
-            'status' => 'Статус',
+            'status' => Yii::t('app', 'Статус'),
             'created_at' => 'Created At',
             'updated_at' => 'Updated At',
         ];
@@ -84,24 +84,26 @@ class User extends \yii\db\ActiveRecord
      * {@inheritdoc}
      * @return UserQuery the active query used by this AR class.
      */
-    public static function find()
-    {
+    public static function find(): UserQuery
+	{
         return new UserQuery(get_called_class());
     }
 
-    public function getImg()
+    public function getImg(): string
     {
-        if($this->logo){
+        if($this->logo) {
             return Yii::getAlias('@site').'/images/user/'.$this->logo;
         }
+
         return false;
     }
      public function getRole()
     {
         return array_values(Yii::$app->authManager->getRolesByUser($this->id))[0]->name;
     }
-    public function getFullName()
-    {
+
+    public function getFullName(): string
+	{
         return $this->lastName.' '.$this->firstName;
     }
 }
