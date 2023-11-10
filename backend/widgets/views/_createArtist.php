@@ -2,12 +2,14 @@
  
 use yii\helpers\Html;
 use yii\bootstrap\ActiveForm;
-
 use yii\bootstrap\Modal;
+/* @var $model backend\models\Artist */
+
 Modal::begin([
-    'header'=>'<h4>Создание актиста</h4>',
+    'header'=>'<h4>Створення актиста</h4>',
     'id'=>'artist-add-modal',
 ]);
+
 ?>
 <div class="row">
             <div class=" col-xs-12 col-sm-12 col-md-12 ">
@@ -20,7 +22,7 @@ Modal::begin([
       <?= $form->field($model, 'active')->hiddenInput(['value' => 1])->label(false)?>
                  
                         <div class="col-sm-12 col-md-6 col-lg-4">
-<?= $form->field($model, 'file')->fileInput()->label('Иконка') ?>
+<?= $form->field($model, 'file')->fileInput()->label('Іконка') ?>
                                     </div>
                         <div class="col-sm-12 col-md-12">
     <?= $form->field($model, 'name')->textInput(['maxlength' => true]) ?>
@@ -50,7 +52,7 @@ Modal::begin([
 </div>
                         <div class="col-sm-12 col-md-6 col-lg-12">
     <div class="form-group text-center">
-        <?= Html::submitButton(Yii::t('app', 'Сохранить'), ['class' => 'btn btn-lg btn-success']) ?>
+        <?= Html::submitButton(Yii::t('app', 'Зберегти'), ['class' => 'btn btn-lg btn-success']) ?>
     </div>
                         </div>
  </div>

@@ -38,11 +38,13 @@ $this->params['breadcrumbs'][] = $this->title;
             'phone',
             'email:email',
            // 'active',
-            [                                                  // name свойство зависимой модели owner
-                        'attribute' => 'admin_id',
-                        //'label' => 'Релизов',
-                        'value' => function($data){ return $data->admin->getFullName();},
-                    ],
+            [ // name свойство зависимой модели owner
+                'attribute' => 'admin_id',
+                //'label' => 'Релизов',
+                'value' => function($data) {
+                        return $data->admin->getFullName();
+                    },
+            ],
         ],
     ]) ?>
             </div>

@@ -1,6 +1,7 @@
 <?php
 $servise = unserialize($services->servise);
-if(count($servise)){ ?>
+
+if (count($servise)) { ?>
 <div class="card-body content p-0">
     <div class="order-block links-wrapper order-1">
    <?php  foreach ($servise as $s){
@@ -58,7 +59,7 @@ if(count($servise)){ ?>
                   </a>
               </div>
           </div>
-      <?php  }elseif(strpos($s, 'vk')){ ?>
+      <?php  } else if(false /*strpos($s, 'vk')*/) { ?>
             <div rel="nofollow" class="order-block servise">
               <div>
                   <a href="<?=$s?>" target="_blank" class="link vk" data-id="<?=$services->id?>"  data-name="vk">
@@ -67,7 +68,7 @@ if(count($servise)){ ?>
                   </a>
               </div>
           </div>
-      <?php }elseif(strpos($s, 'deezer')){ ?>
+      <?php } elseif (strpos($s, 'deezer')) { ?>
             <div rel="nofollow" class="order-block servise">
               <div>
                   <a href="<?=$s?>" target="_blank" class="link deezer" data-id="<?=$services->id?>"  data-name="deezer">
@@ -112,7 +113,16 @@ if(count($servise)){ ?>
                   </a>
               </div>
           </div>
-      <?php  }else{ ?>
+      <?php } elseif(strpos($s, 'bandcamp')) { ?>
+            <div rel="nofollow" class="order-block servise">
+                <div>
+                    <a href="<?=$s?>" target="_blank" class="link bandcamp" data-id="<?=$services->id?>"  data-name="sber-zvuk">
+                        <span class="service-text"><?=Yii::t('app', 'BandCamp')?></span>
+                        <span class="action"><?=Yii::t('app', 'Слушать')?></span>
+                    </a>
+                </div>
+            </div>
+        <?php  } else { ?>bandcamp
            <div rel="nofollow" class="order-block servise">
               <div>
                   <a href="<?=$s?>" target="_blank" class="link link-icon" data-id="<?=$services->id?>"  data-name="link-icon">

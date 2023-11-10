@@ -3,12 +3,14 @@
 namespace backend\models;
 
 use Yii;
+use yii\db\BaseActiveRecord;
 
 /**
  * This is the model class for table "track".
  *
  * @property int $id
  * @property int $artist_id
+ * @property int $release_id
  * @property string $artist
  * @property string $date
  * @property string|null $name
@@ -21,15 +23,17 @@ use Yii;
  * @property int $click
  * @property int $active
  * @property string servise
+ * @property string feeds
  *
  * @property Log[] $logs
- * @property MusicServices $musicServices
- * @property OficialLink $oficialLink
+ * @property  $musicServices
+ * @property  $oficialLink
  */
 class Track extends \yii\db\ActiveRecord
 {
     public $file;
    // public $servise;
+    public array $feeds = [];
     /**
      * {@inheritdoc}
      */
@@ -45,15 +49,15 @@ class Track extends \yii\db\ActiveRecord
    {
        return [
            [['servise'], 'string'],
-           [['file'], 'file', 'extensions' => 'png, jpg, jpeg'], 
+           [['file'], 'file', 'extensions' => 'png, jpg, jpeg'],
            [['artist_id', 'artist', 'date',  'name', 'img'], 'required'],
-           [['artist_id',  'admin_id', 'sharing', 'views', 'click', 'active'], 'integer'],
+           [['artist_id', 'release_id', 'admin_id', 'sharing', 'views', 'click', 'active'], 'integer'],
            [['date'], 'safe'],
            [['artist', 'tag'], 'string', 'max' => 100],
            [['name', 'img', 'youtube_link'], 'string', 'max' => 255],
            [['url'], 'string', 'max' => 50],
-           [['artist_id'], 'exist', 'skipOnError' => true, 'targetClass' => Artist::className(), 'targetAttribute' => ['artist_id' => 'id']],
-           ['url', 'unique', 'targetClass' => '\backend\models\Track', 'message' => Yii::t('app', 'Эта ссылка уже занята!')],
+           [['artist_id'], 'exist', 'skipOnError' => true, 'targetClass' => Artist::class, 'targetAttribute' => ['artist_id' => 'id']],
+           ['url', 'unique', 'targetClass' => '\backend\models\Track', 'message' => Yii::t('app', 'Це посилання вже зайняте!')],
        ];
    }
 
@@ -62,24 +66,25 @@ class Track extends \yii\db\ActiveRecord
      */
     public function attributeLabels()
     {
-        
         return [
-           'id' => Yii::t('app', '№'),
+            'id' => Yii::t('app', '№'),
             'artist_id' => Yii::t('app', 'Артист'),
-            'artist' => Yii::t('app', 'Отображаемое имя артиста'),
-            'date' => Yii::t('app', 'Дата релиза'),
-            'name' => Yii::t('app', 'Релиз'),
-            'img' => Yii::t('app', 'Обложка'),
-            'file' => Yii::t('app', 'Обложка'),
-            'url' => Yii::t('app', 'Ссылка'),
-           'youtube_link' => Yii::t('app', 'YouTube канал'),
-           'tag' => Yii::t('app', 'Тег'),
-            'sharing' => Yii::t('app', 'Расшаривать'),
-            'views' => Yii::t('app', 'Просмотры'),
-            'click' => Yii::t('app', 'Клики'),
-            'active' => Yii::t('app', 'Активность'),
-             'servise' => Yii::t('app', 'Площадка'),
-            'admin_id' => Yii::t('app', 'Создал'),
+            'release_id' => Yii::t('app', 'Реліз'),
+            'artist' => Yii::t('app', 'Ім\'я артиста для відображення'),
+            'date' => Yii::t('app', 'Дата реліза'),
+            'name' => Yii::t('app', 'Назва теку'),
+            'img' => Yii::t('app', 'Обкладинка'),
+            'file' => Yii::t('app', 'Обкладинка'),
+            'url' => Yii::t('app', 'Посилання'),
+            'youtube_link' => Yii::t('app', 'YouTube канал'),
+            'tag' => Yii::t('app', 'Тег'),
+            'sharing' => Yii::t('app', 'Відображать'),
+            'views' => Yii::t('app', 'Перегляди'),
+            'click' => Yii::t('app', 'Кліки'),
+            'active' => Yii::t('app', 'Активність'),
+            'servise' => Yii::t('app', 'Площадка'),
+            'feeds' => Yii::t('app', 'Фід'),
+            'admin_id' => Yii::t('app', 'Створив'),
        ];
     }
     /** 
@@ -89,20 +94,30 @@ class Track extends \yii\db\ActiveRecord
     */ 
    public function getLogs() 
    { 
-       return $this->hasMany(\common\models\Log::className(), ['track' => 'id']); 
+       return $this->hasMany(\common\models\Log::class, ['track' => 'id']);
    } 
    public function getLogsLink() 
    { 
-      return \common\models\Log::find()->select('log.*, count(log.id) as ctn')->where(['track' => $this->id, 'type' => 'link'])->groupBy(['name'])->asArray()->all();
+      return \common\models\Log::find()
+          ->select('log.*, count(log.id) as ctn')
+          ->where(['track' => $this->id, 'type' => 'link'])
+          ->groupBy(['name'])
+          ->asArray()
+          ->all();
    }
    public function getLogsServise() 
    { 
-       return \common\models\Log::find()->select('log.*, count(log.id) as ctn')->where(['track' => $this->id, 'type' => 'servise'])->groupBy(['name'])->asArray()->all();
+       return \common\models\Log::find()
+           ->select('log.*, count(log.id) as ctn')
+           ->where(['track' => $this->id, 'type' => 'servise'])
+           ->groupBy(['name'])
+           ->asArray()
+           ->all();
    }
    
    public function getView() 
    { 
-       return $this->hasMany(\common\models\Views::className(), ['track_id' => 'id']); 
+       return $this->hasMany(\common\models\Views::class, ['track_id' => 'id']);
    } 
 
     /**
@@ -110,9 +125,9 @@ class Track extends \yii\db\ActiveRecord
      *
      * @return \yii\db\ActiveQuery
      */
-    public function getArtists()
+    public function getArtists(): \yii\db\ActiveQuery
     {
-        return $this->hasOne(Artist::className(), ['id' => 'artist_id']);
+        return $this->hasOne(Artist::class, ['id' => 'artist_id']);
     }
     /**
      * Gets query for [Admin]].
@@ -121,11 +136,12 @@ class Track extends \yii\db\ActiveRecord
      */
     public function getAdmin()
     {
-        return $this->hasOne(User::className(), ['id' => 'admin_id']);
+        return $this->hasOne(User::class, ['id' => 'admin_id']);
     }
     
-    public function getImage()
+    public function getImage(): string
     {
-        return Yii::getAlias('@site').'/images/track/'.$this->img;
+        return Yii::getAlias('@site').'/images/track/' . $this->img;
     }
+
 }

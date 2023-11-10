@@ -4,7 +4,11 @@ namespace backend\controllers;
 
 use Yii;
 use backend\models\Track;
+use backend\models\Artist;
 use backend\models\TrackSearch;
+use yii\base\Exception;
+use yii\db\ActiveRecord;
+use yii\db\StaleObjectException;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\filters\VerbFilter;
@@ -25,7 +29,7 @@ class TrackController extends Controller
     {
         return [
             'verbs' => [
-                'class' => VerbFilter::className(),
+                'class' => VerbFilter::class,
                 'actions' => [
                     'delete' => ['POST'],
                 ],
@@ -54,7 +58,7 @@ class TrackController extends Controller
      * @return mixed
      * @throws NotFoundHttpException if the model cannot be found
      */
-    public function actionView($id)
+    public function actionView(int $id)
     {
         return $this->render('view', [
             'model' => $this->findModel($id),
@@ -80,11 +84,17 @@ class TrackController extends Controller
       }
 
         if ($model->load(Yii::$app->request->post())) {
-            $id = Track::find()->orderBy('id DESC')->one()->id;
+            $id = Track::find()
+                ->orderBy('id DESC')
+                ->one()
+                ->id;
              $id++;
+
             $file = UploadedFile::getInstance($model, 'file');
+
             if ($file && $file->tempName) {
                 $model->file = $file;
+
                 if ($model->validate(['file'])) {
                     $model->img = Upload::createImage($model, $id, 'track', [500, 500]);
                 }
@@ -98,6 +108,8 @@ class TrackController extends Controller
 
             if($model->validate() && $model->save()) {
 
+                $this->saveFeeds($model->id, Yii::$app->request->post('Track')['feeds']?? []);
+
             	return $this->redirect(['view', 'id' => $model->id]);
             }
         }
@@ -106,7 +118,7 @@ class TrackController extends Controller
             'model' => $model,
         ]);
     }
-    public function actionAnalitiks($id)
+    public function actionAnalitiks(int $id)
     {
         $model = $this->findModel($id);
         
@@ -124,7 +136,7 @@ class TrackController extends Controller
 	 * @param integer $id
 	 * @return mixed
 	 * @throws NotFoundHttpException if the model cannot be found
-	 * @throws \yii\base\Exception
+	 * @throws Exception
 	 */
     public function actionUpdate($id)
     {
@@ -152,7 +164,9 @@ class TrackController extends Controller
            $model->servise = serialize($model->servise);
              
 			if ($model->validate() && $model->save()) {
-				return $this->redirect(['view', 'id' => $model->id]);
+                $this->saveFeeds($model->id, Yii::$app->request->post('Track')['feeds']?? []);
+
+                return $this->redirect(['view', 'id' => $model->id]);
 			}
         }
 
@@ -161,15 +175,39 @@ class TrackController extends Controller
         ]);
     }
 
+    private function saveFeeds($trackId, array $data)
+    {
+        $db = ActiveRecord::getDb();
+
+        $db->createCommand('DELETE FROM `feeds_mapping` WHERE track_id = :id', [':id' => $trackId])->execute();
+
+        foreach ($data as $item) {
+            $db->createCommand()->insert('feeds_mapping',
+                [
+                    'track_id' => $trackId,
+                    'artist_id' => (int)$item,
+                ]
+            )->execute();
+        }
+
+
+
+      //  $db->createCommand()->insert('feeds_mapping', $insert)->execute();
+
+       /* $db->createCommand('INSERT INTO `feeds_mapping` (track_id, artist_id) VALUES (:track_id, :artist_id)')
+            ->bindValues($insert)
+            ->execute();*/
+    }
+
 	/**
 	 * Deletes an existing Track model.
 	 * If deletion is successful, the browser will be redirected to the 'index' page.
 	 * @param integer $id
-	 * @return mixed
-	 * @throws NotFoundHttpException if the model cannot be found
-	 * @throws \yii\db\StaleObjectException
+	 * @return Response
+     * @throws NotFoundHttpException if the model cannot be found
+	 * @throws StaleObjectException
 	 */
-    public function actionDelete($id)
+    public function actionDelete(int $id): Response
     {
         $this->findModel($id)->delete();
 
@@ -186,6 +224,13 @@ class TrackController extends Controller
     protected function findModel($id)
     {
         if (($model = Track::findOne($id)) !== null) {
+            $model->feeds = Artist::find()
+                ->select(['artist.id'])
+                ->leftJoin('feeds_mapping', 'feeds_mapping.artist_id = artist.id')
+                ->where(['feeds_mapping.track_id' => $model->id])
+                ->asArray()
+                ->all();
+
             return $model;
         }
 

@@ -404,6 +404,9 @@ h1.no-default-styles, h2.no-default-styles {
 .link.vk, .link.vk_music {
     background-image: url(/img/svg/1d1a068.svg)!important;
 }
+.link.deezer, .link.bandcamp {
+    background-image: url(/img/svg/bandcamp-logo.svg)!important;
+}
 .link.deezer, .link.deezer-presave {
     background-image: url(/img/svg/40a20cc.svg)!important;
 }

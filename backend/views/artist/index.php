@@ -46,7 +46,7 @@ $this->params['breadcrumbs'][] = $this->title;
            // 'phone',
            [ // name свойство зависимой модели owner
                 'attribute' => 'reliz',
-                'label' => Yii::t('app', 'Кількість треків'),
+                //'label' => Yii::t('app', 'Кількість треків'),
                 'value' => function($data) { return $data->getTracks()->count(); },
            ],
            // 'email:email',

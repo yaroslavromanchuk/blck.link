@@ -19,36 +19,36 @@ use kartik\select2\Select2;
         ],
     ]); ?>
     <div class="card-body">
-        <span class="card-title">Поиск</span>
+        <span class="card-title">Пошук треку</span>
         <div class="row">
         <div class="col-sm-12 col-md-6 col-lg-3">
-              <?= $form->field($model, 'artist_id')->widget(Select2::classname(), [
+              <?= $form->field($model, 'artist_id')->widget(Select2::class, [
     'model' => $model,
     'data' => \backend\models\Artist::find()->select(['name', 'id'])->indexBy('id')->column(),
-    'language' => 'ru',
-    'options' => ['placeholder' =>  Yii::t('app', 'Выберите артиста'),],
+    'language' => 'uk',
+    'options' => ['placeholder' =>  Yii::t('app', 'Виберіть артиста'),],
     'pluginOptions' => [
         'allowClear' => true
     ],        
 ]) ?>
         </div>
         <div class="col-sm-12 col-md-6 col-lg-3">
-              <?= $form->field($model, 'name')->widget(Select2::classname(), [
+              <?= $form->field($model, 'name')->widget(Select2::class, [
     'model' => $model,
     'data' => \backend\models\Track::find()->select(['name', 'id'])->indexBy('name')->column(),
-    'language' => 'ru',
-    'options' => ['placeholder' =>  Yii::t('app', 'Выберите релиз'),],
+    'language' => 'uk',
+    'options' => ['placeholder' =>  Yii::t('app', 'Вибеіть трек'),],
     'pluginOptions' => [
         'allowClear' => true
     ],        
 ]) ?>
         </div>
         <div class="col-sm-12 col-md-6 col-lg-3">
-            <?php  echo $form->field($model, 'url')->widget(Select2::classname(), [
+            <?php  echo $form->field($model, 'url')->widget(Select2::class, [
     'model' => $model,
     'data' => \backend\models\Track::find()->select(['url', 'id'])->indexBy('url')->column(),
-    'language' => 'ru',
-    'options' => ['placeholder' =>  Yii::t('app', 'Выберите ссылку'),],
+    'language' => 'uk',
+    'options' => ['placeholder' =>  Yii::t('app', 'Пошук по лінку'),],
     'pluginOptions' => [
         'allowClear' => true
     ],        
@@ -56,7 +56,7 @@ use kartik\select2\Select2;
         </div>
         <div class="col-sm-12 col-md-6 col-lg-3">
              <?= $form->field($model, 'date')->widget(DatePicker::class, [
-    'language' => 'ru',
+    'language' => 'uk',
     'dateFormat' => 'yyyy-MM-dd',
     'options' => [
        // 'placeholder' => Yii::$app->formatter->asDate($model->created_at),
@@ -65,18 +65,18 @@ use kartik\select2\Select2;
     ],
     'clientOptions' => [
         'changeMonth' => true,
-       // 'changeYear' => true,
+        'changeYear' => true,
        // 'yearRange' => '2020:2025',
         //'showOn' => 'button',
         //'buttonText' => 'Выбрать дату',
-       // 'buttonImageOnly' => true,
+        'buttonImageOnly' => true,
        //'buttonImage' => 'images/calendar.gif'
     ]
 ])?>
         </div>
             <div class="col-ms-12 text-center">
                 <div class="form-group">
-        <?= Html::submitButton(Yii::t('app', 'Искать'), ['class' => 'btn  btn-primary']) ?>
+        <?= Html::submitButton(Yii::t('app', 'Шукати'), ['class' => 'btn  btn-primary']) ?>
         <?php // Html::resetButton(Yii::t('app', 'Reset'), ['class' => 'btn btn-outline-secondary']) ?>
     </div>
             </div>

@@ -8,13 +8,13 @@ use yii\widgets\ListView;
 /* @var $searchModel backend\models\TrackSearch */
 /* @var $dataProvider yii\data\ActiveDataProvider */
 
-$this->title = Yii::t('app', 'Релизы');
+$this->title = Yii::t('app', 'Треки');
 $this->params['breadcrumbs'][] = $this->title;
 ?>
 <div class="track-index">
      <?php if(Yii::$app->user->can('moder')){ ?>
     <p class="text-right">
-        <?= Html::a(Yii::t('app', 'Создать релиз'), ['create'], ['class' => 'btn btn-danger']) ?>
+        <?= Html::a(Yii::t('app', 'Додати трек'), ['create'], ['class' => 'btn btn-danger']) ?>
     </p>
      <?php } ?>
     <?php Pjax::begin([ 'enablePushState' => false]); ?>

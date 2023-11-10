@@ -74,7 +74,7 @@ class Artist extends \yii\db\ActiveRecord
             'viber' => Yii::t('app', 'Viber'),
             'whatsapp' => Yii::t('app', 'Whatsapp'),
             'ofsite' => Yii::t('app', 'Оф.Сайт'),
-            //'reliz' => Yii::t('app', 'Релизы'),
+            'reliz' => Yii::t('app', 'Релизы'),
             'admin_id' => Yii::t('app', 'Создал'),
             'file' => Yii::t('app', 'Иконка'),
         ];

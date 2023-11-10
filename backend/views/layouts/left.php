@@ -16,10 +16,12 @@ use yii\helpers\Html;
                     <div class="menu_section">
                         <h3>Меню</h3>
                         <?php
-                         $items[] = ["label" => Yii::t('app', 'Главная'), "url" =>  Yii::$app->homeUrl, "icon" => "home"];
-                         $items[] = ["label" => Yii::t('app', 'Артисты'), "url" => ['/artist'], "icon" => "files-o"];
+                         $items[] = ["label" => Yii::t('app', 'Головна'), "url" =>  Yii::$app->homeUrl, "icon" => "home"];
+                         $items[] = ["label" => Yii::t('app', 'Артисти'), "url" => ['/artist'], "icon" => "files-o"];
                          $items[] = ["label" => Yii::t('app', 'Треки'), "url" => ['/track'], "icon" => "files-o"];
-                         $items[] = ['label' => Yii::t('app', 'Аналитика'),  'url' => ['/log']];
+                         $items[] = ['label' => Yii::t('app', 'Релізи'),  'url' => ['/release'], "icon" => "files-o"];
+
+                        $items[] = ['label' => Yii::t('app', 'Аналітика'),  'url' => ['/log']];
                         // $items[] = ["label" => Yii::t('app', 'Официальные ссылки'), "url" => ["/link"], "icon" => "close"];
                         // $items[] = ["label" => Yii::t('app', 'Музыкальные Сервисы'), "url" => ['/services'], "icon" => "files-o"];
                           if(Yii::$app->user->can('admin')){
@@ -27,13 +29,15 @@ use yii\helpers\Html;
                                         'label' => Yii::t('app', 'Настройки'),
                                         'icon' => 'table',
                                         'url' => "#",
-                                        'items'=>[
+                                        'items'=> [
                                                 ['label' => Yii::t('app', 'Пользователи'),  'url' => ['/user']],
                                                // ['label' => Yii::t('app', 'Аналитика'),  'url' => ['/log']],
                                                 ['label' => Yii::t('app', 'Перводы'),  'url' => ['/message']],
-                                                ],
+                                                ['label' => Yii::t('app', 'Агрегатори'),  'url' => ['/aggregator']],
+                                        ],
                                     ];
-                         }
+
+                              }
                           /*  [
                                 "items" => [
                                     ["label" => Yii::t('app', 'Главная'), "url" =>  Yii::$app->homeUrl, "icon" => "home"],
