@@ -2,6 +2,7 @@
 
 use yii\helpers\Html;
 use yii\widgets\ActiveForm;
+use kartik\select2\Select2;
 
 /* @var $this yii\web\View */
 /* @var $model backend\models\AggregatorSearch */
@@ -19,15 +20,25 @@ use yii\widgets\ActiveForm;
     ]); ?>
 
     <?= $form->field($model, 'aggregator_id') ?>
+    <?= $form->field($model, 'currency_id')->widget(Select2::class, [
+        'model' => $model,
+        'data' => \backend\models\Currency::find()
+            ->select(['currency_name', 'currency_id'])
+            ->indexBy('currency_id')
+            ->column(),
+        'language' => 'uk',
+        'options' => [
+            'placeholder' =>  Yii::t('app', 'Виберіте валюту'),
+        ],
+    ]) ?>
 
-    <?= $form->field($model, 'Name') ?>
-    <?= $form->field($model, 'Name') ?>
+    <?= $form->field($model, 'name') ?>
 
     <?= $form->field($model, 'date_add') ?>
 
     <div class="form-group">
-        <?= Html::submitButton(Yii::t('app', 'Search'), ['class' => 'btn btn-primary']) ?>
-        <?= Html::resetButton(Yii::t('app', 'Reset'), ['class' => 'btn btn-outline-secondary']) ?>
+        <?= Html::submitButton(Yii::t('app', 'Шукати'), ['class' => 'btn btn-primary']) ?>
+        <?= Html::resetButton(Yii::t('app', 'Очистити форму'), ['class' => 'btn btn-outline-secondary']) ?>
     </div>
 
     <?php ActiveForm::end(); ?>

@@ -4,7 +4,7 @@ namespace backend\models;
 
 use yii\base\Model;
 use yii\data\ActiveDataProvider;
-use backend\models\Release;
+use Yii;
 
 /**
  * ReleaseSearch represents the model behind the search form of `backend\models\Release`.
@@ -62,6 +62,10 @@ class ReleaseSearch extends Release
             'date_add' => $this->date_add,
             //'last_update' => $this->last_update,
         ]);
+
+        if (Yii::$app->user->identity->type != 1) {
+            $query->andFilterWhere(['admin_id' => Yii::$app->user->identity->id]);
+        }
 
         $query->andFilterWhere(['like', 'release_name', $this->release_name]);
 

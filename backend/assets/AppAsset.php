@@ -19,7 +19,7 @@ class AppAsset extends AssetBundle
         //
         //'css/bootstrap.min_4.3.css',
         'css/site.css',
-        //'css/custom.css'
+        'css/custom.css'
         
         
       //  'css/AdminLTE.min.css',

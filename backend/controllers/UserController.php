@@ -28,7 +28,7 @@ class UserController extends Controller
     {
         return [
 		'access' => [
-                'class' => AccessControl::className(),
+                'class' => AccessControl::class,
                 'only' => ['index', 'create', 'update', 'view', 'delete' ],
                 'rules' => [
                     
@@ -57,7 +57,7 @@ class UserController extends Controller
                 ],
             ],
             'verbs' => [
-                'class' => VerbFilter::className(),
+                'class' => VerbFilter::class,
                 'actions' => [
                     'delete' => ['POST'],
                 ],

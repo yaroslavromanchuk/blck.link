@@ -3,6 +3,8 @@
 namespace frontend\models;
 
 use Yii;
+use common\models\Log;
+use frontend\models\Artist;
 
 /**
  * This is the model class for table "track".
@@ -22,9 +24,8 @@ use Yii;
 * @property int $click
 * @property int $active
 * @property Log[] $logs
-* @property MusicServices $musicServices
-* @property OficialLink $oficialLink
-* @property Artists $artists
+* @property array $musicServices
+* @property array $oficialLink
 * @property string $apple
 * @property string $boom
 * @property string $spotify
@@ -35,9 +36,7 @@ use Yii;
 * @property string $yandex
 *
 * @property Log[] $logs
-* @property MusicServices $musicServices
-* @property OficialLink $oficialLink
-* @property Artist $artist0
+* @property Artist $artist
 */
 class Track extends \yii\db\ActiveRecord
 {
@@ -62,13 +61,13 @@ class Track extends \yii\db\ActiveRecord
             'name' => Yii::t('app', 'Релиз'),
             'img' => Yii::t('app', 'Обложка'),
             'url' => Yii::t('app', 'Ссылка'),
-           'youtube_link' => Yii::t('app', 'YouTube канал'),
-           'tag' => Yii::t('app', 'Тег'),
+            'youtube_link' => Yii::t('app', 'YouTube канал'),
+            'tag' => Yii::t('app', 'Тег'),
             'sharing' => Yii::t('app', 'Расшаривать'),
             'views' => Yii::t('app', 'Просмотры'),
             'click' => Yii::t('app', 'Клики'),
             'active' => Yii::t('app', 'Активность'),
-           'apple' => Yii::t('app', 'Apple Music'),
+            'apple' => Yii::t('app', 'Apple Music'),
             'boom' => Yii::t('app', 'Boom'),
             'spotify' => Yii::t('app', 'Spotify'),
             'youtube' => Yii::t('app', 'Music Youtube'),
@@ -83,20 +82,19 @@ class Track extends \yii\db\ActiveRecord
     * 
     * @return \yii\db\ActiveQuery 
     */ 
-   public function getLogs() 
+   public function getLogs()
    { 
-       return $this->hasMany(Log::className(), ['track' => 'id']); 
+       return $this->hasMany(Log::class, ['track' => 'id']);
    }
-
 
     /**
      * Gets query for [[Artists]].
      *
      * @return \yii\db\ActiveQuery
      */
-    public function getArtists() 
+    public function getArtist()
     {
-        return $this->hasOne(Artist::className(), ['id'=>'artist_id' ]);
+        return $this->hasOne(Artist::class, ['id' => 'artist_id']);
     }
     
     public function getImage()

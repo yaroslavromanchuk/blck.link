@@ -2,25 +2,43 @@
 
 use yii\helpers\Html;
 use yii\widgets\ActiveForm;
-use yii\widgets\Pjax;
-use yii\helpers\Url;
-//use dosamigos\tinymce\TinyMce;
 use yii\jui\DatePicker;
-//use backend\widgets\jui\DatePickerLanguageAsset;
-//use backend\widgets\jui\DatePicker;
 use kartik\select2\Select2;
+use backend\models\Artist;
+use backend\models\Release;
 use backend\widgets\CreateArtist;
 use backend\widgets\CreateRelease;
 
 /* @var $this yii\web\View */
 /* @var $model backend\models\Track */
-/* @var $form yii\widgets\ActiveForm */
 
-$artistData = \backend\models\Artist::find()
-    ->select(['name', 'id'])
-    ->indexBy('id')
-    ->column();
+if (Yii::$app->user->identity->type == 1) {
+    $artistData = Artist::find()
+        ->select(['artist.name', 'artist.id'])
+        ->leftJoin('user', 'user.id = artist.admin_id')
+        ->andFilterWhere(['user.type' => 1])
+        ->indexBy('artist.id')
+        ->column();
 
+    $releaseData = Release::find()
+        ->select(['releases.release_name', 'releases.release_id'])
+        ->leftJoin('user', 'user.id = releases.admin_id')
+        ->andFilterWhere(['user.type' => 1])
+        ->indexBy('releases.release_id')
+        ->column();
+} else {
+    $artistData = Artist::find()
+        ->select(['artist.name', 'artist.id'])
+        ->andFilterWhere(['artist.admin_id' => Yii::$app->user->identity->id])
+        ->indexBy('artist.id')
+        ->column();
+
+    $releaseData = Release::find()
+        ->select(['releases.release_name', 'releases.release_id'])
+        ->andFilterWhere(['releases.admin_id' => Yii::$app->user->identity->id])
+        ->indexBy('releases.release_id')
+        ->column();
+}
 ?>
 <div class="row">
     <div class="col-md-12 col-sm-12 col-xs-12">
@@ -70,35 +88,6 @@ $artistData = \backend\models\Artist::find()
                             </div>
                         </div>
                         <div class="card">
-                            <h5 class="card-header">Фіди</h5>
-                            <div class="card-body">
-                                <div class="col-sm-12 feeds">
-                                    <?php
-                                    $selected = [];
-
-                                    foreach ($model->feeds as $feed) {
-                                        $selected[$feed['id']] = ['selected' => true];
-                                    }
-
-                                   echo $form->field($model, 'feeds[]')
-                                        ->widget(Select2::class, [
-                                            'model' => $model,
-                                            'data' => $artistData,
-                                            'language' => 'uk',
-                                            'options' => [
-                                                'multiple' => true,
-                                                //'values' => array_values($model->feeds),
-                                                'placeholder' =>  Yii::t('app', 'Виберіте артиста на фіді'),
-                                                'options' => $selected,
-                                                ],
-                                            'pluginOptions' => [
-                                                'allowClear' => true,
-                                            ],
-                                        ])->label('Виберіть артистів на фідах')?>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="card">
                             <h5 class="card-header">Реліз</h5>
                             <div class="card-body">
                                 <div class="row">
@@ -106,10 +95,7 @@ $artistData = \backend\models\Artist::find()
                                         <?= $form->field($model, 'release_id')
                                             ->widget(Select2::class, [
                                                 'model' => $model,
-                                                'data' => \backend\models\Release::find()
-                                                    ->select(['release_name', 'release_id'])
-                                                    ->indexBy('release_id')
-                                                    ->column(),
+                                                'data' => $releaseData,
                                                 'language' => 'uk',
                                                 'options' => ['placeholder' =>  Yii::t('app', 'Виберіте Реліз'),],
                                                 'pluginOptions' => [
@@ -179,6 +165,9 @@ $artistData = \backend\models\Artist::find()
                                         <?= $form->field($model, 'sharing')->checkbox([ 'value' => 1,  'checked' => (bool) $model->sharing, 'label' => 'Відображати', ]) ?>
                                     </div>
                                     <div class="col-sm-12">
+                                        <?= $form->field($model, 'isrc')->textInput(['maxlength' => true]) ?>
+                                    </div>
+                                    <div class="col-sm-12">
                                         <?= $form->field($model, 'date')->widget(DatePicker::class, [
                                             'language' => 'uk',
                                             'dateFormat' => 'yyyy-MM-dd',
@@ -224,12 +213,11 @@ $artistData = \backend\models\Artist::find()
                     </div>
                 </div>
             <?php ActiveForm::end(); ?>
-          <?php //Pjax::end(); ?>
         </div>
       </div>
 </div>
-<?= CreateArtist::widget([])?>
-<?= CreateRelease::widget([])?>
+<?php //echo CreateArtist::widget(); ?>
+<?php //echo CreateRelease::widget(); ?>
   <?php
 
 $script = <<< JS
@@ -238,11 +226,6 @@ $script = <<< JS
         console.log(this);
     if($(this).data().tag == 'add'){
         var el = '<div class="col-sm-12"><div class="form-group field-servise"><div class="input-group"><input type="text"  class="form-control" name="Track[servise][]" value="" aria-invalid="false"><span class="input-group-btn"><a class="btn btn-sm btn-danger" data-toggle="reroute" data-tag="dell">Удалить</a></span><div class="help-block"></div></div></div></div>';
-        
-      //  var block = $(this).prev(".col-sm-12");
-       // var cln = block.clone();
-//cln.find("input:first").val('');
-//$(this).before(cln);
         $(this).before(el);
             }else{
          var block = $(this).parents(".col-sm-12:first");
@@ -253,44 +236,9 @@ $script = <<< JS
      
     });
 });
-
-$(function() {
-    $(document).on('click', '[data-toggle=feeds]', function(e) {
-        console.log(this);
-        
-    if($(this).data().tag == 'add') {
-        var el = ''; 
-        
-       // $('.feedsAll').after(el);
-        
-        console.log(el);
-        /*var el = '' +
-         '<div class="col-sm-12">' +
-            '<div class="form-group field-feeds">' +
-              '<div class="input-group">' +
-               '<input type="text"  class="form-control" name="Track[feeds][]" value="" aria-invalid="false">' +
-                    '<span class="input-group-btn">' +
-                     '<a class="btn btn-sm btn-danger" data-toggle="reroute" data-tag="dell">Видалити</a>' +
-                     '</span>' +
-                   '<div class="help-block"></div>' +
-               '</div>' +
-            '</div>' +
-         '</div>';*/
-       // $(this).before(el);
-    } else {
-        var block = $(this).parents(".col-sm-12:first");
-        console.log(block);
-        block.detach();
-    }
-
-    });
-});
-
 JS;
 $this->registerJs($script); 
 ?>
-
-
    
 
     

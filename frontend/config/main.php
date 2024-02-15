@@ -70,9 +70,12 @@ return [
                     'suffix' => '.xml',
                     //карта сайта 
                 ],
+                'about' => 'site/about',
+                'telegram' => 'site/telegram',
+                'label' => 'label/index',
+                'label/<url:([\w\-_\d]+)>' => 'label/list',
+                'label/<url:([\w\-_\d]+)>/<track:([\w\-_\d]+)>' => 'label/view',
                 '<link:([\w\-_\d]+)>'=> 'site/view',
-                 'about' => 'site/about',
-               // 'contact' => 'site/contact',
                 '<action:\w+>' => 'site/<action>', 
                 '<controller:\w+>/<action:\w+>' => '<controller>/<action>',
                 

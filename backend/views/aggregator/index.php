@@ -7,7 +7,7 @@ use yii\widgets\Pjax;
 /* @var $searchModel backend\models\AggregatorSearch */
 /* @var $dataProvider yii\data\ActiveDataProvider */
 
-$this->title = Yii::t('app', 'Aggregators');
+$this->title = Yii::t('app', 'Агрегатори');
 $this->params['breadcrumbs'][] = $this->title;
 ?>
 <div class="aggregator-index">
@@ -15,7 +15,8 @@ $this->params['breadcrumbs'][] = $this->title;
     <h1><?= Html::encode($this->title) ?></h1>
 
     <p>
-        <?= Html::a(Yii::t('app', 'Create Aggregator'), ['create'], ['class' => 'btn btn-success']) ?>
+        <?= Html::a(Yii::t('app', 'Додати агрегатора'), ['create'], ['class' => 'btn btn-success']) ?>
+        <?= Html::a(Yii::t('app', 'Завантажити звіт'), ['upload-report'], ['class' => 'btn btn-success']) ?>
     </p>
 
     <?php Pjax::begin(); ?>
@@ -27,13 +28,18 @@ $this->params['breadcrumbs'][] = $this->title;
         'columns' => [
             ['class' => 'yii\grid\SerialColumn'],
 
-            'aggregator_id',
-            'Name',
-            'currency',
+           // 'aggregator_id',
+            'name',
+            [
+                'attribute' => 'currency_id',
+                'value' => function($data) {
+                    return $data->currency->getName();
+                },
+            ],
             'date_add',
            // 'last_update',
 
-            ['class' => 'yii\grid\ActionColumn'],
+            //['class' => 'yii\grid\ActionColumn'],
         ],
     ]); ?>
 

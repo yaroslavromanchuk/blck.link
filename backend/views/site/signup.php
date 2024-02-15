@@ -2,18 +2,19 @@
 
 /* @var $this yii\web\View */
 /* @var $form yii\bootstrap\ActiveForm */
-/* @var $model \frontend\models\SignupForm */
+/* @var $model SignupForm */
 
+use backend\models\SignupForm;
 use yii\helpers\Html;
 use yii\bootstrap\ActiveForm;
 
-$this->title = 'Регистрация';
-$this->params['breadcrumbs'][] = $this->title;
+$this->title = 'Реестрація користувача ЦРМС';
+//$this->params['breadcrumbs'][] = $this->title;
 ?>
 <div class="site-signup" style="max-width: 1024px;margin: auto;">
     <h1><?= Html::encode($this->title) ?></h1>
 
-    <p>Пожалуйста, заполните следующие поля, чтобы зарегистрироваться:</p>
+    <p>Будь-ласка, заповніть наступні поля, щоб зарееструвати користувача:</p>
 
     <div class="row">
         <div class="col-lg-5">
@@ -26,7 +27,7 @@ $this->params['breadcrumbs'][] = $this->title;
                 <?= $form->field($model, 'password')->passwordInput() ?>
 
                 <div class="form-group">
-                    <?= Html::submitButton('Отправить', ['class' => 'btn btn-primary', 'name' => 'signup-button']) ?>
+                    <?= Html::submitButton('Відправити', ['class' => 'btn btn-primary', 'name' => 'signup-button']) ?>
                 </div>
 
             <?php ActiveForm::end(); ?>

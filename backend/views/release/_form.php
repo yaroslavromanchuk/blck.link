@@ -11,6 +11,7 @@ use yii\widgets\ActiveForm;
 <div class="release-form">
 
     <?php $form = ActiveForm::begin(); ?>
+    <?= $form->field($model, 'admin_id')->hiddenInput(['value'=>Yii::$app->user->identity->id])->label(false)?>
 
     <?= $form->field($model, 'release_name')->textInput(['maxlength' => true]) ?>
 

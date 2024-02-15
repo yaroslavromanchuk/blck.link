@@ -25,7 +25,7 @@ class ArtistController extends Controller
     {
         return [
             'verbs' => [
-                'class' => VerbFilter::className(),
+                'class' => VerbFilter::class,
                 'actions' => [
                     'delete' => ['POST'],
                 ],
@@ -70,7 +70,7 @@ class ArtistController extends Controller
     {
         $model = new Artist();
 
-		if (Yii::$app->request->isAjax ) {
+		if (Yii::$app->request->isAjax) {
 			if ($model->load(Yii::$app->request->post())){
 				Yii::$app->response->format = Response::FORMAT_JSON;
 

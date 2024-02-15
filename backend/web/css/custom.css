@@ -59,7 +59,7 @@ body.nav-sm ul.nav.child_menu {
   padding: 10px;
   width: 210px;
   z-index: 4000;
-  background: #3E5367;
+  background: #000000;
   display: none;
 }
 body.nav-sm ul.nav.child_menu li {
@@ -164,7 +164,7 @@ body.nav-sm span.fa, body.nav-sm .menu_section h3 {
 body.nav-md .container.body .col-md-3.left_col {
   width: 230px;
   padding: 0;
-  position: absolute;
+  position: fixed;
   display: flex;
 }
 body .container.body .right_col {
@@ -177,7 +177,7 @@ body.nav-md .container.body .right_col {
 .nav_title {
   width: 230px;
   float: left;
-  background: #2A3F54;
+  background: #000000;
   border-radius: 0;
   height: 57px;
 }
@@ -297,8 +297,7 @@ body.nav-md .container.body .right_col {
   margin-bottom: 5px
 }
 body {
-  color: #73879C;
-  background: #2A3F54;
+  background: #000000;
   /*#ECF0F1; #FCFCFC*/
   font-family: "Helvetica Neue", Roboto, Arial, "Droid Sans", sans-serif;
   font-size: 13px;
@@ -536,7 +535,7 @@ body.nav-md ul.nav.child_menu li:after {
   padding: 13px 15px 7px;
 }
 .nav.side-menu> li.current-page, .nav.side-menu> li.active {
-  border-right: 5px solid #1ABB9C;
+  border-right: 5px solid #ffffff;
 }
 li.current-page {
   background: rgba(255, 255, 255, 0.05);
@@ -545,10 +544,10 @@ li.current-page {
   color: #ff0000;
   text-shadow: rgba(0, 0, 0, 0.25) 0 -1px 0;
   background: -webkit-gradient(linear, 50% 0%, 50% 100%, color-stop(0%, #5b6479), color-stop(100%, #4c5566)), #686e78;
-  background: -webkit-linear-gradient(#334556, #2C4257), #2A3F54;
-  background: -moz-linear-gradient(#334556, #2C4257), #2A3F54;
-  background: -o-linear-gradient(#334556, #2C4257), #2A3F54;
-  background: linear-gradient(#334556, #2C4257), #2A3F54;
+  background: -webkit-linear-gradient(#334556, #2C4257), #000000;
+  background: -moz-linear-gradient(#334556, #2C4257), #000000;
+  background: -o-linear-gradient(#334556, #2C4257), #000000;
+  background: linear-gradient(#334556, #2C4257), #000000;
   -webkit-box-shadow: rgba(0, 0, 0, 0.25) 0 1px 0, inset rgba(255, 255, 255, 0.16) 0 1px 0;
   -moz-box-shadow: rgba(0, 0, 0, 0.25) 0 1px 0, inset rgba(255, 255, 255, 0.16) 0 1px 0;
   box-shadow: rgba(0, 0, 0, 0.25) 0 1px 0, inset rgba(255, 255, 255, 0.16) 0 1px 0;
@@ -1495,7 +1494,7 @@ span.right {
   position: fixed;
   width: 230px;
   z-index: 1000;
-  background: #2A3F54;
+  background: #000000;
 }
 .sidebar-footer a {
   padding: 7px 0 3px;

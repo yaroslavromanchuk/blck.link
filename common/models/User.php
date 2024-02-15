@@ -6,11 +6,13 @@ use yii\base\NotSupportedException;
 use yii\behaviors\TimestampBehavior;
 use yii\db\ActiveRecord;
 use yii\web\IdentityInterface;
+use frontend\models\Track;
 
 /**
  * User model
  *
  * @property integer $id
+ * @property integer $type
  * @property string $username
  * @property string $password_hash
  * @property string $password_reset_token
@@ -25,13 +27,17 @@ use yii\web\IdentityInterface;
 class User extends ActiveRecord implements IdentityInterface
 {
     const STATUS_DELETED = 0;
+    const STATUS_PENDING_APPROVAL = 8;
     const STATUS_INACTIVE = 9;
     const STATUS_ACTIVE = 10;
-    
+
     const ROLE_USER = 'user';
     const ROLE_MANAGER = 'manager';
     const ROLE_MODER = 'moder';
     const ROLE_ADMIN = 'admin';
+    const ROLE_LABEL = 'label';
+
+    public string $role = 'user';
 
     /**
      * {@inheritdoc}
@@ -47,7 +53,7 @@ class User extends ActiveRecord implements IdentityInterface
     public function behaviors()
     {
         return [
-            TimestampBehavior::className(),
+            TimestampBehavior::class,
         ];
     }
 
@@ -58,7 +64,7 @@ class User extends ActiveRecord implements IdentityInterface
     {
         return [
             ['status', 'default', 'value' => self::STATUS_INACTIVE],
-            ['status', 'in', 'range' => [self::STATUS_ACTIVE, self::STATUS_INACTIVE, self::STATUS_DELETED]],
+            ['status', 'in', 'range' => [self::STATUS_ACTIVE, self::STATUS_INACTIVE, self::STATUS_PENDING_APPROVAL, self::STATUS_DELETED]],
         ];
     }
 
@@ -217,7 +223,6 @@ class User extends ActiveRecord implements IdentityInterface
     {
         return $this->lastName.' '.$this->firstName;
     }
-    
        public function getRole()
     {
         return array_values(Yii::$app->authManager->getRolesByUser($this->id))[0];
@@ -228,5 +233,28 @@ class User extends ActiveRecord implements IdentityInterface
             return Yii::getAlias('@site').'/images/user/'.$this->logo;
         }
         return false;
+    }
+
+    public function addRole()
+    {
+        $auth = Yii::$app->authManager;
+        $auth->assign($auth->getRole($this->role), $this->getId());
+    }
+
+    public function getTrackList($active = 'all')
+    {
+        switch ($active) {
+            case 'active': $active = [1]; break;
+            case 'inactive': $active = [0]; break;
+            default: $active = [0, 1];
+        }
+
+        //, 'active' => $active
+        return $this->hasMany(Track::class, ['id' => 'admin_id']);
+    }
+
+    public function getLabel()
+    {
+        return $this->hasOne(SubLabel::class, ['user_id' => 'id']);
     }
 }

@@ -5,7 +5,7 @@ use yii\widgets\ActiveForm;
 use yii\jui\DatePicker;
 
 /* @var $this yii\web\View */
-/* @var $model frontend\models\User */
+/* @var $model backend\models\User */
 /* @var $form yii\widgets\ActiveForm */
 ?>
 
@@ -26,19 +26,30 @@ use yii\jui\DatePicker;
 
     <?= $form->field($model, 'sex')->dropdownList(
             [
-                'm'=>'Мужчина',
-                'w' => 'Женщина'
+                'm'=>'Чоловік',
+                'w' => 'Жінка',
             ],
-    ['prompt'=>'Укажите пол']
+            [
+                    'prompt'=>'Вкажіть стать',
+            ]
             ) ?>
 
-   <!--<?=$form->field($model, 'logo')->textInput(['maxlength' => true]) ?>-->
+   <!--<? //$form->field($model, 'logo')->textInput(['maxlength' => true]) ?>-->
     <?= $form->field($model, 'file')->fileInput()->label('Иконка') ?>
-   <?php if($model->logo){
+   <?php
+
+   if(Yii::$app->user->can('label')) {
+   }
+
+   if($model->logo) {
       echo  Html::img(Yii::getAlias('@site').'/user/'.Yii::$app->user->identity->logo, ['style'=> 'margin-bottom:15px;']);
+   }
+
+   if(Yii::$app->user->can('admin')) {
+       echo  $form->field($model, 'pass')->textInput();
    } ?>
 
-   <?php if(Yii::$app->user->identity->role->name == 'admin') {echo  $form->field($model, 'pass')->textInput();} ?>
+
    <!-- <?php // $form->field($model, 'auth_key')->textInput(['maxlength' => true]) ?>
 
     <?php // $form->field($model, 'password_hash')->textInput(['maxlength' => true]) ?>
@@ -46,14 +57,10 @@ use yii\jui\DatePicker;
     <?php // $form->field($model, 'password_reset_token')->textInput(['maxlength' => true]) ?>
 
     <?php // $form->field($model, 'status')->textInput() ?>
-
-    <?php // $form->field($model, 'created_at')->textInput() ?>
-
-    <?php // $form->field($model, 'updated_at')->textInput() ?>
    -->
 
     <div class="form-group">
-        <?= Html::submitButton(Yii::t('app', 'Сохранить'), ['class' => 'btn btn-success']) ?>
+        <?= Html::submitButton(Yii::t('app', 'Зберегти'), ['class' => 'btn btn-success']) ?>
     </div>
 
     <?php ActiveForm::end(); ?>

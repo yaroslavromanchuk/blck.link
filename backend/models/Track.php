@@ -3,12 +3,12 @@
 namespace backend\models;
 
 use Yii;
-use yii\db\BaseActiveRecord;
 
 /**
  * This is the model class for table "track".
  *
  * @property int $id
+ * @property string $isrc
  * @property int $artist_id
  * @property int $release_id
  * @property string $artist
@@ -23,7 +23,7 @@ use yii\db\BaseActiveRecord;
  * @property int $click
  * @property int $active
  * @property string servise
- * @property string feeds
+ * @property array percentage
  *
  * @property Log[] $logs
  * @property  $musicServices
@@ -32,8 +32,8 @@ use yii\db\BaseActiveRecord;
 class Track extends \yii\db\ActiveRecord
 {
     public $file;
-   // public $servise;
-    public array $feeds = [];
+
+    public array $percentage = [];
     /**
      * {@inheritdoc}
      */
@@ -49,11 +49,11 @@ class Track extends \yii\db\ActiveRecord
    {
        return [
            [['servise'], 'string'],
-           [['file'], 'file', 'extensions' => 'png, jpg, jpeg'],
+           [['file'], 'file', 'extensions' => 'png, jpg, jpeg',],
            [['artist_id', 'artist', 'date',  'name', 'img'], 'required'],
            [['artist_id', 'release_id', 'admin_id', 'sharing', 'views', 'click', 'active'], 'integer'],
            [['date'], 'safe'],
-           [['artist', 'tag'], 'string', 'max' => 100],
+           [['artist', 'tag', 'isrc'], 'string', 'max' => 100],
            [['name', 'img', 'youtube_link'], 'string', 'max' => 255],
            [['url'], 'string', 'max' => 50],
            [['artist_id'], 'exist', 'skipOnError' => true, 'targetClass' => Artist::class, 'targetAttribute' => ['artist_id' => 'id']],
@@ -84,7 +84,9 @@ class Track extends \yii\db\ActiveRecord
             'active' => Yii::t('app', 'Активність'),
             'servise' => Yii::t('app', 'Площадка'),
             'feeds' => Yii::t('app', 'Фід'),
+            'percentage' => Yii::t('app', 'Відсотки'),
             'admin_id' => Yii::t('app', 'Створив'),
+            'isrc' => Yii::t('app', 'ISRC'),
        ];
     }
     /** 
@@ -95,7 +97,8 @@ class Track extends \yii\db\ActiveRecord
    public function getLogs() 
    { 
        return $this->hasMany(\common\models\Log::class, ['track' => 'id']);
-   } 
+   }
+
    public function getLogsLink() 
    { 
       return \common\models\Log::find()
@@ -128,6 +131,17 @@ class Track extends \yii\db\ActiveRecord
     public function getArtists(): \yii\db\ActiveQuery
     {
         return $this->hasOne(Artist::class, ['id' => 'artist_id']);
+    }
+
+    public function getPercentage(): array
+    {
+        return Percentage::find()
+            ->select(['artist.name', 'track_to_percentage.percentage'])
+            ->innerJoin('track', 'track.id = track_to_percentage.track_id')
+            ->innerJoin('artist', 'artist.id = track_to_percentage.artist_id')
+            ->where(['track_id' => $this->id])
+            ->asArray()
+            ->all();
     }
     /**
      * Gets query for [Admin]].

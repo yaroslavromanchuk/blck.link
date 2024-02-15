@@ -5,6 +5,7 @@ namespace backend\controllers;
 use Yii;
 use backend\models\Release;
 use backend\models\ReleaseSearch;
+use yii\filters\AccessControl;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\filters\VerbFilter;
@@ -22,8 +23,36 @@ class ReleaseController extends Controller
     public function behaviors()
     {
         return [
+            'access' => [
+                'class' => AccessControl::class,
+                'only' => ['index', 'create', 'update', 'view', 'delete' ],
+                'rules' => [
+
+                    [
+                        'actions' => ['index', 'create', 'update', 'view',],
+                        'allow' => true,
+                        'roles' => ['label'],
+
+                    ],
+                    /* [
+                         'actions' => ['index'],
+                         'allow' => true,
+                         'roles' => ['manager']
+                     ],
+                     [
+                         'actions' => ['index','delete'],
+                         'allow' => true,
+                         'roles' => ['moder']
+                     ],*/
+                    [
+                        'actions' => ['delete'],
+                        'allow' => true,
+                        'roles' => ['admin']
+                    ],
+                ],
+            ],
             'verbs' => [
-                'class' => VerbFilter::className(),
+                'class' => VerbFilter::class,
                 'actions' => [
                     'delete' => ['POST'],
                 ],

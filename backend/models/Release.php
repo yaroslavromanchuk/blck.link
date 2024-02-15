@@ -8,6 +8,7 @@ use Yii;
  * This is the model class for table "releases".
  *
  * @property int $release_id
+ * @property int $admin_id
  * @property string $release_name
  * @property string $date_add
  * @property string $last_update
@@ -29,6 +30,7 @@ class Release extends \yii\db\ActiveRecord
     {
         return [
             [['release_name'], 'required'],
+            [['admin_id'], 'integer'],
             [['date_add', 'last_update'], 'safe'],
             [['release_name'], 'string', 'max' => 255],
         ];
@@ -44,6 +46,12 @@ class Release extends \yii\db\ActiveRecord
             'release_name' => Yii::t('app', 'Release Name'),
             'date_add' => Yii::t('app', 'Date Add'),
             'last_update' => Yii::t('app', 'Last Update'),
+            'admin_id' => Yii::t('app', 'Менеджер'),
         ];
+    }
+
+    public function getAdmin(): \yii\db\ActiveQuery
+    {
+        return $this->hasOne(User::class, ['id' => 'admin_id']);
     }
 }

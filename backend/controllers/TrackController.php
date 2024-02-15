@@ -2,11 +2,15 @@
 
 namespace backend\controllers;
 
+use backend\models\Percentage;
+use backend\models\PercentageSearch;
+use backend\models\ReleaseSearch;
 use Yii;
 use backend\models\Track;
 use backend\models\Artist;
 use backend\models\TrackSearch;
 use yii\base\Exception;
+use yii\data\ActiveDataProvider;
 use yii\db\ActiveRecord;
 use yii\db\StaleObjectException;
 use yii\web\Controller;
@@ -16,6 +20,7 @@ use backend\models\Upload;
 use yii\web\UploadedFile;
 use yii\web\Response;
 use yii\bootstrap\ActiveForm;
+use yii\base\Model;
 
 /**
  * TrackController implements the CRUD actions for Track model.
@@ -108,7 +113,12 @@ class TrackController extends Controller
 
             if($model->validate() && $model->save()) {
 
-                $this->saveFeeds($model->id, Yii::$app->request->post('Track')['feeds']?? []);
+                $pr = new Percentage();
+                $pr->track_id = $model->id;
+                $pr->artist_id = 0;
+                $pr->percentage = 30;
+
+                $pr->save();
 
             	return $this->redirect(['view', 'id' => $model->id]);
             }
@@ -118,16 +128,117 @@ class TrackController extends Controller
             'model' => $model,
         ]);
     }
-    public function actionAnalitiks(int $id)
+
+    /**
+     * @throws NotFoundHttpException
+     */
+    public function actionAnalytics(int $id): string
     {
         $model = $this->findModel($id);
         
-        return $this->render('analitiks', [
+        return $this->render('analytics', [
             'model' => $model,
             'link' => $model->getLogsLink(),
             'servise' => $model->getLogsServise()
         ]);
         
+    }
+
+    public function actionPercentage(int $id): string
+    {
+        $searchModel = new PercentageSearch();
+        $dataProvider = $searchModel->search(['track_id' => $id]);
+
+        return $this->render('percentage', [
+            'searchModel' => $searchModel,
+            'dataProvider' => $dataProvider,
+            'trackId' => $id,
+        ]);
+
+    }
+
+    public function actionPercentageCreate(int $trackId)
+    {
+
+        if (Yii::$app->request->isPjax) {
+            $model = new Percentage();
+
+            if (!$model->load(Yii::$app->request->post()) || !$model->save()) {
+                Yii::$app->response->format = Response::FORMAT_JSON;
+                return ActiveForm::validate($model);
+            } else {
+                $models = Percentage::find()
+                    ->where(['track_id' => $trackId])
+                    ->all();
+
+                $createModel = new Percentage();
+                $createModel->track_id;
+
+                return $this->render('percentageUpdate', [
+                    'models' => $models,
+                    'createModel' => $createModel,
+                    'track' => Track::findOne($trackId),
+                    'artist' => Artist::find()
+                        ->select(['name', 'id'])
+                        ->indexBy('id')
+                        ->column()
+                ]);
+            }
+        }
+
+        $model = new Percentage();
+
+        if ($model->load(Yii::$app->request->post()) && $model->save()) {
+            return $this->redirect(['percentage-update', 'trackId' => $model->track_id]);
+        }
+
+        $model->track_id = $trackId;
+
+        return $this->render('percentageCreate', [
+            'model' => $model,
+            'artist' => Artist::find()
+                ->select(['name', 'id'])
+                ->indexBy('id')
+                ->column()
+        ]);
+    }
+
+    public function actionPercentageUpdate(int $trackId, int $id = null)
+    {
+        if (Yii::$app->request->isPjax && null !== $id) {
+            $model = Percentage::findOne($id);
+
+            if (!$model->load(Yii::$app->request->post()) || !$model->save()) {
+                Yii::$app->response->format = Response::FORMAT_JSON;
+                return ActiveForm::validate($model);
+            }
+        }
+
+        $models = Percentage::find()
+            ->where(['track_id' => $trackId])
+            ->all();
+
+        $create = new Percentage();
+        $create->track_id;
+
+       // var_dump($createModel->toArray()); exit;
+
+        return $this->render('percentageUpdate', [
+            'models' => $models,
+            'create' => $create,
+            'track' => Track::findOne($trackId),
+            'artist' => Artist::find()
+                ->select(['name', 'id'])
+                ->indexBy('id')
+                ->column()
+        ]);
+    }
+
+    public function actionPercentageDelete(int $id, int $percentageId): Response
+    {
+        Percentage::findOne($percentageId)->delete();
+
+        return $this->redirect(['percentage', 'id' => $id]);
     }
 
 	/**
@@ -138,24 +249,26 @@ class TrackController extends Controller
 	 * @throws NotFoundHttpException if the model cannot be found
 	 * @throws Exception
 	 */
-    public function actionUpdate($id)
+    public function actionUpdate(int $id)
     {
         $model = $this->findModel($id);
 
-        if (Yii::$app->request->isAjax ) {
+       // var_dump($model);exit();
+       /* if (Yii::$app->request->isAjax) {
 			if ($model->load(Yii::$app->request->post())){
 				Yii::$app->response->format = Response::FORMAT_JSON;
 				return ActiveForm::validate($model);
 			}
 
 			return true;
-        }
+        }*/
 
         if ($model->load(Yii::$app->request->post())) {
              $file = UploadedFile::getInstance($model, 'file');
             if ($file && $file->tempName) {
                
                 $model->file = $file;
+
                 if ($model->validate(['file'])) {
                    $model->img = Upload::updateImage($model, $model->img, 'track', [500, 500]);
                 }
@@ -164,49 +277,25 @@ class TrackController extends Controller
            $model->servise = serialize($model->servise);
              
 			if ($model->validate() && $model->save()) {
-                $this->saveFeeds($model->id, Yii::$app->request->post('Track')['feeds']?? []);
-
                 return $this->redirect(['view', 'id' => $model->id]);
 			}
         }
+
 
         return $this->render('update', [
             'model' => $model,
         ]);
     }
 
-    private function saveFeeds($trackId, array $data)
-    {
-        $db = ActiveRecord::getDb();
-
-        $db->createCommand('DELETE FROM `feeds_mapping` WHERE track_id = :id', [':id' => $trackId])->execute();
-
-        foreach ($data as $item) {
-            $db->createCommand()->insert('feeds_mapping',
-                [
-                    'track_id' => $trackId,
-                    'artist_id' => (int)$item,
-                ]
-            )->execute();
-        }
-
-
-
-      //  $db->createCommand()->insert('feeds_mapping', $insert)->execute();
-
-       /* $db->createCommand('INSERT INTO `feeds_mapping` (track_id, artist_id) VALUES (:track_id, :artist_id)')
-            ->bindValues($insert)
-            ->execute();*/
-    }
-
-	/**
-	 * Deletes an existing Track model.
-	 * If deletion is successful, the browser will be redirected to the 'index' page.
-	 * @param integer $id
-	 * @return Response
+    /**
+     * Deletes an existing Track model.
+     * If deletion is successful, the browser will be redirected to the 'index' page.
+     * @param integer $id
+     * @return Response
      * @throws NotFoundHttpException if the model cannot be found
-	 * @throws StaleObjectException
-	 */
+     * @throws StaleObjectException
+     * @throws \Throwable
+     */
     public function actionDelete(int $id): Response
     {
         $this->findModel($id)->delete();
@@ -224,13 +313,6 @@ class TrackController extends Controller
     protected function findModel($id)
     {
         if (($model = Track::findOne($id)) !== null) {
-            $model->feeds = Artist::find()
-                ->select(['artist.id'])
-                ->leftJoin('feeds_mapping', 'feeds_mapping.artist_id = artist.id')
-                ->where(['feeds_mapping.track_id' => $model->id])
-                ->asArray()
-                ->all();
-
             return $model;
         }
 

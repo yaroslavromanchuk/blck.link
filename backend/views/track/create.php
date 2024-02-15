@@ -5,8 +5,8 @@ use yii\helpers\Html;
 /* @var $this yii\web\View */
 /* @var $model backend\models\Track */
 
-$this->title = Yii::t('app', 'Создание релиза');
-$this->params['breadcrumbs'][] = ['label' => Yii::t('app', 'Релизы'), 'url' => ['index']];
+$this->title = Yii::t('app', 'Створення треку');
+$this->params['breadcrumbs'][] = ['label' => Yii::t('app', 'Треки'), 'url' => ['index']];
 $this->params['breadcrumbs'][] = $this->title;
 ?>
 <div class="track-create">

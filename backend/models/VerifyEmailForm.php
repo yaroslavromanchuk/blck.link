@@ -46,7 +46,7 @@ class VerifyEmailForm extends Model
     public function verifyEmail()
     {
         $user = $this->_user;
-        $user->status = User::STATUS_ACTIVE;
+        $user->status = $user->type != 1 ? User::STATUS_PENDING_APPROVAL : User::STATUS_ACTIVE;
         return $user->save(false) ? $user : null;
     }
 }

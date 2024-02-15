@@ -10,11 +10,9 @@ $this->title = Yii::t('app', 'Пользователи');
 $this->params['breadcrumbs'][] = $this->title;
 ?>
 <div class="user-index">
-    <?php if(Yii::$app->user->identity->role->name == 'admin'){ ?>
     <p>
         <?= Html::a(Yii::t('app', 'Создать пользователя'), ['create'], ['class' => 'btn btn-success']) ?>
     </p>
-    <?php } ?>
 
     <?= GridView::widget([
         'dataProvider' => $dataProvider,

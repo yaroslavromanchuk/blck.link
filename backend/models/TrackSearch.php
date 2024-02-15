@@ -4,7 +4,7 @@ namespace backend\models;
 
 use yii\base\Model;
 use yii\data\ActiveDataProvider;
-use backend\models\Track;
+use Yii;
 
 /**
  * TrackSearch represents the model behind the search form of `backend\models\Track`.
@@ -88,7 +88,8 @@ class TrackSearch extends Track
             ->andFilterWhere(['like', 'name', $this->name])
             ->andFilterWhere(['like', 'url', $this->url])
             ->andFilterWhere(['like', 'tag', $this->tag])
-            ->andFilterWhere(['like', 'youtube_link', $this->youtube_link]); 
+           // ->andFilterWhere(['like', 'youtube_link', $this->youtube_link])
+        ;
        //    ->andFilterWhere(['like', 'apple', $this->apple]) 
          //  ->andFilterWhere(['like', 'boom', $this->boom]) 
          //  ->andFilterWhere(['like', 'spotify', $this->spotify]) 
@@ -97,6 +98,10 @@ class TrackSearch extends Track
          //  ->andFilterWhere(['like', 'vk', $this->vk])
          //  ->andFilterWhere(['like', 'deezer', $this->deezer])
          //  ->andFilterWhere(['like', 'yandex', $this->yandex]);
+
+        if (Yii::$app->user->identity->type != 1) {
+            $query->andFilterWhere(['admin_id' => Yii::$app->user->identity->id]);
+        }
 
         return $dataProvider;
     }

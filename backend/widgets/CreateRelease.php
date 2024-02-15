@@ -13,8 +13,7 @@ class CreateRelease extends Widget {
     }
     public function run() {
         return $this->render('_createRelease',[
-            'model' => $this->release,
-            ''
+            'model' => $this->release
         ]);
     }
 }

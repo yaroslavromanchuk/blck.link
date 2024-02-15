@@ -7,13 +7,13 @@ $params = array_merge(
 );
 
 return [
-    'id' => 'app-backend',
+    'id' => 'crms',
     'basePath' => dirname(__DIR__),
     'controllerNamespace' => 'backend\controllers',
     'bootstrap' => ['log', 'languages'],
     'sourceLanguage' => 'uk-UA',
 	'language'=>'uk',
-	'name' => 'BLCK',
+	'name' => 'blck.link',
     'modules' => [
         'languages' => [
         'class' => 'common\modules\languages\LModule',
@@ -32,8 +32,10 @@ return [
         'except' => [
 			'site/login',
 			'site/signup',
+			'site/signup-label',
 			'site/request-password-reset',
-			'site/reset-password', 'site/error'
+			'site/reset-password',
+            'site/error'
 		],
         'rules' => [
             [
@@ -44,17 +46,17 @@ return [
     ],
     'components' => [
         'request' => [
-			'baseUrl' => '/admin',
+			'baseUrl' => '',
 			'csrfParam' => '_backend',
         ],
         'user' => [
             'identityClass' => 'common\models\User',
             'enableAutoLogin' => true,
-            'identityCookie' => ['name' => '_identity-backend', 'httpOnly' => true],
+            'identityCookie' => ['name' => '_crms', 'httpOnly' => true],
         ],
         'session' => [
             // this is the name of the session cookie used for login on the backend
-            'name' => 'backend',
+            'name' => 'crms',
         ],
         'log' => [
             'traceLevel' => YII_DEBUG ? 3 : 0,
@@ -76,7 +78,10 @@ return [
             'showScriptName' => false,
            // 'suffix' => '/',
             'rules' => [
-                
+                'login' => 'site/login',
+                'request-password-reset' => 'site/request-password-reset',
+                'signup' => 'site/signup',
+                'signup-label' => 'site/signup-label',
             ],
         ],
 

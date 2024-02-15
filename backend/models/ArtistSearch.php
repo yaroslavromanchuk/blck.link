@@ -4,7 +4,7 @@ namespace backend\models;
 
 use yii\base\Model;
 use yii\data\ActiveDataProvider;
-use backend\models\Artist;
+use Yii;
 
 /**
  * ArtistSearch represents the model behind the search form of `backend\models\Artist`.
@@ -70,6 +70,10 @@ class ArtistSearch extends Artist
             'active' => $this->active,
             //'reliz' => $this->reliz,
         ]);
+
+        if (Yii::$app->user->identity->type != 1) {
+            $query->andFilterWhere(['admin_id' => Yii::$app->user->identity->id]);
+        }
 
         $query->andFilterWhere(['like', 'name', $this->name])
             ->andFilterWhere(['like', 'phone', $this->phone])

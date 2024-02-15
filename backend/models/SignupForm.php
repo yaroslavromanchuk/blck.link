@@ -18,7 +18,7 @@ class SignupForm extends Model
     /**
      * {@inheritdoc}
      */
-    public function rules()
+    public function rules(): array
     {
         return [
             ['username', 'trim'],
@@ -41,30 +41,31 @@ class SignupForm extends Model
      * Signs user up.
      *
      * @return bool whether the creating new account was successful and email was sent
+     * @throws \Exception
      */
     public function signup()
     {
         if (!$this->validate()) {
-            return null;
+            return false;
         }
         
         $user = new User();
         $user->username = $this->username;
         $user->email = $this->email;
         $user->setPassword($this->password);
+
         $user->generateAuthKey();
         $user->generateEmailVerificationToken();
-        if($user->save()){   
-            $this->sendEmail($user);
-        
-        $auth = \Yii::$app->authManager;
-        $authorRole = $auth->getRole('user');
-        $auth->assign($authorRole, $user->getId());
-        return $user;
-        }
-        return null;
-       //return $user->save() && $this->sendEmail($user);
 
+        if ($user->save()) {
+            $user->addRole();
+
+            $this->sendEmail($user);
+
+            return $user;
+        }
+
+        return false;
     }
 
     /**

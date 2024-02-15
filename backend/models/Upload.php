@@ -28,14 +28,17 @@ class Upload
                     $model->file->saveAs($img);
                     $model->file = $fileName; // без этого ошибка
                     
-                    if($crop){
+                    if($crop) {
                     $size = getimagesize($img); // Определяем размер картинки
                     $imageWidth = $size[0]; // Ширина картинки
                     $imageHeight = $size[1]; // Высота картинки
-                     if($imageWidth != $imageHeight or $imageWidth > $crop[0] or $imageHeight > $crop[1]){
-                  Image::getImagine()->open($img)->thumbnail(new Box($crop[0], $crop[1]))->save($img, ['quality' => 90]);
-                }
-                    }
+
+                      if($imageWidth != $imageHeight || $imageWidth > $crop[0] || $imageHeight > $crop[1]) {
+                            Image::getImagine()->open($img)
+                                ->thumbnail(new Box($crop[0], $crop[1]))
+                                ->save($img, ['quality' => 90]);
+                      }
+                  }
                  
         return $fileName;
     }
@@ -62,19 +65,22 @@ class Upload
                         }
 
                   $fileName = $model->id.'_'.Yii::$app->getSecurity()->generateRandomString(9) . '.' . $model->file->extension;
-                  $img = $dir.$fileName;
+                  $img = $dir . $fileName;
                   
 
                     $model->file->saveAs($img);
                     $model->file = $fileName; // без этого ошибка
                     
-                    if($crop){
+                    if ($crop) {
                     $size = getimagesize($img); // Определяем размер картинки
                     $imageWidth = $size[0]; // Ширина картинки
                     $imageHeight = $size[1]; // Высота картинки
-                     if($imageWidth != $imageHeight or $imageWidth > $crop[0] or $imageHeight > $crop[1]){
-                  Image::getImagine()->open($img)->thumbnail(new Box($crop[0], $crop[1]))->save($img, ['quality' => 90]);
-                }
+
+                        if($imageWidth != $imageHeight || $imageWidth > $crop[0] || $imageHeight > $crop[1]) {
+                            Image::getImagine()->open($img)
+                              ->thumbnail(new Box($crop[0], $crop[1]))
+                              ->save($img, ['quality' => 90]);
+                        }
                     }
                    
         return $fileName;

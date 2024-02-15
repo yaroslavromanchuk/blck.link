@@ -12,7 +12,7 @@ $this->params['breadcrumbs'][] = ['label' => Yii::t('app', 'Aggregators'), 'url'
 $this->params['breadcrumbs'][] = ['label' => $model->Name, 'url' => ['view', 'id' => $model->aggregator_id]];
 $this->params['breadcrumbs'][] = Yii::t('app', 'Update');
 ?>
-<div class="aggregator-update">
+<div class="aggregator-upload">
 
     <h1><?= Html::encode($this->title) ?></h1>
 

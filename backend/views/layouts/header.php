@@ -13,16 +13,16 @@ use yii\helpers\Html;
                     <ul class="nav navbar-nav navbar-right">
                         <li class="">
                             <a href="javascript:;" class="user-profile dropdown-toggle" data-toggle="dropdown" aria-expanded="false">
-                                <img src="<?=Yii::$app->user->identity->logo?Yii::$app->user->identity->img:'http://placehold.it/128x128'?>" alt=""><?=Yii::$app->user->identity->getFullName()?>
+                                <img src="<?=Yii::$app->user->identity->img ?? 'http://placehold.it/128x128'?>" alt=""><? //Yii::$app->user->identity != null ? Yii::$app->user->identity->getFullName():''?>
                                 <span class=" fa fa-angle-down"></span>
                             </a>
                             <ul class="dropdown-menu dropdown-usermenu pull-right">
                                 <li class="user-header" style="text-align: center">
-                            <img style="margin: 20px;" src="<?=Yii::$app->user->identity->logo?Yii::$app->user->identity->img:'http://placehold.it/128x128'?>" class="img-circle"
+                            <img style="margin: 20px;" src="<?=Yii::$app->user->identity->img??'http://placehold.it/128x128'?>" class="img-circle"
                                  alt="User Image"/>
 
                             <p >
-                                <?=Yii::$app->user->identity->getFullName()?>
+                                <?=Yii::$app->user->identity != null ? Yii::$app->user->identity->getFullName(): ''?>
                                 <small></small>
                             </p>
                         </li>

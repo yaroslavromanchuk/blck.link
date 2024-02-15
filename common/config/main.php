@@ -10,7 +10,7 @@ return [
         'cache' => [
             'class' => 'yii\caching\FileCache',
         ],
-        'session' =>[
+        'session' => [
             'class' => 'yii\web\DbSession',
             'writeCallback' => function () {
                 return [
@@ -22,7 +22,7 @@ return [
         'authManager' => [
             'class' => 'yii\rbac\DbManager',
             //'cache' => 'cache',
-           ///'defaultRoles' => ['user'], 
+            'defaultRoles' => ['user'],
             'itemTable'       => 'auth_item',
             'itemChildTable'  => 'auth_item_child',
             'assignmentTable' => 'auth_assignment',
@@ -33,9 +33,9 @@ return [
            // 'assignmentFile' => '@common/components/rbac/assignments.php',
             //'ruleFile' => '@common/components/rbac/rules.php'
         ],
-           'config' => [ // настройки с БД
+        'config' => [ // настройки с БД
             'class' => 'common\components\Config',
         ],
-                
+
     ],
 ];

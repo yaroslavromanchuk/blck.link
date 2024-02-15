@@ -5,7 +5,7 @@ use yii\helpers\Html;
             <div class="left_col scroll-view">
 
                 <div class="navbar nav_title" style="border: 0;">
-                    <?= Html::a('<i class="fa fa-paw"></i><span> ' . Yii::$app->name. '</span>', Yii::$app->homeUrl, ['class' => 'site_title']) ?>
+                    <?= Html::a(Html::img('/img/label.jpg', ['style' => 'border-radius: 50%;width:50px;margin-right: 15px;']) . '<span> ' . Yii::$app->name. '</span>', Yii::$app->homeUrl, ['class' => 'site_title']) ?>
                 </div>
                 <div class="clearfix"></div>
                 <br />
@@ -17,23 +17,37 @@ use yii\helpers\Html;
                         <h3>Меню</h3>
                         <?php
                          $items[] = ["label" => Yii::t('app', 'Головна'), "url" =>  Yii::$app->homeUrl, "icon" => "home"];
-                         $items[] = ["label" => Yii::t('app', 'Артисти'), "url" => ['/artist'], "icon" => "files-o"];
-                         $items[] = ["label" => Yii::t('app', 'Треки'), "url" => ['/track'], "icon" => "files-o"];
-                         $items[] = ['label' => Yii::t('app', 'Релізи'),  'url' => ['/release'], "icon" => "files-o"];
 
-                        $items[] = ['label' => Yii::t('app', 'Аналітика'),  'url' => ['/log']];
+                        if(Yii::$app->user->can('label')) {
+                            $items[] = ["label" => Yii::t('app', 'Артисти'), "url" => ['/artist'], "icon" => "files-o"];
+                            $items[] = ["label" => Yii::t('app', 'Треки'), "url" => ['/track'], "icon" => "files-o"];
+                            $items[] = ['label' => Yii::t('app', 'Релізи'),  'url' => ['/release'], "icon" => "files-o"];
+                        }
+
+                        if(Yii::$app->user->can('moder')) {
+                            $items[] = ['label' => Yii::t('app', 'Агрегатори'),  'url' => ['/aggregator'], "icon" => "files-o"];
+                        }
+
+                        if(Yii::$app->user->can('manager')) {
+                            $items[] = ['label' => Yii::t('app', 'Аналітика'),  'url' => ['/log'], "icon" => "files-o"];
+                        }
+
+                        if(Yii::$app->user->can('label') && isset(Yii::$app->user->identity->label->id)) {
+                            $items[] = ['label' => Yii::t('app', 'Налаштування'),  'url' => ['/sub-label/view/', 'id' => Yii::$app->user->identity->label->id], "icon" => "table"];
+                        }
                         // $items[] = ["label" => Yii::t('app', 'Официальные ссылки'), "url" => ["/link"], "icon" => "close"];
                         // $items[] = ["label" => Yii::t('app', 'Музыкальные Сервисы'), "url" => ['/services'], "icon" => "files-o"];
-                          if(Yii::$app->user->can('admin')){
+                          if(Yii::$app->user->can('admin')) {
                               $items[] = [
-                                        'label' => Yii::t('app', 'Настройки'),
+                                        'label' => Yii::t('app', 'Конфіги'),
                                         'icon' => 'table',
                                         'url' => "#",
                                         'items'=> [
-                                                ['label' => Yii::t('app', 'Пользователи'),  'url' => ['/user']],
+                                                ['label' => Yii::t('app', 'Користувачі'),  'url' => ['/user']],
                                                // ['label' => Yii::t('app', 'Аналитика'),  'url' => ['/log']],
-                                                ['label' => Yii::t('app', 'Перводы'),  'url' => ['/message']],
-                                                ['label' => Yii::t('app', 'Агрегатори'),  'url' => ['/aggregator']],
+                                                ['label' => Yii::t('app', 'Переклади'),  'url' => ['/message']],
+                                                ['label' => Yii::t('app', 'Суб Лейбли'), 'url' => ['/sub-label']],
+                                                //['label' => Yii::t('app', 'Агрегатори'),  'url' => ['/aggregator']],
                                         ],
                                     ];
 

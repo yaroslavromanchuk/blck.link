@@ -46,4 +46,8 @@ class Currency extends \yii\db\ActiveRecord
             'last_update' => Yii::t('app', 'Last Update'),
         ];
     }
+    public function getName(): string
+    {
+        return $this->currency_name;
+    }
 }

@@ -6,8 +6,8 @@ use yii\widgets\DetailView;
 /* @var $this yii\web\View */
 /* @var $model backend\models\Aggregator */
 
-$this->title = $model->Name;
-$this->params['breadcrumbs'][] = ['label' => Yii::t('app', 'Aggregators'), 'url' => ['index']];
+$this->title = $model->name;
+$this->params['breadcrumbs'][] = ['label' => Yii::t('app', 'Агрегатори'), 'url' => ['index']];
 $this->params['breadcrumbs'][] = $this->title;
 \yii\web\YiiAsset::register($this);
 ?>
@@ -16,8 +16,8 @@ $this->params['breadcrumbs'][] = $this->title;
     <h1><?= Html::encode($this->title) ?></h1>
 
     <p>
-        <?= Html::a(Yii::t('app', 'Update'), ['update', 'id' => $model->aggregator_id], ['class' => 'btn btn-primary']) ?>
-        <?= Html::a(Yii::t('app', 'Delete'), ['delete', 'id' => $model->aggregator_id], [
+        <?= Html::a(Yii::t('app', 'Редагувати'), ['update', 'id' => $model->aggregator_id], ['class' => 'btn btn-primary']) ?>
+        <?= Html::a(Yii::t('app', 'Видалити'), ['delete', 'id' => $model->aggregator_id], [
             'class' => 'btn btn-danger',
             'data' => [
                 'confirm' => Yii::t('app', 'Are you sure you want to delete this item?'),
@@ -30,10 +30,16 @@ $this->params['breadcrumbs'][] = $this->title;
         'model' => $model,
         'attributes' => [
             'aggregator_id',
-            'Name',
-            'currency',
+            'name',
+            [
+                'attribute' => 'currency_id',
+                'value' => function($data) {
+                    return $data->currency->getName();
+                },
+            ],
+            //'currency',
             'date_add',
-            'last_update',
+            //'last_update',
         ],
     ]) ?>
 

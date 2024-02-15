@@ -17,8 +17,8 @@ class AggregatorSearch extends Aggregator
     public function rules()
     {
         return [
-            [['aggregator_id'], 'integer'],
-            [['Name', 'date_add', 'last_update'], 'safe'],
+            [['aggregator_id', 'currency_id'], 'integer'],
+            [['name', 'date_add', 'last_update'], 'safe'],
         ];
     }
 
@@ -59,11 +59,12 @@ class AggregatorSearch extends Aggregator
         // grid filtering conditions
         $query->andFilterWhere([
             'aggregator_id' => $this->aggregator_id,
+            'currency_id' => $this->currency_id,
             'date_add' => $this->date_add,
             //'last_update' => $this->last_update,
         ]);
 
-        $query->andFilterWhere(['like', 'Name', $this->Name]);
+        $query->andFilterWhere(['like', 'name', $this->name]);
 
         return $dataProvider;
     }

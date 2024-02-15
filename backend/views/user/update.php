@@ -16,8 +16,8 @@ $this->params['breadcrumbs'][] = Yii::t('app', 'Редактирование');
     <?= $this->render('_form', [
         'model' => $model,
     ]) ?>
-    <div style="color:#999;margin:1em 0">
-                    Если вы забыли свой пароль, вы можете <?= Html::a('восстановить пароль', ['site/request-password-reset']) ?>.
-                </div>
+   <!-- <div style="color:#999;margin:1em 0">
+                        Если вы забыли свой пароль, вы можете <? // Html::a('восстановить пароль', ['site/request-password-reset']) ?>.
+    </div>-->
 
 </div>

@@ -11,6 +11,7 @@ Modal::begin([
     'header'=>'<h4>Створення релізу</h4>',
     'id'=>'release-add-modal',
 ]);
+
 ?>
     <div class="row">
         <div class=" col-xs-12 col-sm-12 col-md-12">
@@ -18,7 +19,7 @@ Modal::begin([
                 <div class="card-body">
                     <div class="release-form">
                         <?php
-                            Pjax::begin();
+                           // Pjax::begin();
                                 $form = ActiveForm::begin(['id' => 'release_add', 'action' => ['release/modal']]);
                        ?>
                                 <?= $form->field($model, 'release_name')->textInput(['maxlength' => true]) ?>
@@ -28,7 +29,7 @@ Modal::begin([
                                 </div>
 
                         <?php ActiveForm::end();
-                        Pjax::end();
+                       // Pjax::end();
                         ?>
 
                     </div>

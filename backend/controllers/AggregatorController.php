@@ -2,12 +2,14 @@
 
 namespace backend\controllers;
 
+use backend\models\UploadReport;
 use Yii;
 use backend\models\Aggregator;
 use backend\models\AggregatorSearch;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\filters\VerbFilter;
+use yii\web\UploadedFile;
 
 /**
  * AggregatorController implements the CRUD actions for Aggregator model.
@@ -21,7 +23,7 @@ class AggregatorController extends Controller
     {
         return [
             'verbs' => [
-                'class' => VerbFilter::className(),
+                'class' => VerbFilter::class,
                 'actions' => [
                     'delete' => ['POST'],
                 ],
@@ -124,4 +126,34 @@ class AggregatorController extends Controller
 
         throw new NotFoundHttpException(Yii::t('app', 'The requested page does not exist.'));
     }
+
+    #region upload file
+
+    public function actionUploadReport()
+    {
+        $model = new UploadReport();
+
+        if (Yii::$app->request->isPost) {
+            $model->file = UploadedFile::getInstance($model, 'file');
+            //var_dump($model->file); die;
+            if (null !== $model->file) {
+
+
+                $res = [];
+
+                if (($handle = fopen($model->file->tempName, "r")) !== FALSE) {
+                    while (($data = fgetcsv($handle, 0, ',')) !== FALSE) {
+
+                        $res[] = $data;
+                    }
+                    fclose($handle);
+                }
+
+                var_dump($res);
+            }
+        }
+
+        return $this->render('upload', ['model' => $model]);
+    }
+    #endregion
 }

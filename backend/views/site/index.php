@@ -4,15 +4,19 @@
 
 //$this->title = 'My Yii Application';
 ?>
-<div class="site-index">
+<div class="site-index text-center">
+    <div class="d-inline-block">
+        <img src="/img/label.jpg" alt="" style="border-radius: 50%; width:90%;">
+    </div>
+
     <?php
-echo '<pre>';
-print_r(Yii::$app->authManager->getRoles());
+//echo '<pre>';
+//print_r(Yii::$app->authManager->getRoles());
 //print_r(Yii::$app->authManager->getRolesByUser(Yii::$app->user->getId()));
    // print_r(Yii::$app->user->identity->role->name);    
 //print_r(geoip_record_by_name(Yii::$app->request->userIP));
 //print_r($_SESSION);
-echo '</pre>';
+//echo '</pre>';
 //echo geoip_country_code_by_name(Yii::$app->request->userIP);
 //echo geoip_region_by_name(Yii::$app->request->userIP);
 //geoip_region_name_by_code();

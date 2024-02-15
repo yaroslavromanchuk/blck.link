@@ -12,28 +12,28 @@ $this->title = Yii::t('app', 'Треки');
 $this->params['breadcrumbs'][] = $this->title;
 ?>
 <div class="track-index">
-     <?php if(Yii::$app->user->can('moder')){ ?>
+     <?php if(Yii::$app->user->can('label')){ ?>
     <p class="text-right">
         <?= Html::a(Yii::t('app', 'Додати трек'), ['create'], ['class' => 'btn btn-danger']) ?>
     </p>
      <?php } ?>
     <?php Pjax::begin([ 'enablePushState' => false]); ?>
-    <?php  echo $this->render('_search', ['model' => $searchModel]); ?>
-<?=ListView::widget([
-                                                'dataProvider' => $dataProvider,
-                                                'itemView' => '_list',
-                                                'options' => [
-                                                                'tag' => 'div',
-                                                                'class' => 'row', 
-                                                              //  'style' => 'padding-top: 15px;'
-                                                             ],
-                                                'itemOptions' => [
-                                                                 'tag' => 'div',
-                                                                 'class' => 'col-xs-12',
-                                                                 'style' => ''
-                                                                 ],
-                                           'layout' => "{sorter}\n{items}\n{summary}\n{pager}",
-     ])?>
+    <?=$this->render('_search', ['model' => $searchModel]) ?>
+    <?=ListView::widget([
+        'dataProvider' => $dataProvider,
+        'itemView' => '_list',
+        'options' => [
+            'tag' => 'div',
+            'class' => 'row',
+          //  'style' => 'padding-top: 15px;'
+        ],
+        'itemOptions' => [
+             'tag' => 'div',
+             'class' => 'col-xs-12',
+             'style' => ''
+        ],
+        'layout' => "{sorter}\n{items}\n{summary}\n{pager}",
+    ])?>
     <?php /* echo GridView::widget([
         'dataProvider' => $dataProvider,
         'filterModel' => $searchModel,
@@ -72,5 +72,4 @@ $this->params['breadcrumbs'][] = $this->title;
     ]);*/ ?>
 
     <?php Pjax::end(); ?>
-
 </div>

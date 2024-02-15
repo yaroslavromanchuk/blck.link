@@ -1,6 +1,7 @@
 <?php
 namespace backend\controllers;
 
+use backend\models\SignupLabelForm;
 use Yii;
 use yii\web\Controller;
 use yii\filters\VerbFilter;
@@ -26,32 +27,27 @@ class SiteController extends Controller
     {
         return [
             'access' => [
-                'class' => AccessControl::className(),
+                'class' => AccessControl::class,
                 'rules' => [
                     [
-                        'actions' => ['index', 'error' ,'useronline'],
+                        'actions' => ['request-password-reset', 'reset-password', 'telegram'], //'error',
+                        'allow' => true,
+                    ],
+                    [
+                        'actions' => ['index', 'logout', 'error'],
                         'allow' => true,
                         'roles' => ['@'],
                         
                     ],
                     [
-                        'actions' => ['login', 'error', 'request-password-reset', 'reset-password'],
-                        'allow' => true,
-                    ],
-                    [
-                        'actions' => ['signup'],
+                        'actions' => ['login', 'signup', 'signup-label'],
                         'allow' => true,
                         'roles' => ['?'],
-                    ],
-                    [
-                        'actions' => ['logout'],
-                        'allow' => true,
-                        'roles' => ['@'],
                     ],
                 ],
             ],
             'verbs' => [
-                'class' => VerbFilter::className(),
+                'class' => VerbFilter::class,
                 'actions' => [
                     'logout' => ['post'],
                 ],
@@ -71,6 +67,11 @@ class SiteController extends Controller
         ];
     }
 
+    public function actionTelegram()
+    {
+        return $this->render('index');
+    }
+
     /**
      * Displays homepage.
      *
@@ -88,11 +89,14 @@ class SiteController extends Controller
      */
     public function actionLogin()
     {
+        $this->layout = 'main-login';
+
         if (!Yii::$app->user->isGuest) {
             return $this->goHome();
         }
 
         $model = new LoginForm();
+
         if ($model->load(Yii::$app->request->post()) && $model->login()) {
             return $this->goBack();
         } else {
@@ -110,7 +114,10 @@ class SiteController extends Controller
      */
     public function actionSignup()
     {
+        $this->layout = 'main-login';
+
         $model = new SignupForm();
+
         if ($model->load(Yii::$app->request->post())) {
             if ($user = $model->signup()) {
                 if (Yii::$app->getUser()->login($user)) {
@@ -120,6 +127,26 @@ class SiteController extends Controller
         }
 
         return $this->render('signup', [
+            'model' => $model,
+        ]);
+    }
+
+    public function actionSignupLabel()
+    {
+        $this->layout = 'main-login';
+
+        $model = new SignupLabelForm();
+
+        if ($model->load(Yii::$app->request->post())) {
+            if ($user = $model->signup()) {
+                Yii::$app->session->setFlash('success', 'Check your email for further instructions.');
+                //if (Yii::$app->getUser()->login($user)) {
+                    return $this->redirect(['login']);
+               // }
+            }
+        }
+
+        return $this->render('signupLabel', [
             'model' => $model,
         ]);
     }
@@ -141,7 +168,10 @@ class SiteController extends Controller
      */
     public function actionRequestPasswordReset()
     {
+        $this->layout = 'main-login';
+
         $model = new PasswordResetRequestForm();
+
         if ($model->load(Yii::$app->request->post()) && $model->validate()) {
             if ($model->sendEmail()) {
                 Yii::$app->session->setFlash('success', 'Check your email for further instructions.');
@@ -166,6 +196,7 @@ class SiteController extends Controller
      */
     public function actionResetPassword($token)
     {
+        $this->layout = 'main-login';
         try {
             $model = new ResetPasswordForm($token);
         } catch (InvalidParamException $e) {
@@ -214,6 +245,7 @@ class SiteController extends Controller
      */
     public function actionResendVerificationEmail()
     {
+        $this->layout = 'main-login';
         $model = new ResendVerificationEmailForm();
         if ($model->load(Yii::$app->request->post()) && $model->validate()) {
             if ($model->sendEmail()) {

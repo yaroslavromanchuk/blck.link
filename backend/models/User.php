@@ -3,6 +3,8 @@
 namespace backend\models;
 
 use Yii;
+use yii\db\ActiveRecord;
+use common\models\SubLabel;
 
 /**
  * This is the model class for table "user".
@@ -22,7 +24,7 @@ use Yii;
  * @property int $created_at
  * @property int $updated_at
  */
-class User extends \yii\db\ActiveRecord
+class User extends ActiveRecord
 {
     public $file;
     public $pass; 
@@ -40,7 +42,7 @@ class User extends \yii\db\ActiveRecord
     public function rules()
     {
         return [
-             [['file'], 'file', 'extensions' => 'png, jpg'],
+            [['file'], 'file', 'extensions' => 'png, jpg'],
             [['username', 'email', 'auth_key', 'password_hash', 'created_at', 'updated_at'], 'required'],
             [['status', 'created_at', 'updated_at'], 'integer'],
             [['username', 'email', 'logo', 'password_hash', 'password_reset_token'], 'string', 'max' => 255],
@@ -60,13 +62,13 @@ class User extends \yii\db\ActiveRecord
 	{
         return [
             'id' => 'Id',
-            'username' => Yii::t('app', 'Логин'),
+            'username' => Yii::t('app', 'Логін'),
             'email' => 'Email',
-            'lastName' => Yii::t('app', 'Фамилия'),
-            'firstName' => Yii::t('app', 'Имя'),
-            'middleName' => Yii::t('app', 'Отчество'),
-            'sex' => Yii::t('app', 'Пол'),
-            'logo' => Yii::t('app', 'Иконка'),
+            'lastName' => Yii::t('app', 'Фамілія'),
+            'firstName' => Yii::t('app', 'Ім\'я'),
+            'middleName' => Yii::t('app', 'по батькові'),
+            'sex' => Yii::t('app', 'Стать'),
+            'logo' => Yii::t('app', 'Лого'),
             'auth_key' => 'Auth Key',
             'password_hash' => 'Password Hash',
             'password_reset_token' => 'Password Reset Token',
@@ -99,11 +101,47 @@ class User extends \yii\db\ActiveRecord
     }
      public function getRole()
     {
-        return array_values(Yii::$app->authManager->getRolesByUser($this->id))[0]->name;
+        $rules = Yii::$app->authManager->getRolesByUser($this->id);
+
+        if (is_array($rules)) {
+            return end($rules)->name;
+        }
+
+        return $rules->name;
     }
 
     public function getFullName(): string
 	{
         return $this->lastName.' '.$this->firstName;
+    }
+
+    public function getTracks1($active = 'all')
+    {
+        switch ($active) {
+            case 'active': $active = [1]; break;
+            case 'inactive': $active = [0]; break;
+            default: $active = [0, 1];
+        }
+
+        return $this->hasMany(Track::class, ['admin_id' => 'id', 'active' => $active]);
+    }
+
+    public function getLabel()
+    {
+        return $this->hasOne(SubLabel::class, ['user_id' => 'id']);
+    }
+    public function getSubLabels()
+    {
+        return $this->hasMany(SubLabel::class, ['user_id' => 'id']);
+    }
+
+    /**
+     * Gets query for [[Tracks]].
+     *
+     * @return \yii\db\ActiveQuery
+     */
+    public function getTracks()
+    {
+        return $this->hasMany(Track::class, ['admin_id' => 'id']);
     }
 }
