@@ -28,15 +28,13 @@ class SiteController extends Controller
      */
     public function behaviors()
     {
-      
-
        if (empty($_SESSION["referal"]) && isset($_SERVER["HTTP_REFERER"])) {
        		$_SESSION["referal"] = $_SERVER["HTTP_REFERER"];
        }
 
         return [
             'access' => [
-                'class' => AccessControl::className(),
+                'class' => AccessControl::class,
                 'only' => ['logout', 'signup'],
                 'rules' => [
                     [
@@ -52,7 +50,7 @@ class SiteController extends Controller
                 ],
             ],
             'verbs' => [
-                'class' => VerbFilter::className(),
+                'class' => VerbFilter::class,
                 'actions' => [
                     'logout' => ['post'],
                 ],
@@ -97,7 +95,7 @@ class SiteController extends Controller
 				->andFilterWhere(['active'=>1, 'sharing' => 1])
 				->andFilterWhere(['<=', '`date`',date('Y-m-d')])
 				->orderBy('date DESC')
-				->limit(100)
+				->limit(200)
 				->all()
         ]);
     }
@@ -132,7 +130,7 @@ class SiteController extends Controller
                     $view->referal = $referal;
                     $view->data = date("Y-m-d");
                     $view->save();
-          
+
         $this->view->registerMetaTag(['name' => 'description', 'content' => 'Listen, download or stream '.$track->name.'!', 'data-hid'=>'description'],'description');
         $this->view->registerMetaTag(['property' => 'og:url', 'content' => '/'.$track->url], 'og:url');
         $this->view->registerMetaTag(['property'=>'og:title', 'content' => $track->artist.' - '.$track->name.' | BlckLink'], 'og:title');
@@ -140,7 +138,7 @@ class SiteController extends Controller
         $this->view->registerMetaTag(['property' => 'og:image:width', 'content' => '200'],'og:image:width');
         $this->view->registerMetaTag(['property' => 'og:image:height', 'content' => '200'],'og:image:height');
         $this->view->registerMetaTag(['property' => 'og:image', 'content' => $track->getImage()],'og:image');
-        
+
         $this->view->registerMetaTag(['name' => 'twitter:card', 'content' => 'summary_large_image'],'twitter:card');
         $this->view->registerMetaTag(['name' => 'twitter:site', 'content' => '@'.$track->url],'twitter:site');
         $this->view->registerMetaTag(['name' => 'twitter:title', 'content' => $track->artist.' - '.$track->name.' | BlckLink'],'twitter:title');
@@ -154,30 +152,35 @@ class SiteController extends Controller
 
     public function actionAjax()
     {
-        if(Yii::$app->request->isAjax){
-           // print_r(Yii::$app->request);
-            if(Yii::$app->request->post('method') == 'servise' || Yii::$app->request->post('method') == 'link'){
+        if(Yii::$app->request->isAjax) {
+            if(Yii::$app->request->post('method') == 'servise'
+                || Yii::$app->request->post('method') == 'link'
+            ) {
                 $id = (int)Yii::$app->request->post('id');
                 $name = Yii::$app->request->post('name');
-            
-            if (($track = Track::findOne($id))){
-                    $track->click = (int)($track->click+1);
-                    $track->save();
-                    
-                    $log = new \common\models\Log();
-                    $log->track = $track->id;
-                    $log->type = Yii::$app->request->post('method');
-                    $log->name = Yii::$app->request->post('name');
-                    $log->referal = !empty($_SESSION["referal"]) ? $_SESSION["referal"] : $_SERVER['HTTP_REFERER'];
-                    $log->ip = Yii::$app->request->userIP;
+
+                if (($track = Track::findOne($id))){
+                        $track->click = (int)($track->click+1);
+                        $track->save();
+
+                        $log = new \common\models\Log();
+                        $log->track = $track->id;
+                        $log->type = Yii::$app->request->post('method');
+                        $log->name = Yii::$app->request->post('name');
+                        $log->referal = !empty($_SESSION["referal"]) ? $_SESSION["referal"] : $_SERVER['HTTP_REFERER'];
+                        $log->ip = Yii::$app->request->userIP;
+
                         $country = geoip_country_name_by_name(Yii::$app->request->userIP);
-                    $log->country = $country ? $country : null; 
-                    $log->data = date("Y-m-d");
-                    $log->save();
-                 return true;
+
+                        $log->country = $country ?? null;
+                        $log->data = date("Y-m-d");
+                        $log->save();
+
+                     return true;
+                }
             }
         }
-        }
+
         return false;
     }
 
@@ -246,7 +249,7 @@ class SiteController extends Controller
      */
     public function actionAbout()
     {
-        return $this->render('about');
+        return $this->renderPartial('about');
     }
 
     /**

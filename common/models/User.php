@@ -257,4 +257,13 @@ class User extends ActiveRecord implements IdentityInterface
     {
         return $this->hasOne(SubLabel::class, ['user_id' => 'id']);
     }
+    /**
+     * Gets query for [[Tracks]].
+     *
+     * @return \yii\db\ActiveQuery
+     */
+    public function getTracks()
+    {
+        return $this->hasMany(Track::class, ['admin_id' => 'id']);
+    }
 }
