@@ -22,7 +22,8 @@
         "yiisoft/yii2-jui": "^2.0",
         "yiisoft/yii2-imagine": "^2.2",
         "kartik-v/yii2-widget-select2": "^2.2.5",
-        "kartik-v/yii2-widget-datepicker": "^1.4.8"
+        "kartik-v/yii2-widget-datepicker": "^1.4.8",
+        "aki/yii2-bot-telegram": "*"
     },
     "require-dev": {
         "yiisoft/yii2-debug": "~2.1.0",
