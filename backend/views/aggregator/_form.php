@@ -14,6 +14,7 @@ use kartik\select2\Select2;
     <?php $form = ActiveForm::begin(); ?>
 
     <?= $form->field($model, 'name')->textInput(['maxlength' => true]) ?>
+    <?= $form->field($model, 'description')->textInput(['maxlength' => true]) ?>
 
     <?= $form->field($model, 'currency_id')->widget(Select2::class, [
         'model' => $model,

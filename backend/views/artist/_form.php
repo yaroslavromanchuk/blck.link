@@ -9,55 +9,68 @@ use yii\widgets\ActiveForm;
 ?>
 
 <div class="row">
-            <div class=" col-xs-12 col-sm-12 col-md-12 ">
-              <div class="x_panel">
-                <div class="x_title">
-                  <h2><?= Html::encode($this->title) ?></h2>
-                  <div class="clearfix"></div>
-                </div>
-                <div class="x_content">
-                    
-    <?php $form = ActiveForm::begin([ 'options' => ['enctype' => 'multipart/form-data']]); ?>
-                    <div class="row">
-                         <?= $form->field($model, 'admin_id')->hiddenInput(['value'=>Yii::$app->user->identity->id])->label(false)?>  
-                        <div class="col-sm-12 col-md-2 col-lg-1">
+    <div class=" col-xs-12 col-sm-12 col-md-12 ">
+        <div class="x_panel">
+            <div class="x_title">
+              <h2><?= Html::encode($this->title) ?></h2>
+              <div class="clearfix"></div>
+            </div>
+            <div class="x_content">
+                <?php $form = ActiveForm::begin([ 'options' => ['enctype' => 'multipart/form-data']]); ?>
+                <?= $form->field($model, 'admin_id')->hiddenInput(['value'=>Yii::$app->user->identity->id])->label(false)?>
+                <div class="row">
+                    <div class="col-sm-12 col-md-2 col-lg-2">
       <?= $form->field($model, 'active')->checkbox([ 'value' => 1,  'checked ' => true ]) ?>
-                            </div> <div class="col-sm-12 col-md-2 col-lg-7">
+                     </div>
+                    <div class="col-sm-12 col-md-2 col-lg-1">
+                        <?= $form->field($model, 'percentage')->textInput(['max' => 100]) ?>
+                    </div>
+                    <div class="col-sm-12 col-md-2 col-lg-1">
     <?= $form->field($model, 'name')->textInput(['maxlength' => true]) ?>
-                                </div> <div class="col-sm-12 col-md-6 col-lg-4">
-<?= $form->field($model, 'file')->fileInput() ?>
-                                    </div> <div class="col-sm-12 col-md-6 col-lg-6">
-    <?= $form->field($model, 'phone')->textInput(['maxlength' => true]) ?>
-                                        </div> <div class="col-sm-12 col-md-6 col-lg-6">
-    <?= $form->field($model, 'email')->textInput(['maxlength' => true]) ?>
-                                            </div> <div class="col-sm-12 col-md-6 col-lg-4">
-    <?= $form->field($model, 'facebook')->textInput(['maxlength' => true]) ?>
-                                                </div> <div class="col-sm-12 col-md-6 col-lg-4">
-   <?= $form->field($model, 'vk')->textInput(['maxlength' => true]) ?>
-                                                    </div> <div class="col-sm-12 col-md-6 col-lg-4">
-   <?= $form->field($model, 'twitter')->textInput(['maxlength' => true]) ?>
-                                                        </div> <div class="col-sm-12 col-md-6 col-lg-4">
-   <?= $form->field($model, 'youtube')->textInput(['maxlength' => true]) ?>
-                                                            </div> <div class="col-sm-12 col-md-6 col-lg-4">
-   <?= $form->field($model, 'instagram')->textInput(['maxlength' => true]) ?>
-                                                                </div> <div class="col-sm-12 col-md-6 col-lg-4">
-   <?= $form->field($model, 'telegram')->textInput(['maxlength' => true]) ?>
-                                                                    </div> <div class="col-sm-12 col-md-6 col-lg-4">
-   <?= $form->field($model, 'viber')->textInput(['maxlength' => true]) ?>
-                                                                        </div> <div class="col-sm-12 col-md-6 col-lg-4">
-   <?= $form->field($model, 'whatsapp')->textInput(['maxlength' => true]) ?>
-                                                                            </div> <div class="col-sm-12 col-md-6 col-lg-4">
-   <?= $form->field($model, 'ofsite')->textInput(['maxlength' => true]) ?>
-</div>
-                        <div class="col-sm-12 col-md-6 col-lg-12">
-    <div class="form-group text-center">
-        <?= Html::submitButton(Yii::t('app', 'Сохранить'), ['class' => 'btn btn-lg btn-success']) ?>
-    </div>
-                        </div>
- </div>
-    <?php ActiveForm::end(); ?>
-
-</div>
-                  </div>
+                     </div>
+                    <div class="col-sm-12 col-md-6 col-lg-3">
+                        <?= $form->field($model, 'phone')->textInput(['maxlength' => true]) ?>
+                    </div>
+                    <div class="col-sm-12 col-md-6 col-lg-3">
+                        <?= $form->field($model, 'email')->textInput(['maxlength' => true]) ?>
+                    </div>
+                    <div class="col-sm-12 col-md-2 col-lg-2">
+                        <?= $form->field($model, 'file')->fileInput() ?>
+                    </div>
                 </div>
+                <div class="row">
+                     <div class="col-sm-12 col-md-6 col-lg-3">
+                        <?= $form->field($model, 'facebook')->textInput(['maxlength' => true]) ?>
+                     </div>
+                    <div class="col-sm-12 col-md-6 col-lg-3">
+                        <?= $form->field($model, 'twitter')->textInput(['maxlength' => true]) ?>
+                    </div>
+                    <div class="col-sm-12 col-md-6 col-lg-3">
+                        <?= $form->field($model, 'youtube')->textInput(['maxlength' => true]) ?>
+                    </div>
+                    <div class="col-sm-12 col-md-6 col-lg-3">
+                        <?= $form->field($model, 'instagram')->textInput(['maxlength' => true]) ?>
+                    </div>
+                    <div class="col-sm-12 col-md-6 col-lg-3">
+                        <?= $form->field($model, 'telegram')->textInput(['maxlength' => true]) ?>
+                    </div>
+                    <div class="col-sm-12 col-md-6 col-lg-3">
+                        <?= $form->field($model, 'viber')->textInput(['maxlength' => true]) ?>
+                    </div>
+                    <div class="col-sm-12 col-md-6 col-lg-3">
+                        <?= $form->field($model, 'whatsapp')->textInput(['maxlength' => true]) ?>
+                    </div>
+                    <div class="col-sm-12 col-md-6 col-lg-3">
+                        <?= $form->field($model, 'ofsite')->textInput(['maxlength' => true]) ?>
+                    </div>
+                    <div class="col-sm-12 col-md-6 col-lg-12">
+                        <div class="form-group text-center">
+                            <?= Html::submitButton(Yii::t('app', 'Зберегти'), ['class' => 'btn btn-lg btn-success']) ?>
+                        </div>
+                    </div>
+                 </div>
+    <?php ActiveForm::end(); ?>
+            </div>
+        </div>
     </div>
+</div>

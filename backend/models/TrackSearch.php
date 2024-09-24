@@ -18,7 +18,7 @@ class TrackSearch extends Track
     {
         return [
             [['artist_id', 'sharing', 'views', 'click', 'active'], 'integer'],
-            [['artist', 'date', 'name', 'img', 'url', 'youtube_link', 'tag'], 'safe'],
+            [['artist_name', 'date', 'name', 'img', 'url', 'youtube_link', 'tag', 'isrc'], 'safe'],
         ];
     }
 
@@ -52,7 +52,7 @@ class TrackSearch extends Track
                     //   'default' => SORT_ASC,
                   //  ],
                     'date',
-                    'artist' =>[
+                    'artist_name' =>[
                         'label' =>  'Артист'
                     ],
                     'views',
@@ -84,11 +84,11 @@ class TrackSearch extends Track
             'active' => $this->active,
         ]);
 
-        $query->andFilterWhere(['like', 'artist', $this->artist])
+        $query->andFilterWhere(['like', 'artist_name', $this->artist_name])
             ->andFilterWhere(['like', 'name', $this->name])
             ->andFilterWhere(['like', 'url', $this->url])
             ->andFilterWhere(['like', 'tag', $this->tag])
-           // ->andFilterWhere(['like', 'youtube_link', $this->youtube_link])
+            ->andFilterWhere(['like', 'isrc', $this->isrc])
         ;
        //    ->andFilterWhere(['like', 'apple', $this->apple]) 
          //  ->andFilterWhere(['like', 'boom', $this->boom]) 

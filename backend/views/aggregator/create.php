@@ -5,8 +5,8 @@ use yii\helpers\Html;
 /* @var $this yii\web\View */
 /* @var $model backend\models\Aggregator */
 
-$this->title = Yii::t('app', 'Create Aggregator');
-$this->params['breadcrumbs'][] = ['label' => Yii::t('app', 'Aggregators'), 'url' => ['index']];
+$this->title = Yii::t('app', 'Додати агрегатора');
+$this->params['breadcrumbs'][] = ['label' => Yii::t('app', 'Агрегатори'), 'url' => ['index']];
 $this->params['breadcrumbs'][] = $this->title;
 ?>
 <div class="aggregator-create">

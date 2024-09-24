@@ -69,7 +69,7 @@ class LabelController extends \yii\web\Controller
 
         $this->view->registerMetaTag(['name' => 'description', 'content' => 'Listen, download or stream '.$track->name.'!', 'data-hid'=>'description'],'description');
         $this->view->registerMetaTag(['property' => 'og:url', 'content' => '/'.$track->url], 'og:url');
-        $this->view->registerMetaTag(['property'=>'og:title', 'content' => $track->artist.' - '.$track->name.' | BlckLink'], 'og:title');
+        $this->view->registerMetaTag(['property'=>'og:title', 'content' => $track->artist_name.' - '.$track->name.' | BlckLink'], 'og:title');
         $this->view->registerMetaTag(['property'=>'og:description', 'content' => 'Listen, download or stream '.$track->name.'!'], 'og:description');
         $this->view->registerMetaTag(['property' => 'og:image:width', 'content' => '200'],'og:image:width');
         $this->view->registerMetaTag(['property' => 'og:image:height', 'content' => '200'],'og:image:height');
@@ -77,7 +77,7 @@ class LabelController extends \yii\web\Controller
 
         $this->view->registerMetaTag(['name' => 'twitter:card', 'content' => 'summary_large_image'],'twitter:card');
         $this->view->registerMetaTag(['name' => 'twitter:site', 'content' => '@'.$track->url],'twitter:site');
-        $this->view->registerMetaTag(['name' => 'twitter:title', 'content' => $track->artist.' - '.$track->name.' | BlckLink'],'twitter:title');
+        $this->view->registerMetaTag(['name' => 'twitter:title', 'content' => $track->artist_name.' - '.$track->name.' | BlckLink'],'twitter:title');
         $this->view->registerMetaTag(['name' => 'twitter:description', 'content' => 'Listen, download or stream '.$track->name.'!'],'twitter:description');
         $this->view->registerMetaTag(['name' => 'twitter:image', 'content' =>  $track->getImage()],'twitter:image');
 

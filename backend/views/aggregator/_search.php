@@ -33,6 +33,7 @@ use kartik\select2\Select2;
     ]) ?>
 
     <?= $form->field($model, 'name') ?>
+    <?= $form->field($model, 'description') ?>
 
     <?= $form->field($model, 'date_add') ?>
 

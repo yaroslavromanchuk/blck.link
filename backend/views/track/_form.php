@@ -12,7 +12,7 @@ use backend\widgets\CreateRelease;
 /* @var $this yii\web\View */
 /* @var $model backend\models\Track */
 
-if (Yii::$app->user->identity->type == 1) {
+if (Yii::$app->user->identity->type == 1) { //
     $artistData = Artist::find()
         ->select(['artist.name', 'artist.id'])
         ->leftJoin('user', 'user.id = artist.admin_id')
@@ -53,7 +53,9 @@ if (Yii::$app->user->identity->type == 1) {
                  $form = ActiveForm::begin(['options' => ['enctype' => 'multipart/form-data']]);
                  ?>
                 <div class="row">
-                    <div class="col-sm-12 col-md-6"><!--Артист/Площадки-->
+                    <div class="col-sm-12 col-md-6"><!--Артист/Площадки/Фіти-->
+                        <div class="row">
+                            <div class="col-sm-12 col-md-6">
                         <div class="card card-success">
                             <h5 class="card-header">Артист</h5>
                             <div class="card-body">
@@ -71,13 +73,13 @@ if (Yii::$app->user->identity->type == 1) {
                                             'pluginOptions' => [
                                               //  'allowClear' => true
                                             ],
-                                                    'pluginEvents' => [
-                                                      'select2:select' => ' function(e) {  $("input#track-artist").val(e.params.data.text); }'
+                                            'pluginEvents' => [
+                                                'select2:select' => ' function(e) {  $("input#track-artist").val(e.params.data.text); }'
                                             ]
                                         ]) ?>
                                     </div>
                                     <div class="col-sm-12">
-                                        <?= $form->field($model, 'artist')->textInput(['maxlength' => true]) ?>
+                                        <?= $form->field($model, 'artist_name')->textInput(['maxlength' => true]) ?>
                                     </div>
                                 </div>
                             </div>
@@ -87,6 +89,43 @@ if (Yii::$app->user->identity->type == 1) {
                                 </div>
                             </div>
                         </div>
+                            </div>
+                            <div class="col-sm-12 col-md-6">
+                        <div class="card">
+                            <h5 class="card-header">Фіти</h5>
+                            <div class="card-body">
+                                <div class="col-sm-12 feeds">
+                                    <?php
+                                    $selected = [];
+
+                                    foreach ($model->getFeeds() as $feed) {
+                                        $selected[$feed] = ['selected' => true];
+                                    }
+
+                                    unset($artistData[$model->artist_id]);
+
+                                    echo $form->field($model, 'feeds[]')
+                                        ->widget(Select2::class, [
+                                            'model' => $model,
+                                            'data' => $artistData,
+                                            'language' => 'uk',
+                                            'options' => [
+                                                'multiple' => true,
+                                                //'values' => array_values($model->feeds),
+                                                'placeholder' =>  Yii::t('app', 'Виберіте артиста на фіті'),
+                                                'options' => $selected,
+                                            ],
+                                            'pluginOptions' => [
+                                                'allowClear' => true,
+                                            ],
+                                        ])->label('Виберіть артистів на фітах')?>
+                                </div>
+                            </div>
+                        </div>
+                            </div>
+                        </div>
+                    <div class="row">
+                            <div class="col-sm-12 col-md-6 col-lg-6">
                         <div class="card">
                             <h5 class="card-header">Реліз</h5>
                             <div class="card-body">
@@ -117,6 +156,8 @@ if (Yii::$app->user->identity->type == 1) {
                                 </div>
                             </div>
                         </div>
+                            </div>
+                            <div class="col-sm-12">
                         <div class="card"><!--Площадки-->
                             <h5 class="card-header">Площадки</h5>
                             <div class="card-body">
@@ -155,7 +196,9 @@ if (Yii::$app->user->identity->type == 1) {
                                 </div>
                             </div>
                         </div>
+                            </div>
                     </div>
+                </div>
                     <div class="col-sm-12 col-md-6"><!--Трек-->
                         <div class="card">
                             <div class="card-body">
@@ -216,24 +259,54 @@ if (Yii::$app->user->identity->type == 1) {
         </div>
       </div>
 </div>
-<?php //echo CreateArtist::widget(); ?>
-<?php //echo CreateRelease::widget(); ?>
+<?php echo CreateArtist::widget(); ?>
+<?php echo CreateRelease::widget(); ?>
   <?php
 
 $script = <<< JS
         $(function() {
-    $(document).on('click', '[data-toggle=reroute]', function(e) {
-        console.log(this);
-    if($(this).data().tag == 'add'){
-        var el = '<div class="col-sm-12"><div class="form-group field-servise"><div class="input-group"><input type="text"  class="form-control" name="Track[servise][]" value="" aria-invalid="false"><span class="input-group-btn"><a class="btn btn-sm btn-danger" data-toggle="reroute" data-tag="dell">Удалить</a></span><div class="help-block"></div></div></div></div>';
-        $(this).before(el);
-            }else{
-         var block = $(this).parents(".col-sm-12:first");
-        console.log(block);
-     block.detach();
+            $(document).on('click', '[data-toggle=reroute]', function(e) {
+                console.log(this);
+                
+            if($(this).data().tag == 'add') {
+                var el = '<div class="col-sm-12"><div class="form-group field-servise"><div class="input-group"><input type="text"  class="form-control" name="Track[servise][]" value="" aria-invalid="false"><span class="input-group-btn"><a class="btn btn-sm btn-danger" data-toggle="reroute" data-tag="dell">Удалить</a></span><div class="help-block"></div></div></div></div>';
+        
+                $(this).before(el);
+            } else {
+                var block = $(this).parents(".col-sm-12:first");
+                console.log(block);
+                block.detach();
             }
+    });
 
-     
+    $(document).on('click', '[data-toggle=feeds]', function(e) {
+        console.log(this);
+        
+    if($(this).data().tag == 'add') {
+        var el = ''; 
+        
+       // $('.feedsAll').after(el);
+        
+        console.log(el);
+        var el = '' +
+         '<div class="col-sm-12">' +
+            '<div class="form-group field-feeds">' +
+              '<div class="input-group">' +
+               '<input type="text"  class="form-control" name="Track[feeds][]" value="" aria-invalid="false">' +
+                    '<span class="input-group-btn">' +
+                     '<a class="btn btn-sm btn-danger" data-toggle="reroute" data-tag="dell">Видалити</a>' +
+                     '</span>' +
+                   '<div class="help-block"></div>' +
+               '</div>' +
+            '</div>' +
+         '</div>';
+        $(this).before(el);
+    } else {
+        var block = $(this).parents(".col-sm-12:first");
+        console.log(block);
+        block.detach();
+    }
+
     });
 });
 JS;

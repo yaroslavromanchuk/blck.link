@@ -4,14 +4,13 @@ namespace frontend\models;
 
 use Yii;
 use common\models\Log;
-use frontend\models\Artist;
 
 /**
  * This is the model class for table "track".
  *
  * @property int $id
  * @property int $artist_id
- * @property string $artist
+ * @property string $artist_name
  * @property string $date
 * @property string|null $name
 * @property string|null $img
@@ -24,19 +23,14 @@ use frontend\models\Artist;
 * @property int $click
 * @property int $active
 * @property Log[] $logs
-* @property array $musicServices
-* @property array $oficialLink
+* @property array $servise
 * @property string $apple
 * @property string $boom
 * @property string $spotify
-* @property string $youtube
 * @property string $googleplaystore
 * @property string $vk
 * @property string $deezer
 * @property string $yandex
-*
-* @property Log[] $logs
-* @property Artist $artist
 */
 class Track extends \yii\db\ActiveRecord
 {
@@ -50,13 +44,12 @@ class Track extends \yii\db\ActiveRecord
     /**
      * {@inheritdoc}
      */
-    public function attributeLabels()
+    public function attributeLabels(): array
     {
-        
         return [
            'id' => Yii::t('app', '№'),
             'artist_id' => Yii::t('app', 'Артист'),
-            'artist' => Yii::t('app', 'Отображаемое имя артиста'),
+            'artist_name' => Yii::t('app', 'Отображаемое имя артиста'),
             'date' => Yii::t('app', 'Дата релиза'),
             'name' => Yii::t('app', 'Релиз'),
             'img' => Yii::t('app', 'Обложка'),
@@ -85,6 +78,19 @@ class Track extends \yii\db\ActiveRecord
    public function getLogs()
    { 
        return $this->hasMany(Log::class, ['track' => 'id']);
+   }
+
+   public function setLog(string $referal = '')
+   {
+       $view = new \common\models\Views();
+       $view->track_id = $this->id;
+       $view->view = 1;
+       $view->ip = Yii::$app->request->userIP;
+       $country = geoip_country_name_by_name(Yii::$app->request->userIP);
+       $view->country = $country ?? null;
+       $view->referal = $referal;
+       $view->data = date("Y-m-d");
+       $view->save();
    }
 
     /**

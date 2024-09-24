@@ -6,6 +6,9 @@ use Yii;
 use yii\base\Model;
 use yii\web\UploadedFile;
 
+/**
+ * @property int $aggregatorId
+ */
 class UploadReport extends Model
 {
     /**

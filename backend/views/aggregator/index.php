@@ -30,6 +30,14 @@ $this->params['breadcrumbs'][] = $this->title;
 
            // 'aggregator_id',
             'name',
+            'description',
+            //'ownership_type',
+            [
+                'attribute' => 'ownership_type',
+                'value' => function($data) {
+                    return $data->ownershipType->name;
+                },
+            ],
             [
                 'attribute' => 'currency_id',
                 'value' => function($data) {
@@ -37,9 +45,9 @@ $this->params['breadcrumbs'][] = $this->title;
                 },
             ],
             'date_add',
-           // 'last_update',
+            'last_update',
 
-            //['class' => 'yii\grid\ActionColumn'],
+            ['class' => 'yii\grid\ActionColumn'],
         ],
     ]); ?>
 

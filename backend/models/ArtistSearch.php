@@ -18,9 +18,8 @@ class ArtistSearch extends Artist
     public function rules(): array
 	{
         return [
-            [['id', 'active'], 'integer'],
+            [['id', 'active', 'deposit', 'deposit_1', 'reliz', 'percentage'], 'integer'],
             [['name',  'phone', 'email'], 'safe'],
-            [['reliz'], 'integer'],
         ];
     }
 
@@ -72,12 +71,17 @@ class ArtistSearch extends Artist
         ]);
 
         if (Yii::$app->user->identity->type != 1) {
+            $query->andFilterWhere(['!=', 'id', Artist::label]);
             $query->andFilterWhere(['admin_id' => Yii::$app->user->identity->id]);
         }
 
         $query->andFilterWhere(['like', 'name', $this->name])
             ->andFilterWhere(['like', 'phone', $this->phone])
-            ->andFilterWhere(['like', 'email', $this->email]);
+            ->andFilterWhere(['like', 'email', $this->email])
+            ->andFilterWhere(['=', 'percentage', $this->email]);
+
+        $query->andFilterWhere(['>=', 'deposit', $this->deposit])
+        ->andFilterWhere(['>=', 'deposit_1', $this->deposit_1]);
 
         return $dataProvider;
     }

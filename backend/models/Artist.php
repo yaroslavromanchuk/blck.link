@@ -22,11 +22,17 @@ use Yii;
 * @property string $viber 
 * @property string $whatsapp 
 * @property string $ofsite
+* @property int $percentage
+* @property double $deposit
+* @property double $deposit_1
+* @property int $telegram_id
 *
 * @property Track[] $tracks
 */
 class Artist extends \yii\db\ActiveRecord
 {
+    public const label = 0;
+
      public $file;
     /**
      * {@inheritdoc}
@@ -42,11 +48,13 @@ class Artist extends \yii\db\ActiveRecord
     public function rules(): array
 	{
         return [
-            [['name'], 'required'],
-            [['active', 'admin_id'], 'integer'],
+            [['name', 'percentage'], 'required'],
+            [['active', 'admin_id', 'percentage', 'telegram_id'], 'integer'],
+            [['deposit', 'deposit_1'], 'number'],
             [['name'], 'string', 'max' => 150],
-            ['name', 'unique', 'targetClass' => '\backend\models\Artist', 'message' => Yii::t('app', 'Артист з цим ім\'ям вже існує!')],
-            [['logo', 'facebook', 'vk', 'twitter', 'youtube', 'instagram', 'telegram', 'viber', 'whatsapp', 'ofsite'], 'string', 'max' => 255],
+            [['percentage'], 'compare', 'compareValue' => 100, 'operator' => '<=',  'skipOnError' => true,  'message' => Yii::t('app', 'Max 100%')],
+            ['name', 'unique', 'targetClass' => Artist::class, 'message' => Yii::t('app', 'Артист з цим ім\'ям вже існує!')],
+            [['logo', 'facebook', 'twitter', 'youtube', 'instagram', 'telegram', 'viber', 'whatsapp', 'ofsite'], 'string', 'max' => 255],
             [['file'], 'image', 'extensions' => 'png, jpg, jpeg'],
             [['phone'], 'string', 'max' => 20],
             [['email'], 'string', 'max' => 50],
@@ -76,7 +84,11 @@ class Artist extends \yii\db\ActiveRecord
             'ofsite' => Yii::t('app', 'Оф.Сайт'),
             //'reliz' => Yii::t('app', 'Релизы'),
             'admin_id' => Yii::t('app', 'Створив'),
+            'percentage' => Yii::t('app', 'Відсоток %'),
             'file' => Yii::t('app', 'Лого'),
+            'deposit' => Yii::t('app', 'Депозит UAH'),
+            'deposit_1' => Yii::t('app', 'Депозит EURO'),
+            'telegram_id' => Yii::t('app', 'ТелеграмID'),
         ];
     }
 
@@ -101,5 +113,133 @@ class Artist extends \yii\db\ActiveRecord
     public function getLogo(): string
 	{
         return Yii::getAlias('@site').'/images/artist/'.$this->logo;
+    }
+
+    public static function calculationDeposit(?int $artistId = null): array
+    {
+        $errors = [];
+
+        if (null !== $artistId) {
+            $artist = Artist::findOne($artistId);
+
+            $deposits = (new \yii\db\Query())->from(InvoiceItems::tableName())
+                ->select('currency_id, SUM(amount) as deposit')
+                ->leftJoin(Invoice::tableName(), 'invoice.invoice_id = invoice_items.invoice_id')
+                ->where(['artist_id' => $artistId, 'invoice.invoice_status_id' => 2])
+                ->groupBy('currency_id')
+                ->all();
+
+            $euro = $uah = 0;
+
+            foreach ($deposits as $deposit) {
+                if ($deposit['currency_id'] == 2) { // UAH
+                    $uah = (float) $deposit['deposit'];
+                } else {
+                    $euro = (float) $deposit['deposit'];
+                }
+            }
+
+            if ($uah != $artist->deposit) {
+                $errors[$artistId]['deposit'] = [
+                    'old' => $artist->deposit,
+                    'new' => $uah,
+                ];
+
+                $artist->deposit = $uah;
+                $artist->save();
+            }
+
+            if ($euro != $artist->deposit_1) {
+                $errors[$artistId]['deposit_1'] = [
+                    'old' => $artist->deposit_1,
+                    'new' => $euro,
+                ];
+
+                $artist->deposit_1 = $euro;
+                $artist->save();
+            }
+        } else {
+
+            $deposit = (new \yii\db\Query())
+                ->from(self::tableName())
+                ->select('SUM(deposit) as uah, SUM(deposit_1) as euro')
+                //->where(['!=', 'id', 0])
+                ->one();
+
+                $uah = (float) $deposit['uah'] ?? 0; // UAH
+                $euro = (float) $deposit['euro'] ?? 0; // EURO
+
+            $euro_1 = $uah_1 = 0;
+
+            $amountAll = InvoiceItems::find()
+                ->select(['currency_id', 'SUM(amount) as deposit'])
+                ->leftJoin(Invoice::tableName(), 'invoice.invoice_id = invoice_items.invoice_id')
+                ->where(['invoice.invoice_status_id' => 2])
+                //->andWhere(['!=', 'invoice_items.artist_id', 0])
+                ->groupBy(['currency_id'])
+                ->asArray()
+                ->all();
+
+            foreach ($amountAll as $deposit) {
+                if ($deposit['currency_id'] == 2) { // UAH
+                    $uah_1 = (float) $deposit['deposit'];
+                } else {
+                    $euro_1 = (float) $deposit['deposit'];
+                }
+            }
+
+
+            if ($uah != $uah_1) {
+                $all = (new \yii\db\Query())
+                    ->from(InvoiceItems::tableName())
+                    ->select('artist_id, SUM(invoice_items.amount) as deposit')
+                    ->leftJoin(Invoice::tableName(), 'invoice.invoice_id = invoice_items.invoice_id')
+                    ->where(['invoice.invoice_status_id' => 2, 'invoice.currency_id' => 2])
+                    //->andWhere(['!=', 'invoice_items.artist_id', 0])
+                    ->groupBy(['artist_id'])
+                    ->all();
+
+                foreach ($all as $item) {
+                    $artist = Artist::findOne((int)$item['artist_id']);
+
+                    if ($artist->deposit != $item['deposit']) {
+                        $errors[$item['artist_id']]['deposit'] = [
+                            'old' => $artist->deposit,
+                            'new' => (float) $item['deposit'],
+                        ];
+
+                        $artist->deposit = (float) $item['deposit'];
+                        $artist->save();
+                    }
+                }
+            }
+
+            if ($euro != $euro_1) {
+                $all = (new \yii\db\Query())
+                    ->from(InvoiceItems::tableName())
+                    ->select('artist_id, SUM(invoice_items.amount) as deposit')
+                    ->leftJoin(Invoice::tableName(), 'invoice.invoice_id = invoice_items.invoice_id')
+                    ->where(['invoice.invoice_status_id' => 2, 'invoice.currency_id' => 1])
+                    //->andWhere(['!=', 'invoice_items.artist_id', 0])
+                    ->groupBy(['artist_id'])
+                    ->all();
+
+                foreach ($all as $item) {
+                    $artist = Artist::findOne((int)$item['artist_id']);
+
+                    if ($artist->deposit_1 != $item['deposit']) {
+                        $errors[$item['artist_id']]['deposit_1'] = [
+                            'old' => $artist->deposit_1,
+                            'new' => (float) $item['deposit'],
+                        ];
+
+                        $artist->deposit_1 = (float) $item['deposit'];
+                        $artist->save();
+                    }
+                }
+            }
+        }
+
+        return $errors;
     }
 }

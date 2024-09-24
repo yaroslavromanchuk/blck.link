@@ -20,7 +20,7 @@ $this->params['breadcrumbs'][] = $this->title;
         <?= Html::a(Yii::t('app', 'Видалити'), ['delete', 'id' => $model->aggregator_id], [
             'class' => 'btn btn-danger',
             'data' => [
-                'confirm' => Yii::t('app', 'Are you sure you want to delete this item?'),
+                'confirm' => Yii::t('app', 'Ви впевнені, що хочете видалити цього агрегатора?'),
                 'method' => 'post',
             ],
         ]) ?>
@@ -31,6 +31,7 @@ $this->params['breadcrumbs'][] = $this->title;
         'attributes' => [
             'aggregator_id',
             'name',
+            'description',
             [
                 'attribute' => 'currency_id',
                 'value' => function($data) {

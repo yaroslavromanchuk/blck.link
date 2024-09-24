@@ -5,9 +5,11 @@ namespace backend\models;
 use Yii;
 
 /**
+ * @property int id
  * @property int track_id
  * @property int artist_id
  * @property int percentage
+ * @property int ownership_type
  */
 class Percentage extends \yii\db\ActiveRecord
 {
@@ -34,5 +36,42 @@ class Percentage extends \yii\db\ActiveRecord
             'artist_id' => Yii::t('app', 'Артист'),
             'percentage' => Yii::t('app', 'Відсоток'),
         ];
+    }
+
+    /**
+     * Gets query for [[OwnershipType]].
+     *
+     * @return \yii\db\ActiveQuery
+     */
+    public function getOwnershipType()
+    {
+        return $this->hasOne(OwnershipType::class, ['id' => 'ownership_type']);
+    }
+
+    /**
+     * Gets query for [[Artist]].
+     *
+     * @return \yii\db\ActiveQuery
+     */
+    public function getArtist()
+    {
+        return $this->hasOne(Artist::class, ['id' => 'artist_id']);
+    }
+
+    public function getFullName()
+    {
+
+        $data = Percentage::find()
+            ->select(['artist.name as artist_name', 'ownership.name', 'ownership_type.name as type_name', 'track_to_percentage.percentage'])
+            ->from('track_to_percentage')
+            ->innerJoin('track', 'track.id = track_to_percentage.track_id')
+            ->innerJoin('artist', 'artist.id = track_to_percentage.artist_id')
+            ->leftJoin('ownership_type', 'ownership_type.id = track_to_percentage.ownership_type')
+            ->leftJoin('ownership', 'ownership.id = ownership_type.ownership_id ')
+            ->where(['track_to_percentage.id' => $this->id])
+            ->asArray()
+            ->one();
+
+        return $data['name'] . ': ' . $data['type_name'];
     }
 }

@@ -1,4 +1,15 @@
 <?php
+
+if (!isset($artist)) {
+    return;
+}
+
+$link = $artist;
+
+/*
+ * @var Artist $link
+ */
+
 $mass = [
     'vk' => '<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" fill="none" viewBox="0 0 26 26">
                  <g stroke="none" stroke-width="1" fill-rule="evenodd"  >
@@ -21,7 +32,9 @@ $mass = [
     
     
 ];
+
 ?>
+
 <div class="card-body">
     <h6 class="card-subtitle mb-2 text-muted"><?=Yii::t('app', 'Подпишись на артиста')?></h6>
     <div class="link_body">

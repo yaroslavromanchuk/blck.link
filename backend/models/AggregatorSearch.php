@@ -18,7 +18,7 @@ class AggregatorSearch extends Aggregator
     {
         return [
             [['aggregator_id', 'currency_id'], 'integer'],
-            [['name', 'date_add', 'last_update'], 'safe'],
+            [['name', 'description', 'date_add', 'last_update'], 'safe'],
         ];
     }
 
@@ -65,6 +65,7 @@ class AggregatorSearch extends Aggregator
         ]);
 
         $query->andFilterWhere(['like', 'name', $this->name]);
+        $query->andFilterWhere(['like', 'description', $this->description]);
 
         return $dataProvider;
     }

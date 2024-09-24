@@ -13,14 +13,14 @@ use yii\helpers\Html;
      </div>
     <div class="col-sm-4 col-md-2">
         <div style="">
-        <h5 class="card-title"><?=$model->artist?></h5>
+        <h5 class="card-title"><?=$model->artist_name?></h5>
         <p class="card-sub-title"><?=$model->name?><br><span class="data"><?=$model->date?></span></p>
         </div>
     </div>
     <div class="col-sm-6 col-md-2">
         <div style="width: 48%"  class="d-inline-block text-center">
             <p>
-                <span class="views"> <?=$model->views?></span>
+                <span class="views"><?=$model->views?></span>
             </p>
 
             <?=Yii::t('app', 'Перегляди')?>
@@ -33,7 +33,7 @@ use yii\helpers\Html;
         </div>
     </div>
     <div class="col-sm-6 col-md-2">
-        <?php
+       <?php
         $items = [
             'view' => '<a  href="https://blck.link/'. $model->url . '"  target="_blank" title="Переглянути" aria-label="Переглянути" ><span style="font-size: 2em" class="glyphicon glyphicon-eye-open"></span></a>',
             'analytics' => Html::a('<span style="font-size: 2em" class="glyphicon glyphicon-stats"></span>', ['analytics', 'id' => $model->id], [ 'title' => 'Аналітика', 'aria-label' => 'Аналітика']),
@@ -62,26 +62,8 @@ use yii\helpers\Html;
         ?>
     </div>
     <div class="col-sm-6 col-md-2">
-        <p>Долі у відсотках:</p>
-        <?php
-        $model->percentage = $model->getPercentage();
-
-        if (empty($model->percentage) || count($model->percentage) == 1) {
-            echo '<span  style="font-size: 2em" class="glyphicon glyphicon-remove btn-danger"></span>';
-            echo Html::a('Додати', ['track/percentage-update', 'trackId' => $model->id]);
-        } else {
-
-            echo Html::ol($model->percentage, ['item' => function($item) {
-                return Html::tag(
-                    'li',
-                    $item['name'] . ': ' . $item['percentage'],
-                    ['style' => 'margin: 5px;']
-                );
-            }, 'class' => 'myclass', ]);
-
-            echo Html::a('Змінити', ['track/percentage-update', 'trackId' => $model->id]);
-
-        } ?>
+        <?= Html::Button(Yii::t('app', 'Відсотки'),  ['class' => 'btn btn-sm btn-success','data-toggle' => 'modal', 'data-target' => '#percentage-modal'. $model->id]) ?>
+        <?=\backend\widgets\PercentageModal::widget(['trackId' => $model->id])?>
     </div>
 </div>
 <hr>

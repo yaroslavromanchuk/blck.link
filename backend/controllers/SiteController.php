@@ -30,7 +30,7 @@ class SiteController extends Controller
                 'class' => AccessControl::class,
                 'rules' => [
                     [
-                        'actions' => ['request-password-reset', 'reset-password', 'telegram'], //'error',
+                        'actions' => ['login', 'request-password-reset', 'reset-password'], //'error',
                         'allow' => true,
                     ],
                     [
@@ -40,7 +40,7 @@ class SiteController extends Controller
                         
                     ],
                     [
-                        'actions' => ['login', 'signup', 'signup-label'],
+                        'actions' => ['signup', 'signup-label'],
                         'allow' => true,
                         'roles' => ['?'],
                     ],

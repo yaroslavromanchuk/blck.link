@@ -21,6 +21,9 @@ use kartik\select2\Select2;
     <div class="card-body">
         <span class="card-title">Пошук треку</span>
         <div class="row">
+            <div class="col-sm-12 col-md-6 col-lg-3">
+                <?= $form->field($model, 'isrc') ?>
+            </div>
         <div class="col-sm-12 col-md-6 col-lg-3">
               <?= $form->field($model, 'artist_id')->widget(Select2::class, [
     'model' => $model,
@@ -43,8 +46,8 @@ use kartik\select2\Select2;
     ],        
 ]) ?>
         </div>
-        <div class="col-sm-12 col-md-6 col-lg-3">
-            <?php  echo $form->field($model, 'url')->widget(Select2::class, [
+       <!-- <div class="col-sm-12 col-md-6 col-lg-3">
+            <?php  /*echo $form->field($model, 'url')->widget(Select2::class, [
     'model' => $model,
     'data' => \backend\models\Track::find()->select(['url', 'id'])->indexBy('url')->column(),
     'language' => 'uk',
@@ -52,8 +55,8 @@ use kartik\select2\Select2;
     'pluginOptions' => [
         'allowClear' => true
     ],        
-]) ?>
-        </div>
+]) */?>
+        </div>-->
         <div class="col-sm-12 col-md-6 col-lg-3">
              <?= $form->field($model, 'date')->widget(DatePicker::class, [
     'language' => 'uk',

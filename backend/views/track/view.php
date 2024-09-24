@@ -31,7 +31,7 @@ $this->params['breadcrumbs'][] = $this->title;
         'attributes' => [
             'id',
             'artist_id',
-            'artist',
+            'artist_name',
             'release_id',
             'date',
             'name',
