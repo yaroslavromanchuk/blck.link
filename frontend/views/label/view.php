@@ -1,9 +1,9 @@
 <?php
 
 /* @var $this yii\web\View */
-/* @var $track */
+/* @var \frontend\models\Track $track */
 
-$this->title = $track->artist.' '.$track->name;
+$this->title = $track->artist_name.' '.$track->name;
 ?>
 <div class="wrapper">
     <div class="release">
@@ -12,7 +12,7 @@ $this->title = $track->artist.' '.$track->name;
                 <input hidden="true" id="fon" value="<?=$track->image?>">
                 <?=($track->youtube_link) ? $this->render('video.php', ['track' => $track]):'<img class="card-img-top" src="'.$track->image.'" alt="'.$track->name.'">'?>
                     <div class="card-header event-info">
-                      <h1 class="event-info__artist no-default-styles"><?=$track->artist?></h1>
+                      <h1 class="event-info__artist no-default-styles"><?=$track->artist_name?></h1>
                       <h3 class="event-info__event no-default-styles"><?=$track->name?></h3>
                       <?php
                       if (!empty($track->sharing)) {
