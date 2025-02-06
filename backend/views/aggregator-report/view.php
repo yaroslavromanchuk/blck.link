@@ -20,10 +20,8 @@ $this->params['breadcrumbs'][] = $this->title;
 <div class="aggregator-report-view">
 
     <h1>№ <?= Html::encode($this->title) ?></h1>
-
     <p>
-        <?// Html::a(Yii::t('app', 'Update'), ['update', 'id' => $model->id], ['class' => 'btn btn-primary']) ?>
-        <?php
+       <?php
 
         if ($model->report_status_id == AggregatorReportStatus::LOADED) {
             echo Html::a(Yii::t('app', 'Згенерувати інвойс'), ['generate-invoice', 'id' => $model->id], ['class' => 'btn btn-success']);
@@ -92,7 +90,7 @@ $this->params['breadcrumbs'][] = $this->title;
         'filterModel' => $searchModel,
         'rowOptions' => function ($model) use ($loaded)
         {
-            if(in_array($model->isrc, $loaded)) {
+            if(in_array(str_replace('-', '', $model->isrc), $loaded)) {
                 return ['class' => 'success'];
             } else {
                 return ['class' => 'danger'];
@@ -100,9 +98,6 @@ $this->params['breadcrumbs'][] = $this->title;
         },
         'columns' => [
             'isrc',
-            'artist',
-            'track',
-            ///'releas',
             'platform',
             'count',
             'amount',

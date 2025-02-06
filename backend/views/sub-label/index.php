@@ -26,16 +26,7 @@ $this->params['breadcrumbs'][] = $this->title;
         'filterModel' => $searchModel,
         'columns' => [
             ['class' => 'yii\grid\SerialColumn'],
-
             'id',
-            //'user_id',
-            [ // name свойство зависимой модели owner
-                'attribute' => 'user_id',
-                'label' => 'Менеджер',
-                'value' => function($data) {
-                        return $data->user->getFullName();
-                    },
-            ],
             'name',
             'url:url',
             'description',

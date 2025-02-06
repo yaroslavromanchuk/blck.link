@@ -17,7 +17,7 @@ $this->params['breadcrumbs'][] = $this->title;
 
     <p>
         <?= Html::a(Yii::t('app', 'Редагувати'), ['update', 'id' => $model->id], ['class' => 'btn btn-primary']) ?>
-        <?= Html::a(Yii::t('app', 'Видалити'), ['delete', 'id' => $model->id], [
+        <?php Html::a(Yii::t('app', 'Видалити'), ['delete', 'id' => $model->id], [
             'class' => 'btn btn-danger',
             'data' => [
                 'confirm' => Yii::t('app', 'Are you sure you want to delete this item?'),
@@ -29,20 +29,44 @@ $this->params['breadcrumbs'][] = $this->title;
     <?= DetailView::widget([
         'model' => $model,
         'attributes' => [
-            'id',
-            'artist_id',
+            [
+                'attribute' => 'album_id',
+                'value' => function ($model) {
+                    return !empty($model->album_id) ? $model->album->name : '';
+                }
+            ],
+            'isrc',
+            //'name',
+
+
+            //'artist_id',
+            [
+                'attribute' => 'artist_id',
+                'value' => function ($model) {
+                    return $model->artist->name;
+                }
+            ],
             'artist_name',
-            'release_id',
+
             'date',
-            'name',
-            'img',
-            'url:url',
+
+            //'img',
+            //'url:url',
           //  'youtube',   
-            'tag',
-            'sharing',
+            //'tag',
+
             'views',
             'click',
-            'active',
+            'active:boolean',
+            'sharing:boolean',
+            'is_album:boolean',
+            'date_added',
+            [
+                'attribute' => 'admin_id',
+                'value' => function ($model) {
+                    return $model->admin->getFullName();
+                }
+            ],
         ],
     ]) ?>
 

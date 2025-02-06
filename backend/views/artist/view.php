@@ -16,14 +16,16 @@ use yii\data\ActiveDataProvider;
 $query = new \yii\db\Query();
 $invoice = new ActiveDataProvider([
     'query' => $query->from('invoice')
-        ->select(['invoice.invoice_id, currency.currency_name, invoice_items.artist_id,
-         invoice.invoice_type, track.name as track_name, invoice_items.platform, invoice_type.invoice_type_name,
-          SUM(invoice_items.count) as count, SUM(invoice_items.amount) as total, invoice.date_added'])
+        ->select(['invoice.invoice_id, CONCAT(invoice.quarter, " кв. ", invoice.year) as quarter, invoice.date_added,
+          currency.currency_name, invoice_items.artist_id,
+         invoice.invoice_type, track.name as track_name, invoice_items.platform, CONCAT(invoice_type.invoice_type_name, " (", aggregator.name, ")") as invoice_type_name,
+          SUM(invoice_items.count) as count, SUM(invoice_items.amount) as total'])
         ->leftJoin('invoice_items', 'invoice_items.invoice_id = invoice.invoice_id')
         ->leftJoin('invoice_type', 'invoice_type.invoice_type_id = invoice.invoice_type')
         ->leftJoin('track', 'track.id = invoice_items.track_id')
         ->leftJoin('currency', 'currency.currency_id = invoice.currency_id')
-        ->where(['invoice_items.artist_id' => $model->id])
+        ->leftJoin('aggregator', 'aggregator.aggregator_id = invoice.aggregator_id')
+        ->where(['invoice_items.artist_id' => $model->id, 'invoice.invoice_status_id' => 2])
         ->groupBy(['invoice.invoice_id']),
     'pagination' => [
         'pageSize' => 20,
@@ -33,7 +35,7 @@ $invoice = new ActiveDataProvider([
 $query = new \yii\db\Query();
 $tracks = new ActiveDataProvider([
     'query' => $query->from('track')
-        ->select('name, views, click')
+        ->select('id, name, views, click')
         ->where(['artist_id' => $model->id]),
     'pagination' => [
         'pageSize' => 20,
@@ -107,6 +109,10 @@ $tracks = new ActiveDataProvider([
                             [
                                 'attribute' => 'name',
                                 'label' => 'Трек',
+                                'format' => 'raw',
+                                'value' => function($data) {
+                                    return Html::a($data['name'], ['track/update', 'id' => $data['id']], ['target'=>'_blank', 'class' => 'linksWithTarget']);
+                                },
                             ],
                             [
                                 'attribute' => 'views',
@@ -131,7 +137,7 @@ $tracks = new ActiveDataProvider([
                         'dataProvider' => $invoice,
                         'rowOptions' => function ($model)
                         {
-                           if($model['invoice_type'] == 1) {
+                           if(in_array($model['invoice_type'], [1, 5])) {
                                return ['class' => 'success'];
                            } else {
                                return ['class' => 'danger'];
@@ -163,9 +169,13 @@ $tracks = new ActiveDataProvider([
                                 'label' => 'Дебіт/Кредіт',
                             ],
                             [
+                                'attribute' => 'quarter',
+                                'label' => 'Квартал',
+                            ],
+                            [
                                 'attribute' => 'date_added',
                                 'label' => 'Дата',
-                                'format' => 'date',
+                                'format' => 'date'
                             ],
                             [
                                 'class' => 'yii\grid\ActionColumn',

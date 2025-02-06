@@ -11,10 +11,11 @@ use common\models\SubLabel;
  */
 class SignupLabelForm extends Model
 {
-    public $username;
-    public $email;
-    public $password;
-    public $url;
+    public string $username;
+    public string $email;
+    public string $password;
+    public string $url;
+    public int $label_id;
 
     /**
      * {@inheritdoc}
@@ -29,7 +30,7 @@ class SignupLabelForm extends Model
 
             ['url', 'trim'],
             ['url', 'required'],
-            ['url', 'unique', 'targetClass' => '\common\models\SubLabel', 'message' => 'Цей URL вже використовується іншим лейблом.'],
+            ['url', 'unique', 'targetClass' => SubLabel::class, 'message' => 'Цей URL вже використовується іншим лейблом.'],
             ['url', 'string', 'min' => 2, 'max' => 50],
 
             ['email', 'trim'],
@@ -40,6 +41,11 @@ class SignupLabelForm extends Model
 
             ['password', 'required'],
             ['password', 'string', 'min' => 6, 'max' => 16],
+
+            ['label_id', 'trim'],
+            ['label_id', 'required'],
+            ['label_id', 'integer'],
+            ['label_id', 'exist', 'skipOnError' => true, 'targetClass' => SubLabel::class, 'targetAttribute' => ['label_id' => 'id']],
         ];
     }
 
@@ -58,8 +64,8 @@ class SignupLabelForm extends Model
         $user = new User();
         $user->username = $this->username;
         $user->email = $this->email;
-        $user->type = 2;// sub-label
-        $user->status = User::STATUS_ACTIVE;
+        $user->label_id = $this->label_id;// sub-label
+        $user->status = User::STATUS_PENDING_APPROVAL;
         $user->setPassword($this->password);
 
         $user->generateAuthKey();
@@ -72,7 +78,6 @@ class SignupLabelForm extends Model
         }
 
         $user->addRole();
-        $this->addSubLabel($user->id, $this->url);
         //$this->sendEmail($user);
 
         return $user;
@@ -95,14 +100,5 @@ class SignupLabelForm extends Model
             ->setTo($this->email)
             ->setSubject('Account registration at ' . Yii::$app->name)
             ->send();
-    }
-
-    protected function addSubLabel(int $userId, string $url)
-    {
-        $subLabel = new SubLabel();
-        $subLabel->user_id = $userId;
-        $subLabel->url = $url;
-
-        $subLabel->save();
     }
 }

@@ -13,8 +13,19 @@ use yii\grid\GridView;
     <?php Pjax::begin([ 'enablePushState' => false]); ?>
     <?= GridView::widget([
         'dataProvider' => $items['dataProvider'],
+        'rowOptions' => function ($model)
+        {
+           if($model->artist_id > 0 && $model->track_id && $model->artist_id != $model->track->artist_id) {
+                return ['class' => 'danger'];
+           }
+        },
         'columns' => [
             //'platform',
+            [   'attribute' => 'artist_id',
+                'value' => function ($data) {
+                    return  $data->artist_id > 0 ? $data->artist->name : null;
+                }
+            ],
             [
                 'attribute' => 'track_id',
                 'value' => function($data) {
@@ -24,6 +35,7 @@ use yii\grid\GridView;
             //'isrc',
             //'count',
             'amount',
+            'description:text',
             //'date_item',
         ],
     ]);

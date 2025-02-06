@@ -60,9 +60,13 @@ class SignupForm extends Model
         if ($user->save()) {
             $user->addRole();
 
-            $this->sendEmail($user);
+            try {
+                $this->sendEmail($user);
+            } catch (\Exception $e) {
 
-            return $user;
+            }
+
+            return true;
         }
 
         return false;
