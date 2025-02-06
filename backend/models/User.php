@@ -10,6 +10,7 @@ use common\models\SubLabel;
  * This is the model class for table "user".
  *
  * @property int $id
+ * @property int $label_id
  * @property string $username
  * @property string $email
  * @property string $lastName
@@ -44,7 +45,7 @@ class User extends ActiveRecord
         return [
             [['file'], 'file', 'extensions' => 'png, jpg'],
             [['username', 'email', 'auth_key', 'password_hash', 'created_at', 'updated_at'], 'required'],
-            [['status', 'created_at', 'updated_at'], 'integer'],
+            [['label_id', 'status', 'created_at', 'updated_at'], 'integer'],
             [['username', 'email', 'logo', 'password_hash', 'password_reset_token'], 'string', 'max' => 255],
             [['lastName', 'firstName', 'middleName'], 'string', 'max' => 100],
             [['sex'], 'string', 'max' => 10],
@@ -62,6 +63,7 @@ class User extends ActiveRecord
 	{
         return [
             'id' => 'Id',
+            'label_id' => 'Лейбл',
             'username' => Yii::t('app', 'Логін'),
             'email' => 'Email',
             'lastName' => Yii::t('app', 'Фамілія'),
@@ -126,14 +128,15 @@ class User extends ActiveRecord
         return $this->hasMany(Track::class, ['admin_id' => 'id', 'active' => $active]);
     }
 
-    public function getLabel()
+    public function getLabel() : \yii\db\ActiveQuery
     {
-        return $this->hasOne(SubLabel::class, ['user_id' => 'id']);
+        return $this->hasOne(SubLabel::class, ['id' => 'label_id']);
     }
-    public function getSubLabels()
-    {
-        return $this->hasMany(SubLabel::class, ['user_id' => 'id']);
-    }
+
+    //public function getSubLabels()
+   // {
+     //   return $this->hasMany(SubLabel::class, ['user_id' => 'id']);
+   // }
 
     /**
      * Gets query for [[Tracks]].

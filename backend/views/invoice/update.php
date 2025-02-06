@@ -5,12 +5,12 @@ use yii\helpers\Html;
 /* @var $this yii\web\View */
 /* @var $model backend\models\Invoice */
 
-$this->title = Yii::t('app', 'Update Invoice: {name}', [
+$this->title = Yii::t('app', 'Оновлення інвойсу: {name}', [
     'name' => $model->invoice_id,
 ]);
-$this->params['breadcrumbs'][] = ['label' => Yii::t('app', 'Invoices'), 'url' => ['index']];
+$this->params['breadcrumbs'][] = ['label' => Yii::t('app', 'Інвойси'), 'url' => ['index']];
 $this->params['breadcrumbs'][] = ['label' => $model->invoice_id, 'url' => ['view', 'id' => $model->invoice_id]];
-$this->params['breadcrumbs'][] = Yii::t('app', 'Update');
+$this->params['breadcrumbs'][] = Yii::t('app', 'Змінити');
 ?>
 <div class="invoice-update">
 

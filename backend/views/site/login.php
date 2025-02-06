@@ -25,9 +25,9 @@ $this->title = 'Авторизація';
 
                 <?= $form->field($model, 'rememberMe')->checkbox() ?>
                 
-                   <!-- <div class="form-group"><? //Html::a('Регистрация', yii\helpers\Url::to(['site/signup']), ['class'=>'btn btn-link']) ?></div>-->
+                   <!-- <div class="form-group"><?php //Html::a('Регистрация', yii\helpers\Url::to(['site/signup']), ['class'=>'btn btn-link']) ?></div>-->
              <div class="form-group">
-                 <? echo Html::a('Реесструвати Лейбл', yii\helpers\Url::to(['site/signup-label']), ['class'=>'btn btn-link']) ?></div>
+                 <?php  Html::a('Реесструвати Лейбл', yii\helpers\Url::to(['site/signup-label']), ['class'=>'btn btn-link']) ?></div>
 
             <div style="color:#999;margin:1em 0">
                     Ви можете <?= Html::a('відновити пароль', ['site/request-password-reset']) ?>.

@@ -3,6 +3,7 @@
 namespace backend\models;
 
 use Yii;
+use yii\db\ActiveRecord;
 use yii\web\UploadedFile;
 use yii\imagine\Image;
 use Imagine\Gd;
@@ -13,13 +14,13 @@ class Upload
 {
     /**
      * 
-     * @param type $model - модель
-     * @param type $id - ід
-     * @param type $folder - папка куда хранить файл, от корня  /frontend/web/images/
+     * @param ActiveRecord $model - модель
+     * @param int $id - ід
+     * @param string $folder - папка куда хранить файл, от корня  /frontend/web/images/
      * @param array $crop - [100, 100] - размер обрезки
      * @return string
      */
-    public static  function createImage($model, $id, $folder='', $crop = []) {
+    public static  function createImage(ActiveRecord $model, int $id, string $folder='', array $crop = []) {
         $dir = Yii::getAlias('@app/../frontend/web/images/').($folder?$folder.'/':'');
       //  Yii::$app->controller->createDirectory(Yii::getAlias('@app/../frontend/web/images').($folder?'/'.$folder:'')); //создаст папку если ее нет!     
                   $fileName = $id.'_'.Yii::$app->getSecurity()->generateRandomString(8) . '.' . $model->file->extension;
@@ -45,14 +46,14 @@ class Upload
 
 	/**
 	 *
-	 * @param type $model
-	 * @param type $current_image
+	 * @param ActiveRecord $model
+	 * @param string $current_image
 	 * @param string $folder - папка куда хранить файл, от корня  /frontend/web/images/
 	 * @param array $crop - [100, 100] - размер обрезки
 	 * @return string
 	 * @throws \yii\base\Exception
 	 */
-     public static  function updateImage($model, $current_image, $folder='', $crop = []) {
+     public static  function updateImage(ActiveRecord $model, string $current_image, string $folder='', array $crop = []) {
                     
                         $dir = Yii::getAlias('@app/../frontend/web/images/').($folder?$folder.'/':'');
       //  Yii::$app->controller->createDirectory($dir); //создаст папку если ее нет!

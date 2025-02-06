@@ -8,7 +8,7 @@ use Yii;
  * @property int id
  * @property int track_id
  * @property int artist_id
- * @property int percentage
+ * @property float percentage
  * @property int ownership_type
  */
 class Percentage extends \yii\db\ActiveRecord
@@ -17,14 +17,15 @@ class Percentage extends \yii\db\ActiveRecord
     {
         return 'track_to_percentage';
     }
+
     public function rules(): array
     {
         return [
             [['track_id', 'artist_id', 'percentage'], 'required'],
-            [['track_id', 'artist_id', 'percentage'], 'integer'],
-            //[['percentage'], 'max' => 100],
+            [['track_id', 'artist_id'], 'integer'],
+            [['percentage'], 'number', 'min' => 0, 'max' => 100],
            // [['percentage'], 'compare', 'compareValue' => 100, 'operator' => '<=',  'skipOnError' => true, 'targetClass' => Percentage::class, 'targetAttribute' => ['track_id' => 'id'], 'message' => Yii::t('app', 'Сума відсотів не може перевищувати 100%')],
-            [['percentage'], 'exist', 'skipOnError' => true, 'targetClass' => Track::class, 'targetAttribute' => ['track_id' => 'id']],
+            [['track_id'], 'exist', 'skipOnError' => true, 'targetClass' => Track::class, 'targetAttribute' => ['track_id' => 'id']],
             [['artist_id'], 'exist', 'skipOnError' => true, 'targetClass' => Artist::class, 'targetAttribute' => ['artist_id' => 'id']],
         ];
     }

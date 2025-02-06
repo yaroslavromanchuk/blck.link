@@ -18,17 +18,21 @@ $this->params['breadcrumbs'][] = $this->title;
         'dataProvider' => $dataProvider,
         'columns' => [
             ['class' => 'yii\grid\SerialColumn'],
-
-            'id',
-            [// name свойство зависимой модели owner
-                       // 'attribute' => 'admin_id',
-                        'label' => Yii::t('app', 'Доступ'),
-                        'value' => function($data){ return $data->role;},
+           // 'id',
+            //'label',
+            [
+                'attribute' => 'label_id',
+                'value' => function ($data) { return $data->label->name ?? 'BlackBeats'; },
             ],
             'username',
             'email:email',
             'lastName',
             'firstName',
+            [// name свойство зависимой модели owner
+                // 'attribute' => 'admin_id',
+                'label' => Yii::t('app', 'Доступ'),
+                'value' => function($data){ return $data->role;},
+            ],
             //'middleName',
             //'sex',
             //'logo',

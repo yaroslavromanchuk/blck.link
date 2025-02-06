@@ -1,5 +1,6 @@
 <?php
 
+use kartik\select2\Select2;
 use yii\helpers\Html;
 use yii\widgets\ActiveForm;
 
@@ -19,25 +20,54 @@ use yii\widgets\ActiveForm;
                 <?php $form = ActiveForm::begin([ 'options' => ['enctype' => 'multipart/form-data']]); ?>
                 <?= $form->field($model, 'admin_id')->hiddenInput(['value'=>Yii::$app->user->identity->id])->label(false)?>
                 <div class="row">
-                    <div class="col-sm-12 col-md-2 col-lg-2">
-      <?= $form->field($model, 'active')->checkbox([ 'value' => 1,  'checked ' => true ]) ?>
+                    <div class="col-sm-6 col-md-1 col-lg-1">
+                    <?= $form->field($model, 'active')->checkbox([ 'value' => 1,  'checked ' => true ]) ?>
                      </div>
-                    <div class="col-sm-12 col-md-2 col-lg-1">
+                </div>
+                <div class="row">
+                    <div class="col-sm-6 col-md-6 col-lg-2">
+                        <?= $form->field($model, 'name')->textInput(['maxlength' => true]) ?>
+                    </div>
+                    <div class="col-sm-6 col-md-2 col-lg-2">
+                        <?= $form->field($model, 'artist_type_id')
+                            ->widget(Select2::class, [
+                            'model' => $model,
+                            'data' => [
+                                    1 => 'ФІЗ',
+                                    2 => 'ЮР',
+                            ],
+                            'language' => 'uk',
+                            'options' => ['placeholder' =>  Yii::t('app', 'Вкажіть тип'),],
+                        ]) ?>
+                    </div>
+                    <div class="col-sm-6 col-md-2 col-lg-2">
+                        <?= $form->field($model, 'tov_name')->textInput(['maxlength' => true, 'placeholder' => 'БЕСТ МЬЮЗІК']) ?>
+                    </div>
+                    <div class="col-sm-12 col-md-12 col-lg-2">
+                        <?= $form->field($model, 'contract')->textInput(['maxlength' => true, 'placeholder' => '792-ПФ від 14.06.2023']) ?>
+                    </div>
+                    <div class="col-sm-6 col-md-1 col-lg-1">
                         <?= $form->field($model, 'percentage')->textInput(['max' => 100]) ?>
                     </div>
-                    <div class="col-sm-12 col-md-2 col-lg-1">
-    <?= $form->field($model, 'name')->textInput(['maxlength' => true]) ?>
-                     </div>
-                    <div class="col-sm-12 col-md-6 col-lg-3">
-                        <?= $form->field($model, 'phone')->textInput(['maxlength' => true]) ?>
+                    <div class="col-sm-12 col-md-12 col-lg-3">
+                        <?= $form->field($model, 'full_name')->textInput(['maxlength' => true]) ?>
                     </div>
-                    <div class="col-sm-12 col-md-6 col-lg-3">
+                </div>
+                <div class="row">
+                    <div class="col-sm-12 col-md-6 col-lg-2">
                         <?= $form->field($model, 'email')->textInput(['maxlength' => true]) ?>
                     </div>
+                    <div class="col-sm-12 col-md-6 col-lg-2">
+                        <?= $form->field($model, 'phone')->textInput(['maxlength' => true]) ?>
+                    </div>
+
+                </div>
+                <div class="row">
                     <div class="col-sm-12 col-md-2 col-lg-2">
                         <?= $form->field($model, 'file')->fileInput() ?>
                     </div>
                 </div>
+                <br>
                 <div class="row">
                      <div class="col-sm-12 col-md-6 col-lg-3">
                         <?= $form->field($model, 'facebook')->textInput(['maxlength' => true]) ?>

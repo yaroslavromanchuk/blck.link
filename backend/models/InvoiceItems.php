@@ -11,8 +11,10 @@ use Yii;
  * @property int $invoice_id
  * @property int $track_id
  * @property int $artist_id
+ * @property int $from_artist_id
  * @property string|null $isrc
- * @property float $amount
+ * @property double $amount
+ * @property string $description
  * @property string $date_item
  * @property string $last_update
  *
@@ -37,10 +39,11 @@ class InvoiceItems extends \yii\db\ActiveRecord
     {
         return [
             [['invoice_id', 'artist_id', 'amount'], 'required'],
-            [['invoice_id', 'track_id', 'artist_id'], 'integer'],
+            [['invoice_id', 'track_id', 'artist_id', 'from_artist_id'], 'integer'],
             [['amount'], 'number'],
             [['date_item', 'last_update'], 'safe'],
             [['isrc'], 'string', 'max' => 100],
+            [['description'], 'string', 'max' => 255],
             [['invoice_id'], 'exist', 'skipOnError' => true, 'targetClass' => Invoice::class, 'targetAttribute' => ['invoice_id' => 'invoice_id']],
             [['artist_id'], 'exist', 'skipOnError' => true, 'targetClass' => Artist::class, 'targetAttribute' => ['artist_id' => 'id']],
             [['track_id'], 'exist', 'skipOnError' => true, 'targetClass' => Track::class, 'targetAttribute' => ['track_id' => 'id']],
@@ -57,9 +60,10 @@ class InvoiceItems extends \yii\db\ActiveRecord
             'invoice_id' => Yii::t('app', 'Інвойс'),
             'track_id' => Yii::t('app', 'Трек'),
             'artist_id' => Yii::t('app', 'Артист'),
+            'from_artist_id' => Yii::t('app', 'Від артиста'),
             'isrc' => Yii::t('app', 'ISRS'),
             //'platform' => Yii::t('app', 'Платформа'),
-            //'count' => Yii::t('app', 'Перегляди'),
+            'description' => Yii::t('app', 'Коментар'),
             'amount' => Yii::t('app', 'Сума'),
             'date_item' => Yii::t('app', 'Завантажено'),
             'last_update' => Yii::t('app', 'Оновлено'),

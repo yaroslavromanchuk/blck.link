@@ -40,11 +40,11 @@ class AggregatorReportItem extends \yii\db\ActiveRecord
     {
         return [
             [[ 'count', 'report_id'], 'integer'],
-            [['report_id', 'isrc', 'date_report', 'artist', 'amount'], 'required'],
+            [['report_id', 'isrc', 'date_report', 'amount'], 'required'],
             [['date_report', 'date_added', 'last_update'], 'safe'],
             [['amount'], 'number'],
             [['isrc'], 'string', 'max' => 100],
-            [['platform', 'artist', 'releas', 'track'], 'string', 'max' => 255],
+            [['platform'], 'string', 'max' => 255],
         ];
     }
 
@@ -59,9 +59,9 @@ class AggregatorReportItem extends \yii\db\ActiveRecord
             'isrc' => Yii::t('app', 'Isrc'),
             'date_report' => Yii::t('app', 'Дані від'),
             'platform' => Yii::t('app', 'Платформа'),
-            'artist' => Yii::t('app', 'Артист'),
-            'releas' => Yii::t('app', 'Реліз'),
-            'track' => Yii::t('app', 'Трек'),
+           // 'artist' => Yii::t('app', 'Артист'),
+           // 'releas' => Yii::t('app', 'Реліз'),
+            //'track' => Yii::t('app', 'Трек'),
             'count' => Yii::t('app', 'Преегляди'),
             'amount' => Yii::t('app', 'Винагорода'),
             'date_added' => Yii::t('app', 'Date Added'),

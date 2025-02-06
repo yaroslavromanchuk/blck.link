@@ -15,6 +15,8 @@ use Yii;
  * @property int $user_id
  * @property string $date_added
  * @property string $last_update
+ * @property int $quarter
+ * @property int $year
  *
  * @property User $user
  * @property AggregatorReportStatus $reportStatus
@@ -36,8 +38,8 @@ class AggregatorReport extends \yii\db\ActiveRecord
     public function rules()
     {
         return [
-            [['aggregator_id', 'user_id'], 'required'],
-            [['aggregator_id', 'report_status_id', 'user_id'], 'integer'],
+            [['aggregator_id', 'user_id', 'quarter', 'year'], 'required'],
+            [['aggregator_id', 'report_status_id', 'user_id', 'quarter', 'year'], 'integer'],
             [['total'], 'number'],
             [['date_added', 'last_update', 'description'], 'safe'],
             [['user_id'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['user_id' => 'id']],
@@ -59,6 +61,8 @@ class AggregatorReport extends \yii\db\ActiveRecord
             'total' => Yii::t('app', 'Сума'),
             'description' => Yii::t('app', 'Нотатка'),
             'user_id' => Yii::t('app', 'Завантажив'),
+            'quarter' => Yii::t('app', 'Квартал'),
+            'year' => Yii::t('app', 'Рік'),
             'date_added' => Yii::t('app', 'Завантажено'),
             'last_update' => Yii::t('app', 'Оновлено'),
         ];

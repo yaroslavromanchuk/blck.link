@@ -26,7 +26,7 @@ $this->params['breadcrumbs'][] = $this->title;
         'columns' => [
            // ['class' => 'yii\grid\SerialColumn'],
 
-            //'invoice_type_id',
+            'invoice_type_id',
             'invoice_type_name',
             'date_add',
            // 'last_update',

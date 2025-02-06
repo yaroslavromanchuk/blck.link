@@ -21,10 +21,7 @@ use kartik\select2\Select2;
     <div class="card-body">
         <span class="card-title">Пошук треку</span>
         <div class="row">
-            <div class="col-sm-12 col-md-6 col-lg-3">
-                <?= $form->field($model, 'isrc') ?>
-            </div>
-        <div class="col-sm-12 col-md-6 col-lg-3">
+        <div class="col-sm-12 col-md-6 col-lg-2">
               <?= $form->field($model, 'artist_id')->widget(Select2::class, [
     'model' => $model,
     'data' => \backend\models\Artist::find()->select(['name', 'id'])->indexBy('id')->column(),
@@ -35,7 +32,7 @@ use kartik\select2\Select2;
     ],        
 ]) ?>
         </div>
-        <div class="col-sm-12 col-md-6 col-lg-3">
+        <div class="col-sm-12 col-md-6 col-lg-2">
               <?= $form->field($model, 'name')->widget(Select2::class, [
     'model' => $model,
     'data' => \backend\models\Track::find()->select(['name', 'id'])->indexBy('name')->column(),
@@ -57,7 +54,7 @@ use kartik\select2\Select2;
     ],        
 ]) */?>
         </div>-->
-        <div class="col-sm-12 col-md-6 col-lg-3">
+        <div class="col-sm-12 col-md-6 col-lg-2">
              <?= $form->field($model, 'date')->widget(DatePicker::class, [
     'language' => 'uk',
     'dateFormat' => 'yyyy-MM-dd',
@@ -77,14 +74,40 @@ use kartik\select2\Select2;
     ]
 ])?>
         </div>
-            <div class="col-ms-12 text-center">
-                <div class="form-group">
-        <?= Html::submitButton(Yii::t('app', 'Шукати'), ['class' => 'btn  btn-primary']) ?>
-        <?php // Html::resetButton(Yii::t('app', 'Reset'), ['class' => 'btn btn-outline-secondary']) ?>
-    </div>
+            <div class="col-sm-12 col-md-6 col-lg-2">
+                <?= $form->field($model, 'date_added')->widget(DatePicker::class, [
+                    'language' => 'uk',
+                    'dateFormat' => 'yyyy-MM-dd',
+                    'options' => [
+                        // 'placeholder' => Yii::$app->formatter->asDate($model->created_at),
+                        'class'=> 'form-control',
+                        'autocomplete'=>'off'
+                    ],
+                    'clientOptions' => [
+                        'changeMonth' => true,
+                        'changeYear' => true,
+                        // 'yearRange' => '2020:2025',
+                        //'showOn' => 'button',
+                        //'buttonText' => 'Выбрать дату',
+                        'buttonImageOnly' => true,
+                        //'buttonImage' => 'images/calendar.gif'
+                    ]
+                ])?>
             </div>
-         </div>
-        
+            <div class="col-sm-12 col-md-3 col-lg-2">
+                <?= $form->field($model, 'isrc') ?>
+            </div>
+            <div class="col-sm-12 col-md-3 col-lg-1">
+                <?= $form->field($model, 'is_album')->checkbox()?>
+            </div>
+
+      </div>
+        <div class="col-ms-12 text-center">
+            <div class="form-group">
+                <?= Html::submitButton(Yii::t('app', 'Шукати'), ['class' => 'btn  btn-primary']) ?>
+                <?php // Html::resetButton(Yii::t('app', 'Reset'), ['class' => 'btn btn-outline-secondary']) ?>
+            </div>
+        </div>
     </div>
     
 

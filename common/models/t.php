@@ -9,15 +9,20 @@ use yii\base\Model;
  */
 class t extends Model
 {
+    const CHATID = 404070580;
     /**
      * Send to me
      *
      * @param string $message
      * @return void
      */
-    public static function log(string $message)
+    public static function log(string $message, ?int $chat_id = null)
     {
-         self::send(404070580, $message);
+        if (is_null($chat_id)) {
+            $chat_id = self::CHATID;
+        }
+
+         self::send($chat_id, $message);
     }
 
     /**

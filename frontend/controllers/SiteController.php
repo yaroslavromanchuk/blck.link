@@ -15,6 +15,11 @@ use frontend\models\ResetPasswordForm;
 use frontend\models\SignupForm;
 use frontend\models\ContactForm;
 use frontend\models\Track;
+use frontend\models\Artist;
+
+use aki\telegram\base\Response;
+use aki\telegram\base\TelegramBase;
+use aki\telegram\base\Command;
 
 use frontend\models\Sitemap;
 
@@ -120,20 +125,11 @@ class SiteController extends Controller
 
 		$track->views = (int)($track->views+1);
 		$track->save();
-
-                    $view = new \common\models\Views();
-                    $view->track_id = $track->id;
-                    $view->view = 1;
-                    $view->ip = Yii::$app->request->userIP;
-                    $country = geoip_country_name_by_name(Yii::$app->request->userIP);
-                    $view->country = $country ? $country : null;
-                    $view->referal = $referal;
-                    $view->data = date("Y-m-d");
-                    $view->save();
+        $track->setLog($referal);
 
         $this->view->registerMetaTag(['name' => 'description', 'content' => 'Listen, download or stream '.$track->name.'!', 'data-hid'=>'description'],'description');
         $this->view->registerMetaTag(['property' => 'og:url', 'content' => '/'.$track->url], 'og:url');
-        $this->view->registerMetaTag(['property'=>'og:title', 'content' => $track->artist.' - '.$track->name.' | BlckLink'], 'og:title');
+        $this->view->registerMetaTag(['property'=>'og:title', 'content' => $track->artist_name.' - '.$track->name.' | BlckLink'], 'og:title');
         $this->view->registerMetaTag(['property'=>'og:description', 'content' => 'Listen, download or stream '.$track->name.'!'], 'og:description');
         $this->view->registerMetaTag(['property' => 'og:image:width', 'content' => '200'],'og:image:width');
         $this->view->registerMetaTag(['property' => 'og:image:height', 'content' => '200'],'og:image:height');
@@ -141,12 +137,13 @@ class SiteController extends Controller
 
         $this->view->registerMetaTag(['name' => 'twitter:card', 'content' => 'summary_large_image'],'twitter:card');
         $this->view->registerMetaTag(['name' => 'twitter:site', 'content' => '@'.$track->url],'twitter:site');
-        $this->view->registerMetaTag(['name' => 'twitter:title', 'content' => $track->artist.' - '.$track->name.' | BlckLink'],'twitter:title');
+        $this->view->registerMetaTag(['name' => 'twitter:title', 'content' => $track->artist_name.' - '.$track->name.' | BlckLink'],'twitter:title');
         $this->view->registerMetaTag(['name' => 'twitter:description', 'content' => 'Listen, download or stream '.$track->name.'!'],'twitter:description');
         $this->view->registerMetaTag(['name' => 'twitter:image', 'content' =>  $track->getImage()],'twitter:image');
 
         return $this->render('view', [
             'track' => $track,
+            'services' => (object) unserialize($track->servise),
         ]);
     }
 
@@ -385,4 +382,36 @@ class SiteController extends Controller
             'model' => $xml_sitemap,
         ]);
 }
+
+    public function actionTelegram()
+    {
+        if (Yii::$app->request->isPost) {
+            Command::run("/start", function($telegram) {
+
+                $data = [
+                    'from' => get_object_vars($telegram->input->message->from),
+                    'chat' => get_object_vars($telegram->input->message->chat),
+                ];
+
+                file_put_contents(
+                    'test.txt',
+                    print_r($data, 1),
+                    FILE_APPEND
+                );
+
+                $telegram->sendMessage([
+                    'chat_id' => $telegram->input->message->chat->id,
+                    "text" => 'Привіт ' . $telegram->input->message->from->first_name . ', Твій ID:' . $telegram->input->message->chat->id,
+                ]);
+            });
+
+            exit();
+
+           // $telegram = Yii::$app->telegram;
+
+           // exit;
+        }
+
+        return $this->redirect(['index']);
+    }
 }

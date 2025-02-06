@@ -25,14 +25,40 @@ use yii\helpers\Html;
                         }
 
                         if(Yii::$app->user->can('moder')) {
-                            $items[] = ['label' => Yii::t('app', 'Агрегатори'),  'url' => ['/aggregator'], "icon" => "files-o"];
+                            //$items[] = ['label' => Yii::t('app', 'Агрегатори'),  'url' => ['/aggregator'], "icon" => "files-o"];
+                            $items[] = [
+                                'label' => Yii::t('app', 'Звіти'),
+                                'icon' => 'table',
+                                'url' => "#",
+                                'items'=> [
+                                    [
+                                        'label' => Yii::t('app', 'Агрегатори'),
+                                        'url' => '#',
+                                        'items' => [
+                                            ['label' => Yii::t('app', 'Список агрегатори'), 'url' => ['/aggregator']],
+                                            ['label' => Yii::t('app', 'Звіти агрегаторів'), 'url' => ['/aggregator-report']],
+                                            ['label' => Yii::t('app', 'Статуси звітів агрегаторів'), 'url' => ['/aggregator-report-status']],
+                                            ['label' => Yii::t('app', 'Власність'), 'url' => ['/ownership']],
+                                            ['label' => Yii::t('app', 'Катеорія власності'), 'url' => ['/ownership-type']],
+                                        ],
+                                    ],
+                                    [
+                                        'label' => Yii::t('app', 'Інвойси'),
+                                        'url' => '#',
+                                        'items' => [
+                                            ['label' => Yii::t('app', 'Список інвойсів'), 'url' => ['/invoice']],
+                                            ['label' => Yii::t('app', 'Типи інвойсів'), 'url' => ['/invoice-type']],
+                                        ],
+                                    ],
+                                ],
+                            ];
                         }
 
                         if(Yii::$app->user->can('manager')) {
                             $items[] = ['label' => Yii::t('app', 'Аналітика'),  'url' => ['/log'], "icon" => "files-o"];
                         }
 
-                        if(Yii::$app->user->can('label') && isset(Yii::$app->user->identity->label->id)) {
+                        if(Yii::$app->user->can('manager') && isset(Yii::$app->user->identity->label->id)) {
                             $items[] = ['label' => Yii::t('app', 'Налаштування'),  'url' => ['/sub-label/view/', 'id' => Yii::$app->user->identity->label->id], "icon" => "table"];
                         }
                         // $items[] = ["label" => Yii::t('app', 'Официальные ссылки'), "url" => ["/link"], "icon" => "close"];

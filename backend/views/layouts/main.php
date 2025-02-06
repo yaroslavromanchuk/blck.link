@@ -54,7 +54,16 @@ AppAsset::register($this);
                 <div class="alert alert-success alert-dismissable" style="margin-top: 50px">
                     <button aria-hidden="true" data-dismiss="alert" class="close" type="button">×</button>
                     <h4><i class="icon fa fa-check"></i>OK!</h4>
-                    <?= Yii::$app->session->getFlash('success') ?>
+                    <?php $success = Yii::$app->session->getFlash('success');
+
+                    if (is_array($success)) {
+                        foreach ($success as $succes) {
+                            echo $succes . '<br>';
+                        }
+                    } else {
+                        echo $success;
+                    }
+                    ?>
                 </div>
             <?php endif; ?>
 
@@ -62,7 +71,16 @@ AppAsset::register($this);
                 <div class="alert alert-danger alert-dismissable" style="margin-top: 50px">
                     <button aria-hidden="true" data-dismiss="alert" class="close" type="button">×</button>
                     <h4><i class="icon fa fa-check"></i>ERROR!</h4>
-                    <?= Yii::$app->session->getFlash('error') ?>
+                    <?php $errors = Yii::$app->session->getFlash('error');
+
+                    if (is_array($errors)) {
+                        foreach ($errors as $error) {
+                            echo $error . '<br>';
+                        }
+                    } else {
+                        echo $errors;
+                    }
+                    ?>
                 </div>
             <?php endif; ?>
 

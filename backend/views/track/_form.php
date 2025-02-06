@@ -6,39 +6,34 @@ use yii\jui\DatePicker;
 use kartik\select2\Select2;
 use backend\models\Artist;
 use backend\models\Release;
+use backend\models\Track;
 use backend\widgets\CreateArtist;
 use backend\widgets\CreateRelease;
+use yii\widgets\Pjax;
 
 /* @var $this yii\web\View */
-/* @var $model backend\models\Track */
+/* @var $model Track */
 
-if (Yii::$app->user->identity->type == 1) { //
-    $artistData = Artist::find()
-        ->select(['artist.name', 'artist.id'])
-        ->leftJoin('user', 'user.id = artist.admin_id')
-        ->andFilterWhere(['user.type' => 1])
-        ->indexBy('artist.id')
-        ->column();
+$artistData = Artist::find()
+    ->select(['artist.name', 'artist.id'])
+    ->leftJoin('user', 'user.id = artist.admin_id')
+    ->andFilterWhere(['user.label_id' => Yii::$app->user->identity->label_id])
+    ->indexBy('artist.id')
+    ->column();
 
-    $releaseData = Release::find()
-        ->select(['releases.release_name', 'releases.release_id'])
-        ->leftJoin('user', 'user.id = releases.admin_id')
-        ->andFilterWhere(['user.type' => 1])
-        ->indexBy('releases.release_id')
-        ->column();
-} else {
-    $artistData = Artist::find()
-        ->select(['artist.name', 'artist.id'])
-        ->andFilterWhere(['artist.admin_id' => Yii::$app->user->identity->id])
-        ->indexBy('artist.id')
-        ->column();
+$releaseData = Release::find()
+    ->select(['releases.release_name', 'releases.release_id'])
+    ->leftJoin('user', 'user.id = releases.admin_id')
+    ->andFilterWhere(['user.label_id' => Yii::$app->user->identity->label_id])
+    ->indexBy('releases.release_id')
+    ->column();
 
-    $releaseData = Release::find()
-        ->select(['releases.release_name', 'releases.release_id'])
-        ->andFilterWhere(['releases.admin_id' => Yii::$app->user->identity->id])
-        ->indexBy('releases.release_id')
-        ->column();
-}
+$albumData = Track::find()
+    ->select(['track.name', 'track.id'])
+    ->leftJoin('user', 'user.id = track.admin_id')
+    ->andFilterWhere(['track.is_album' => 1, 'user.label_id' => Yii::$app->user->identity->label_id])
+    ->indexBy('track.id')
+    ->column();
 ?>
 <div class="row">
     <div class="col-md-12 col-sm-12 col-xs-12">
@@ -49,8 +44,9 @@ if (Yii::$app->user->identity->type == 1) { //
             </div>
             <div class="x_content">
                  <?php
-               //  Pjax::begin([ 'enablePushState' => false]);
-                 $form = ActiveForm::begin(['options' => ['enctype' => 'multipart/form-data']]);
+                 $form = ActiveForm::begin([
+                         'options' => ['enctype' => 'multipart/form-data']
+                 ]);
                  ?>
                 <div class="row">
                     <div class="col-sm-12 col-md-6"><!--Артист/Площадки/Фіти-->
@@ -74,7 +70,9 @@ if (Yii::$app->user->identity->type == 1) { //
                                               //  'allowClear' => true
                                             ],
                                             'pluginEvents' => [
-                                                'select2:select' => ' function(e) {  $("input#track-artist").val(e.params.data.text); }'
+                                                'select2:select' => ' function(e) {
+                                                  $("input#track-artist_name").val(e.params.data.text); 
+                                                  }'
                                             ]
                                         ]) ?>
                                     </div>
@@ -204,13 +202,36 @@ if (Yii::$app->user->identity->type == 1) { //
                             <div class="card-body">
                                 <span class="card-title">Трек</span>
                                 <div class="row">
-                                    <div class="col-sm-12">
-                                        <?= $form->field($model, 'sharing')->checkbox([ 'value' => 1,  'checked' => (bool) $model->sharing, 'label' => 'Відображати', ]) ?>
+                                   <!-- <div class="col-sm-6 col-md-6">
+                                        <?php // $form->field($model, 'sharing')->checkbox([ 'value' => 1,  'checked' => (bool) $model->sharing]) ?>
+                                    </div>-->
+                                    <div class="col-sm-6 col-md-6">
+                                        <?= $form->field($model, 'active')->checkbox([ 'value' => 1,  'checked' => (bool) $model->active, 'label' => 'Відображати']) ?>
                                     </div>
-                                    <div class="col-sm-12">
+                                    <div class="col-sm-6 col-md-6">
+
+                                        <?= $form->field($model, 'is_album')
+                                            ->checkbox([ 'value' => 1, 'checked' => (bool) $model->is_album, 'label' => 'Це альбом', 'onchange' => 'if($(this).prop("checked")) { $("#track-album_id").val(\'\').prop("disabled", true);} else {$("#track-album_id").prop("disabled", false);}']) ?>
+                                    </div>
+                                    <div class="col-sm-6 col-md-6">
+                                        <?= $form->field($model, 'album_id')
+                                            ->widget(Select2::class, [
+                                                'model' => $model,
+                                                'data' => $albumData,
+                                                'language' => 'uk',
+                                                'options' => ['placeholder' =>  Yii::t('app', 'Вкажіть альбом при потребі'),],
+                                                'pluginOptions' => [
+                                                    //  'allowClear' => true
+                                                ],
+                                                //'pluginEvents' => [
+                                                 //   'select2:select' => ' function(e) {  $("input#track-artist").val(e.params.data.text); }'
+                                               // ]
+                                            ]) ?>
+                                    </div>
+                                    <div class="col-sm-12 col-md-6">
                                         <?= $form->field($model, 'isrc')->textInput(['maxlength' => true]) ?>
                                     </div>
-                                    <div class="col-sm-12">
+                                    <div class="col-sm-12 col-md-6">
                                         <?= $form->field($model, 'date')->widget(DatePicker::class, [
                                             'language' => 'uk',
                                             'dateFormat' => 'yyyy-MM-dd',
@@ -222,10 +243,10 @@ if (Yii::$app->user->identity->type == 1) { //
                                         ])?>
                                     </div>
 
-                                    <div class="col-sm-12">
+                                    <div class="col-sm-12 col-md-6">
                                         <?= $form->field($model, 'name')->textInput(['maxlength' => true]) ?>
                                     </div>
-                                    <div class="col-sm-12">
+                                    <div class="col-sm-12 col-md-6">
                                         <?php if($model->url){
                                             echo $form->field($model, 'url',  ['enableAjaxValidation' => true])->textInput(['maxlength' => true]);
                                         } else {
@@ -234,13 +255,19 @@ if (Yii::$app->user->identity->type == 1) { //
                                     </div>
                                     <div class="col-sm-12">
                                         <?php // $form->field($model, 'img')->textInput(['maxlength' => true]) ?>
-                                        <?php if($model->img){ echo Html::img($model->image,['alt'=>'yii2 - картинка в gridview', 'style' => 'width: 200px; margin-top: 15px;']);}?>
+                                        <?php if(!empty($model->img)) {
+                                            echo Html::img($model->image,['alt'=>'yii2 - картинка в gridview', 'style' => 'width: 200px; margin-top: 15px;']);
+                                        }
+                                        ?>
+                                        <?= $form->field($model, 'img')
+                                            ->hiddenInput(['value' => !empty($model->img) ? $model->img : ''])
+                                            ->label(false)?>
                                         <?= $form->field($model, 'file')->fileInput() ?>
                                     </div>
-                                    <div class="col-sm-12">
+                                    <div class="col-sm-12 col-md-6">
                                         <?= $form->field($model, 'youtube_link')->textInput(['maxlength' => true]) ?>
                                     </div>
-                                    <div class="col-sm-12 ">
+                                    <div class="col-sm-12 col-md-6">
                                         <?= $form->field($model, 'tag')->textInput(['maxlength' => true]) ?>
                                     </div>
                                 </div>
@@ -255,7 +282,8 @@ if (Yii::$app->user->identity->type == 1) { //
                         </div>
                     </div>
                 </div>
-            <?php ActiveForm::end(); ?>
+            <?php ActiveForm::end();
+            ?>
         </div>
       </div>
 </div>

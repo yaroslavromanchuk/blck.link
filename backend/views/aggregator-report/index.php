@@ -1,5 +1,6 @@
 <?php
 
+use backend\widgets\DateFormat;
 use yii\helpers\Html;
 use yii\grid\GridView;
 
@@ -51,12 +52,26 @@ $this->params['breadcrumbs'][] = $this->title;
             ],
             'total',
             [
+                'attribute' => 'currency_id',
+                'filter'=> [1 => 'EURO', 2 =>'UAH'],
+                'value' => function($data) {
+                    return $data->aggregator->currency->name;
+                },
+            ],
+            [
                 'attribute' => 'user_id',
                 'value' => function($data) {
                     return $data->user->getFullName();
                 },
             ],
             'date_added',
+            [
+                'attribute' => 'date_added',
+                'label' => 'Квартал',
+                'value' => function($data) {
+                    return $data->quarter . ' кв. ' . $data->year; //DateFormat::getQuarterText($data->date_added);
+                }
+            ],
             //'last_update',
 
             ['class' => 'yii\grid\ActionColumn'],

@@ -17,7 +17,7 @@ class AggregatorReportItemSearch extends AggregatorReportItem
     {
         return [
             [['id', 'report_id', 'count'], 'integer'],
-            [['isrc', 'date_report', 'platform', 'artist', 'releas', 'track', 'date_added', 'last_update'], 'safe'],
+            [['isrc', 'date_report', 'platform', 'date_added', 'last_update'], 'safe'],
             [['amount'], 'number'],
         ];
     }
@@ -41,6 +41,8 @@ class AggregatorReportItemSearch extends AggregatorReportItem
     public function search($params)
     {
         $query = AggregatorReportItem::find();
+          //  ->leftJoin(Track::tableName(), 'track.isrc = aggregator_report_item.isrc')
+           // ->onCondition(['=', 'track.album', 0]);
 
         // add conditions that should always apply here
 
@@ -56,22 +58,26 @@ class AggregatorReportItemSearch extends AggregatorReportItem
             return $dataProvider;
         }
 
+       // $query->leftJoin(Track::tableName(), 'track.isrc = aggregator_report_item.isrc');
+
         // grid filtering conditions
         $query->andFilterWhere([
-            'id' => $this->id,
-            'report_id' => $this->report_id,
-            'date_report' => $this->date_report,
-            'count' => $this->count,
-            'amount' => $this->amount,
-            'date_added' => $this->date_added,
-            'last_update' => $this->last_update,
+            'aggregator_report_item.id' => $this->id,
+            'aggregator_report_item.report_id' => $this->report_id,
+            'aggregator_report_item.date_report' => $this->date_report,
+            'aggregator_report_item.count' => $this->count,
+            'aggregator_report_item.amount' => $this->amount,
+            'aggregator_report_item.date_added' => $this->date_added,
+           // 'last_update' => $this->last_update,
         ]);
 
-        $query->andFilterWhere(['like', 'isrc', $this->isrc])
-            ->andFilterWhere(['like', 'platform', $this->platform])
-            ->andFilterWhere(['like', 'artist', $this->artist])
-            ->andFilterWhere(['like', 'releas', $this->releas])
-            ->andFilterWhere(['like', 'track', $this->track]);
+        $query->andFilterWhere(['like', 'aggregator_report_item.isrc', $this->isrc])
+            ->andFilterWhere(['like', 'aggregator_report_item.platform', $this->platform]);
+           // ->andFilterWhere(['like', 'artist', $this->artist])
+           // ->andFilterWhere(['like', 'releas', $this->releas])
+           // ->andFilterWhere(['like', 'track', $this->track]);
+
+       // $query->andFilterWhere(['is', 'track.id', new \yii\db\Expression('null')]);
 
         return $dataProvider;
     }

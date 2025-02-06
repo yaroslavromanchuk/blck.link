@@ -30,9 +30,21 @@ $this->params['breadcrumbs'][] = $this->title;
     <?php Pjax::begin(); ?>
     <?php // echo $this->render('_search', ['model' => $searchModel]); ?>
 
+    <?php
+
+    $total_amount = $total_amount_uah = 0;
+
+    foreach($dataProvider->models as $m)
+    {
+        $total_amount += $m->deposit_1;
+        $total_amount_uah += $m->deposit;
+    }
+    ?>
+
     <?= GridView::widget([
         'dataProvider' => $dataProvider,
         'filterModel' => $searchModel,
+        'showFooter' => true,
         'columns' => [
             ['class' => 'yii\grid\SerialColumn'],
             [
@@ -70,18 +82,37 @@ $this->params['breadcrumbs'][] = $this->title;
                  'attribute' => 'deposit',
                 'label' => 'Депозит UAH >=',
                 'value' => function($data) { return $data->deposit; },
+                'footer' => $total_amount_uah
             ],
             [
                 'attribute' => 'deposit_1',
                 'label' => 'Депозит EURO >=',
                 'value' => function($data) { return $data->deposit_1; },
+                'footer' => $total_amount
             ],
-            //'telegram_id',
+            'date_last_payment',
             //'active',
 
-            ['class' => 'yii\grid\ActionColumn',
-                'template' => Yii::$app->user->can('admin')?'{view} {update} {delete}': '{view} {update}'
-             ],
+            [
+                'class' => 'yii\grid\ActionColumn',
+                'template' => Yii::$app->user->can('admin') ? '{view} {update} {delete} {export-act}': '{view} {update} {export-act}',
+                'buttons' => [
+                    'export-balance' => function ($url, $model, $key) {
+                        return Html::a('<span class="glyphicon glyphicon-paste" style="margin-left: 20px"></span>', $url, [
+
+                            'title' => Yii::t('yii', 'Export Balance'),
+                            'target' => '_blank'
+                        ]);
+                    },
+                    'export-act' => function ($url, $model, $key) {
+                        return Html::a('<span class="glyphicon glyphicon-paste" style="margin-left: 20px"></span>', $url, [
+
+                            'title' => Yii::t('yii', 'Export Report'),
+                            'target' => '_blank'
+                        ]);
+                    },
+                ],
+            ],
         ],
     ]); ?>
 

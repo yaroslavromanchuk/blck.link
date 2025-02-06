@@ -1,5 +1,6 @@
 <?php
 
+use backend\widgets\DateFormat;
 use yii\helpers\Html;
 use yii\grid\GridView;
 use yii\helpers\Url;
@@ -15,9 +16,7 @@ $this->params['breadcrumbs'][] = $this->title;
 
     <h1><?= Html::encode($this->title) ?></h1>
 
-    <p>
-        <?= Html::a(Yii::t('app', 'Створити інвойс'), ['create'], ['class' => 'btn btn-success']) ?>
-    </p>
+    <?= Html::a(Yii::t('app', 'Створити інвойс'), ['create'], ['class' => 'btn btn-success']) ?>
 
     <?php // echo $this->render('_search', ['model' => $searchModel]); ?>
 
@@ -39,7 +38,7 @@ $this->params['breadcrumbs'][] = $this->title;
             //'invoice_type',
             [
                 'attribute' => 'invoice_type',
-                'filter'=> [1 => 'Надходження', 2 =>'Виплата', 3 => 'Витрати'],
+                'filter'=> [1 => 'Надходження', 2 =>'Виплата', 3 => 'Витрати', 4 => 'Аванс', 5 => 'Баланс'],
                 'value' => function($data) {
                     return $data->invoiceType->invoice_type_name;
                 },
@@ -80,30 +79,56 @@ $this->params['breadcrumbs'][] = $this->title;
                     return $data->user->getFullName();
                 },
             ],
-            'date_added',
+            'date_added:date',
+            [
+                'attribute' => 'quarter',
+               // 'label' => 'Квартал',
+                'filter'=> [1 => '1 кв.', 2 =>'2 кв.', 3 => '3 кв.', 4 => '4 кв.'],
+                'value' => function($data) {
+                    return $data->quarter . ' кв.'; //DateFormat::getQuarterText($data->date_added);
+                }
+            ],
+            [
+                'attribute' => 'year',
+                'filter'=> [2024 => 2024, 2025 =>2025],
+            ],
             //'last_update',
-
             [
                 'class' => 'yii\grid\ActionColumn',
-                'template' => $searchModel->invoice_status_id != 1 ? '{view}  {update}  {delete}' : '{view}  {view-report}  {export}',
+                'template' => '{view} {export-to-excel}  {delete}' ,// {update}  {delete} | {view-report} {export} {pdf}
                'buttons' => [
-                        'view-report' => function ($url, $model) {
-                            return Html::a('<span class="glyphicon glyphicon-indent-left"></span>', $url, [
+                    'view-report' => function ($url, $model) {
+                        return Html::a('<span class="glyphicon glyphicon-indent-left"></span>', $url, [
 
-                                'title' => Yii::t('yii', 'Звіт по доходу'),
-                                'data-pjax' => 0,
-                                'style' => $model->invoice_type != 1 ?'display:none; margin-left:5px;' : 'margin-left:5px;',
-                            ]);
+                            'title' => Yii::t('yii', 'Звіт по доходу'),
+                            'data-pjax' => 0,
+                            'style' => $model->invoice_type != 1 ?'display:none; margin-left:5px;' : 'margin-left:5px;',
+                        ]);
                     },
+                   'pdf' => function ($url, $model) {
+                       return Html::a('<span class="glyphicon glyphicon-floppy-save"></span>', $url, [
+
+                           'title' => Yii::t('yii', 'Скачати Акт'),
+                           'data-pjax' => 0,
+                           'style' => $model->invoice_type != 2 ?'display:none;margin-left:5px;' : 'margin-left:5px;',
+                       ]);
+                   },
                    'export' => function ($url, $model) {
                        return Html::a('<span class="glyphicon glyphicon-cloud-download"></span>', $url, [
 
                            'title' => Yii::t('yii', 'Export report'),
                            'data-pjax' => 0,
-                           'style' => $model->invoice_type != 1 ?'display:none;margin-left:5px;' : 'margin-left:5px;',
+                           'style' => !in_array($model->invoice_type, [1,2]) ?'display:none;margin-left:5px;' : 'margin-left:5px;',
                        ]);
                    },
+                   'export-to-excel' => function ($url, $model) {
+                       return Html::a('<span class="glyphicon glyphicon-cloud-download"></span>', $url, [
 
+                           'title' => Yii::t('yii', 'Звіт по артистам'),
+                          // 'target' => '_blank',
+                           'style' => $model->invoice_type != 1 ? 'display:none;margin-left:5px;' : 'margin-left:5px;',
+                       ]);
+                   },
                 ],
                 //'urlCreator' => function ($action, $model, $key, $index) {
                   //  return Url::to(['invoice/'.$action, 'id' => $model->invoice_id]);
@@ -111,6 +136,4 @@ $this->params['breadcrumbs'][] = $this->title;
             ],
         ],
     ]); ?>
-
-
 </div>

@@ -7,7 +7,10 @@ use yii\base\Model;
 use yii\web\UploadedFile;
 
 /**
+ * @property UploadedFile $file
  * @property int $aggregatorId
+ * @property int $quarter
+ * @property int $year
  */
 class UploadReport extends Model
 {
@@ -16,17 +19,19 @@ class UploadReport extends Model
      */
     public ?UploadedFile $file = null;
     public ?int $aggregatorId = null;
+    public ?int $quarter = null;
+    public ?int $year = null;
 
     public function rules(): array
     {
         return [
-            [['aggregatorId'], 'required'],
-            [['aggregatorId'], 'integer'],
+            [['aggregatorId', 'quarter', 'year'], 'required'],
+            [['aggregatorId', 'quarter', 'year'], 'integer'],
             [['file'], 'file',
-                'extensions'=>'csv',
+                'extensions'=>'xls,xlsx,csv',
                 //'wrongType' => 'Дозволяється тільки csv.',
-                'maxSize' => 1024 * 1024 * 100, // 100MB
-                //'tooLarge' => 'Розмір файлу перевищує 10 МБ. Будь ласка, завантажте файл меншого розміру.',
+                'maxSize' => 1024 * 1024 * 15, // 15MB
+                //'tooLarge' => 'Розмір файлу перевищує 15 МБ. Будь ласка, завантажте файл меншого розміру.',
                 'skipOnEmpty' => false,
             ],
 
@@ -39,14 +44,17 @@ class UploadReport extends Model
     {
         return [
             'aggregatorId' => Yii::t('app', 'Агрегатор'),
+            'quarter' => Yii::t('app', 'Квартал'),
+            'year' => Yii::t('app', 'Рік'),
             'file' => Yii::t('app', 'Звіт'),
         ];
     }
 
     public function upload(): bool
     {
-        if ($this->validate()) {
+        if ($this->validate('file')) {
             $this->file->saveAs('uploads/' . $this->file->baseName . '.' . $this->file->extension);
+
             return true;
         } else {
             return false;

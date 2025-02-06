@@ -17,8 +17,8 @@ class TrackSearch extends Track
     public function rules()
     {
         return [
-            [['artist_id', 'sharing', 'views', 'click', 'active'], 'integer'],
-            [['artist_name', 'date', 'name', 'img', 'url', 'youtube_link', 'tag', 'isrc'], 'safe'],
+            [['artist_id', 'sharing', 'is_album', 'views', 'click', 'active'], 'integer'],
+            [['artist_name', 'date', 'date_added', 'name', 'img', 'url', 'youtube_link', 'tag', 'isrc'], 'safe'],
         ];
     }
 
@@ -52,17 +52,18 @@ class TrackSearch extends Track
                     //   'default' => SORT_ASC,
                   //  ],
                     'date',
+                    'date_added',
                     'artist_name' =>[
                         'label' =>  'Артист'
                     ],
                     'views',
                     'click'
-        ],
+                ],
                 'enableMultiSort' => false,
                 'defaultOrder' => [
-                    'date' => SORT_DESC
+                    'date_added' => SORT_DESC
                     ]
-    ],
+            ],
         ]);
 
         $this->load($params);
@@ -73,22 +74,31 @@ class TrackSearch extends Track
             return $dataProvider;
         }
 
+        $query->innerJoin(User::tableName(), 'user.id = track.admin_id');
+
         // grid filtering conditions
         $query->andFilterWhere([
           //  'id' => $this->id,
-            'artist_id' => $this->artist_id,
-            'date' => $this->date,
-            'sharing' => $this->sharing,
-            'views' => $this->views,
-            'click' => $this->click,
-            'active' => $this->active,
+            'track.artist_id' => $this->artist_id,
+            //'track.date' => $this->date,
+            'track.sharing' => $this->sharing,
+            'track.views' => $this->views,
+            'track.click' => $this->click,
+            'track.active' => $this->active,
         ]);
 
-        $query->andFilterWhere(['like', 'artist_name', $this->artist_name])
-            ->andFilterWhere(['like', 'name', $this->name])
-            ->andFilterWhere(['like', 'url', $this->url])
-            ->andFilterWhere(['like', 'tag', $this->tag])
-            ->andFilterWhere(['like', 'isrc', $this->isrc])
+        if ($this->is_album == 1) {
+            $query->andFilterWhere(['track.is_album' => $this->is_album]);
+        }
+
+        $query->andFilterWhere(['like', 'track.artist_name', $this->artist_name])
+            ->andFilterWhere(['like', 'track.name', '%' .$this->name.'%', false])
+            ->andFilterWhere(['like', 'track.url', $this->url])
+            ->andFilterWhere(['like', 'track.tag', $this->tag])
+            ->andFilterWhere(['like', "REPLACE(track.isrc, '-', '')", str_replace('-', '', $this->isrc), false])
+            ->andFilterWhere(['>=', 'date', $this->date])
+            //->andFilterWhere(['<', 'date', '2025-01-01'])
+            ->andFilterWhere(['>=', 'date_added', $this->date_added]);
         ;
        //    ->andFilterWhere(['like', 'apple', $this->apple]) 
          //  ->andFilterWhere(['like', 'boom', $this->boom]) 
@@ -99,9 +109,8 @@ class TrackSearch extends Track
          //  ->andFilterWhere(['like', 'deezer', $this->deezer])
          //  ->andFilterWhere(['like', 'yandex', $this->yandex]);
 
-        if (Yii::$app->user->identity->type != 1) {
-            $query->andFilterWhere(['admin_id' => Yii::$app->user->identity->id]);
-        }
+        //$query->andFilterWhere(['user.label_id' => Yii::$app->user->identity->label_id]);
+
 
         return $dataProvider;
     }

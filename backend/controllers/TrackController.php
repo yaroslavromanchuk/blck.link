@@ -54,10 +54,30 @@ class TrackController extends Controller
         $searchModel = new TrackSearch();
         $dataProvider = $searchModel->search(Yii::$app->request->queryParams);
 
+        //$this->getT();
         return $this->render('index', [
             'searchModel' => $searchModel,
             'dataProvider' => $dataProvider,
         ]);
+    }
+
+    private function getT()
+    {
+        $traks = Track::find()->all();
+
+        foreach ($traks as $track) {
+
+            $pc = $track->getPercentage();
+
+           // print_r($pc); exit();
+
+           if (!empty($pc) && $pc[4]['type_name'] == 'Загальний відсоток' && $pc[4]['percentage'] == 0) {
+               echo $track->id;
+                $track->getPR();
+                echo ' +'.PHP_EOL;
+            }
+        }
+        exit;
     }
 
     /**
@@ -82,7 +102,7 @@ class TrackController extends Controller
     {
         $model = new Track();
 
-		if(Yii::$app->request->isAjax ) {
+		if(Yii::$app->request->isAjax) {
         	if ($model->load(Yii::$app->request->post())){
             	Yii::$app->response->format = Response::FORMAT_JSON;
 
@@ -92,35 +112,47 @@ class TrackController extends Controller
       }
 
         if ($model->load(Yii::$app->request->post())) {
-            $id = Track::find()
-                ->orderBy('id DESC')
-                ->one()
-                ->id;
-             $id++;
-
             $file = UploadedFile::getInstance($model, 'file');
 
             if ($file && $file->tempName) {
                 $model->file = $file;
+                $id = Track::find()
+                    ->orderBy('id DESC')
+                    ->one()
+                    ->id;
+                $id++;
 
                 if ($model->validate(['file'])) {
                     $model->img = Upload::createImage($model, $id, 'track', [500, 500]);
                 }
+            } else {
+                $model->img = '2565_XZEVWO7R.jpg';
             }
+
+            $model->name = trim($model->name);
 
             if (empty($model->url)) {
                 $model->url = trim(Yii::$app->translit->t($model->name));//     Yii::$app->getSecurity()->generateRandomString(8);
             }
 
-             $model->servise = serialize($model->servise);
+            $model->isrc = trim($model->isrc);
+            $model->servise = serialize($model->servise);
 
             if($model->validate() && $model->save()) {
-                $model->addArtistPercentage();
+
+                if (!$model->is_album) {
+                    $model->addArtistPercentage();
+                }
 
                 $feeds = Yii::$app->request->post('Track')['feeds']?? [];
 
                 if (!empty($feeds) && is_array($feeds)) {
                     $model->saveFeeds(Yii::$app->request->post('Track')['feeds']?? []);
+                }
+
+                if (Yii::$app->user->id != 16) {
+                    $message = $model->is_album == 1 ? 'трек: ' . $model->name : 'трек: ' . $model->name . ' (' . $model->isrc . ')';
+                    t::log(Yii::$app->user->identity->getFullName()  . ', додав '. $message, 529871503);
                 }
 
                 return $this->redirect(['view', 'id' => $model->id]);
@@ -146,6 +178,68 @@ class TrackController extends Controller
         ]);
         
     }
+    public function actionCopy(int $id)
+    {
+        if(Yii::$app->request->isAjax) {
+            $model = new Track();
+            if ($model->load(Yii::$app->request->post())){
+                Yii::$app->response->format = Response::FORMAT_JSON;
+
+                return ActiveForm::validate($model);
+            }
+
+            return true;
+        }
+
+        if (Yii::$app->request->isPost) {
+            $model = new Track();
+            if ($model->load(Yii::$app->request->post())) {
+                $model->name = trim($model->name);
+                if (empty($model->url)) {
+                    $model->url = trim(Yii::$app->translit->t($model->name));//     Yii::$app->getSecurity()->generateRandomString(8);
+                }
+
+                $model->isrc = trim($model->isrc);
+                $model->servise = serialize($model->servise);
+
+                if($model->validate() && $model->save()) {
+
+                    if (!$model->is_album) {
+                        $model->addArtistPercentage();
+                    }
+
+                    $feeds = Yii::$app->request->post('Track')['feeds']?? [];
+
+                    if (!empty($feeds) && is_array($feeds)) {
+                        $model->saveFeeds(Yii::$app->request->post('Track')['feeds']?? []);
+                    }
+
+                    if (Yii::$app->user->id != 16) {
+                        $message = $model->is_album == 1 ? 'трек: ' . $model->name : 'трек: ' . $model->name . ' (' . $model->isrc . ')';
+                        t::log(Yii::$app->user->identity->getFullName()  . ', додав '. $message, 529871503);
+                    }
+
+                    return $this->redirect(['view', 'id' => $model->id]);
+                } else {
+                    return $this->render('copy', [
+                        'model' => $model,
+                    ]);
+                }
+            }
+        }
+
+        $model = $this->findModel($id);
+
+        $model->id = null;
+        $model->isrc = null;
+        $model->name = $model->name . ' - Копія';
+        $model->sharing = 0;
+        $model->url = $model->url . '/copy';
+
+        return $this->render('copy', [
+            'model' => $model,
+        ]);
+    }
 
 	/**
 	 * Updates an existing Track model.
@@ -162,10 +256,8 @@ class TrackController extends Controller
         if ($model->load(Yii::$app->request->post())) {
              $file = UploadedFile::getInstance($model, 'file');
             if ($file && $file->tempName) {
-               
                 $model->file = $file;
-
-                if ($model->validate(['file'])) {
+                if ($model->validate('file')) {
                    $model->img = Upload::updateImage($model, $model->img, 'track', [500, 500]);
                 }
             }
@@ -174,7 +266,7 @@ class TrackController extends Controller
              
 			if ($model->validate() && $model->save()) {
 
-                if (count(Percentage::findAll(['track_id' => $model->id, 'artist_id' => $model->artist_id])) != 4) {
+                if (!$model->is_album && count(Percentage::findAll(['track_id' => $model->id, 'artist_id' => $model->artist_id])) != 4) {
                     $model->updateArtistPercentage();
                 }
 
@@ -185,8 +277,6 @@ class TrackController extends Controller
                 }
 
                 $model->saveFeeds($feeds);
-
-
 
                 return $this->redirect(['view', 'id' => $model->id]);
 			}
@@ -211,7 +301,7 @@ class TrackController extends Controller
     {
         $this->findModel($id)->delete();
 
-        return $this->redirect(['index']);
+        return $this->redirect(Yii::$app->request->referrer ?: Yii::$app->homeUrl);
     }
 
     #region Percentage
@@ -275,42 +365,76 @@ class TrackController extends Controller
 
     public function actionPercentageUpdate(int $trackId)
     {
-        if (Yii::$app->request->isPjax) {
-            foreach (Yii::$app->request->post('Percentage') as $sub) {
-                foreach ($sub as $form) {
-                    foreach ($form as $id => $percentage) {
-                        $model = Percentage::findOne($id);
-                        $model->percentage = $percentage;
-                        $model->save();
+        $Percentage = Yii::$app->request->post('Percentage', []);
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        if (!empty($Percentage) && is_array($Percentage)) {
+
+            foreach ($Percentage as $type1 => $sub) {
+                foreach ($sub as $type2 => $form) {
+                    if ($type2 != 5) {
+                        $sum = array_sum($form);
+
+                        if ($sum != 0 && $sum != 100) {
+                            // throw new \InvalidArgumentException($sum);
+                            // Yii::$app->response->format = Response::FORMAT_JSON;
+                            $model = new Percentage();
+                            $model->percentage = $sum;
+                            $validate = ActiveForm::validate($model, 'percentage');
+
+                            if (!empty($validate)) {
+
+
+                                return $validate;
+                            }
+                        }
+
                     }
                 }
             }
 
-            t::log('User: '.Yii::$app->user->identity->getFullName().', update %, track ID: ' . $trackId);
 
+        $res = '';
 
-            // $model = Percentage::findOne($id);
+        foreach ($Percentage as $sub) {
+            foreach ($sub as $form) {
+                foreach ($form as $id => $percentage) {
+                    $model = Percentage::findOne($id);
 
-           // Yii::$app->response->format = Response::FORMAT_JSON;
+                    if ($model->percentage != $percentage) {
+                        $temp = [
+                            'id' => $id,
+                            'old' => $model->percentage,
+                            'new' => $percentage,
+                        ];
 
-           /* if (!$model->load(Yii::$app->request->post()) || !$model->save()) {
-                Yii::$app->response->format = Response::FORMAT_JSON;
-
-                return ActiveForm::validate($model);
-            } else {
-                return $this->renderAjax('../../widgets/views/_percentageModalOne', [
-                    'model' => $model
-                ]);
-            }*/
-
-           // return true;
+                        $model->percentage = $percentage;
+                        if($model->save()) {
+                            $res .= '
+                            ' . implode(",", $temp);
+                        }
+                    }
+                }
+            }
         }
 
-        //return false;
+        if (!empty($res)) {
+            t::log(
+                'User: ' . Yii::$app->user->identity->getFullName() . '
+                    update % for track ID: ' . $trackId . '
+                    ' . $res
+            );
+        }
+    }
+
+        echo 'Дані збережено!';
+        die;
 
         return $this->redirect(['index']);
+    }
 
-
+    public function actionLoadModal(int $trackId)
+    {
         $data = Percentage::find()
             ->select(['track_to_percentage.id', 'track_to_percentage.track_id', 'track_to_percentage.artist_id', 'track_to_percentage.percentage',
                 'artist.name as artist_name',
@@ -329,14 +453,15 @@ class TrackController extends Controller
         $mdata = [];
 
         foreach ($data as $item) {
-            $mdata[$item['ownership_id']][$item['artist_name'] . ': ' . $item['type_name']] = $item;
+            $mdata[$item['ownership_id']][$item['ownership_type_id']][$item['artist_name'] . ': ' . $item['type_name']] = $item;
         }
 
         $model = new Perc();
         $model->track_id = $trackId;
         $model->data = $mdata;
 
-        return $this->renderAjax('../../widgets/views/__percentageModal', [
+
+        return $this->renderAjax('../../widgets/views/___percentageModal', [
             'model' => $model,
             'track' => Track::findOne($trackId),
         ]);

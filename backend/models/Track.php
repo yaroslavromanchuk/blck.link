@@ -2,6 +2,7 @@
 
 namespace backend\models;
 
+use common\models\Log;
 use Yii;
 use yii\db\ActiveRecord;
 
@@ -23,20 +24,23 @@ use yii\db\ActiveRecord;
  * @property int $views
  * @property int $click
  * @property int $active
- * @property string servise
- * @property array percentage
+ * @property int $is_album
+ * @property int $album_id
+ * @property string $servise
+ * @property array $percentage
+ * @property double $deposit_uah
+ * @property double $deposit_euro
+ * @property string $date_added
  *
  * @property Log[] $logs
  * @property  $musicServices
  * @property  $oficialLink
- * @property FeedToTrack feeds
+ * @property FeedToTrack $feeds
  */
 class Track extends \yii\db\ActiveRecord
 {
     public $file;
 
-    //public array $percentage = [];
-   // public array $feeds = [];
     /**
      * {@inheritdoc}
      */
@@ -53,14 +57,19 @@ class Track extends \yii\db\ActiveRecord
        return [
            [['servise'], 'string'],
            [['file'], 'file', 'extensions' => 'png, jpg, jpeg',],
-           [['artist_id', 'artist_name', 'date',  'name', 'img'], 'required'],
-           [['artist_id', 'release_id', 'admin_id', 'sharing', 'views', 'click', 'active'], 'integer'],
+           [['artist_id', 'artist_name', 'name', 'img'], 'required'],
+           ['isrc', 'required', 'when' => function ($model) {
+               return $model->is_album != 1;
+           }],
+           [['isrc', 'name', 'artist_name'], 'trim'],
+           [['artist_id', 'release_id', 'admin_id', 'sharing', 'is_album', 'album_id', 'views', 'click', 'active'], 'integer'],
            [['date'], 'safe'],
            [['artist_name', 'tag', 'isrc'], 'string', 'max' => 100],
            [['name', 'img', 'youtube_link'], 'string', 'max' => 255],
            [['url'], 'string', 'max' => 50],
+           [['deposit_uah', 'deposit_euro'], 'double'],
            [['artist_id'], 'exist', 'skipOnError' => true, 'targetClass' => Artist::class, 'targetAttribute' => ['artist_id' => 'id']],
-           ['url', 'unique', 'targetClass' => '\backend\models\Track', 'message' => Yii::t('app', 'Це посилання вже зайняте!')],
+           ['url', 'unique', 'targetClass' => self::class, 'message' => Yii::t('app', 'Це посилання вже зайняте!')],
        ];
    }
 
@@ -77,7 +86,7 @@ class Track extends \yii\db\ActiveRecord
             'date' => Yii::t('app', 'Дата реліза'),
             'name' => Yii::t('app', 'Назва теку'),
             'img' => Yii::t('app', 'Обкладинка'),
-            'file' => Yii::t('app', 'Обкладинка'),
+            'file' => Yii::t('app', 'Файл Обкладинки'),
             'url' => Yii::t('app', 'Посилання'),
             'youtube_link' => Yii::t('app', 'YouTube канал'),
             'tag' => Yii::t('app', 'Тег'),
@@ -90,6 +99,11 @@ class Track extends \yii\db\ActiveRecord
             'percentage' => Yii::t('app', 'Відсотки'),
             'admin_id' => Yii::t('app', 'Створив'),
             'isrc' => Yii::t('app', 'ISRC'),
+            'deposit_uah' => Yii::t('app', 'Депозит UAH'),
+            'deposit_euro' => Yii::t('app', 'Депозит EURO'),
+            'is_album' => Yii::t('app', 'Це альбом'),
+            'album_id' => Yii::t('app', 'Альбом'),
+            'date_added' => Yii::t('app', 'Додано'),
        ];
     }
     /** 
@@ -157,6 +171,11 @@ class Track extends \yii\db\ActiveRecord
     public function getAdmin()
     {
         return $this->hasOne(User::class, ['id' => 'admin_id']);
+    }
+
+    public function getAlbum()
+    {
+        return $this->hasOne(self::class, ['id' => 'album_id']);
     }
     
     public function getImage(): string
@@ -231,7 +250,7 @@ class Track extends \yii\db\ActiveRecord
     {
         foreach (OwnershipType::find()->asArray()->all() as $type) {
 
-            $per = 0;
+            $per = 100;
 
             if ($type['id'] == 5) {
                 $per = $this->artist->percentage;
@@ -251,7 +270,7 @@ class Track extends \yii\db\ActiveRecord
         foreach (OwnershipType::find()->asArray()->all() as $type) {
 
             if(null === Percentage::findOne(['track_id' => $this->id, 'artist_id' => $this->artist_id, 'ownership_type' => $type['id']])) {
-                $per = 0;
+                $per = 100;
 
                 if ($type['id'] == 5) {
                     $per = $this->artist->percentage;
@@ -267,15 +286,70 @@ class Track extends \yii\db\ActiveRecord
         }
     }
 
+    public function getTotalAmount(): string
+    {
+        $data = InvoiceItems::find()
+            ->select(['it.invoice_type_name', 'c.currency_name', 'SUM(ii.amount) as amount'])
+            ->from(InvoiceItems::tableName() . ' as ii')
+            ->innerJoin(Invoice::tableName() . ' as i', 'ii.invoice_id = i.invoice_id')
+            ->leftJoin(Currency::tableName() . ' as c', 'c.currency_id = i.currency_id')
+            ->leftJoin(InvoiceType::tableName() . ' as it', 'it.invoice_type_id = i.invoice_type')
+            ->where(['ii.track_id' => $this->id])
+            ->andFilterWhere(['=', 'i.invoice_status_id', 2])
+            ->andFilterWhere(['in', 'i.invoice_type', [1, 2]])
+            ->groupBy(['i.invoice_type', 'i.currency_id'])
+            ->asArray()
+            ->all();
+
+        $result = [];
+
+        foreach ($data as $datum) {
+            $result[] = $datum['invoice_type_name'] . ': ' . $datum['amount'] . ' ' .$datum['currency_name'];
+        }
+
+        return implode(PHP_EOL, $result);
+    }
+
+    public function getPR()
+    {
+        foreach (OwnershipType::find()->asArray()->all() as $type) {
+            $percentage = Percentage::findOne(['track_id' => $this->id, 'artist_id' => $this->artist_id, 'ownership_type' => $type['id']]);
+
+            if ($percentage->percentage == 100) {
+                $per = $this->artist->percentage == 0 ? 0 : 100;
+
+                if ($type['id'] == 5) {
+                    $per = $this->artist->percentage;
+                }
+
+                $percentage->percentage = $per;
+                $percentage->save(false);
+            }
+        }
+
+    }
+
     public static function getTrackByIsrc(string $isrc): ?Track
     {
-        return Track::findOne(['isrc' => $isrc]);
+        $track = Track::findOne(['isrc' => $isrc]);
+
+        if (!is_null($track)) {
+            return $track;
+        }
+
+        $track = Track::find()
+            ->andWhere(['like', "REPLACE(track.isrc, '-', '')", str_replace('-', '', $isrc)])
+            ->one();
+
+        if ($track instanceof self) {
+            return $track;
+        }
+
+        return null;
     }
 
     public function getCalculation(int $aggregator_id, float $total): array
     {
-        $where = [];
-
         switch ($aggregator_id) {
             case 1:
             case 9: $where = [OwnershipType::Phonogram]; break; // Белив і УЛАСП-ОКУАСП Ф - Фонограма
@@ -289,7 +363,7 @@ class Track extends \yii\db\ActiveRecord
             case 7: // ТММ - Текст + Музика + Виконання + Фонограма
             case 8: $where = [OwnershipType::Text, OwnershipType::Music, OwnershipType::Implementation, OwnershipType::Phonogram]; break; // СУКА - Текст + Музика + Виконання + Фонограма
             default:
-                return [];
+                $where = [];
         }
 
         $d = count($where) * 100;
@@ -309,6 +383,7 @@ class Track extends \yii\db\ActiveRecord
             ->asArray()
             ->all();
 
+
         $result = [];
 
         foreach ($data as $datum) {
@@ -317,19 +392,39 @@ class Track extends \yii\db\ActiveRecord
                 continue;
             }
 
-            $pSum = $total * $datum['percentage'];
-            $pArtista = $pSum * (Percentage::findOne(['track_id' => $this->id, 'artist_id' => $datum['artist_id'], 'ownership_type' => 5])->percentage / 100);
+            $pSum = round($total * $datum['percentage'], 4);
+
+            $percentageArtist = Percentage::findOne([
+                'track_id' => $this->id,
+                'artist_id' => $datum['artist_id'],
+                'ownership_type' => 5
+            ])->percentage;
+
+            if ($percentageArtist > 0) {
+                $percentageArtist = round($pSum * ($percentageArtist / 100), 4);
+            }
 
             $result[] = [
                 'artist_id' => $datum['artist_id'],
-                'amount' => $pArtista,
+                'amount' => $percentageArtist,
+                'from_artist_id' => null,
             ];
 
             $result[] = [
                 'artist_id' => Artist::label,
-                'amount' => $pSum - $pArtista,
+                'amount' => round($pSum - $percentageArtist, 4),
+                'from_artist_id' => $datum['artist_id'],
             ];
         }
+
+        // якщо жодному артисту не виплачуємо за тип прав, весь дохід має іти лейбу
+         if (empty($result)) {
+             $result[] = [
+                 'artist_id' => Artist::label,
+                 'amount' => $total,
+                 'from_artist_id' => $this->artist_id,
+             ];
+         }
 
         return $result;
     }

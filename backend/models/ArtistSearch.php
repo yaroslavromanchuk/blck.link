@@ -18,8 +18,8 @@ class ArtistSearch extends Artist
     public function rules(): array
 	{
         return [
-            [['id', 'active', 'deposit', 'deposit_1', 'reliz', 'percentage'], 'integer'],
-            [['name',  'phone', 'email'], 'safe'],
+            [['id', 'label_id', 'active', 'deposit', 'deposit_1', 'reliz', 'percentage', 'last_payment_invoice'], 'integer'],
+            [['name',  'phone', 'email', 'date_last_payment'], 'safe'],
         ];
     }
 
@@ -53,6 +53,9 @@ class ArtistSearch extends Artist
                     'id' => SORT_DESC
                 ]
     		],
+            'pagination' => [
+                'pageSize' => 1000,
+            ],
         ]);
 
         $this->load($params);
@@ -70,15 +73,14 @@ class ArtistSearch extends Artist
             //'reliz' => $this->reliz,
         ]);
 
-        if (Yii::$app->user->identity->type != 1) {
-            $query->andFilterWhere(['!=', 'id', Artist::label]);
-            $query->andFilterWhere(['admin_id' => Yii::$app->user->identity->id]);
-        }
+        $query->andFilterWhere(['label_id' => Yii::$app->user->identity->label_id]);
 
-        $query->andFilterWhere(['like', 'name', $this->name])
+        $query->andFilterWhere(['like', 'name', '%'.$this->name.'%', false])
             ->andFilterWhere(['like', 'phone', $this->phone])
             ->andFilterWhere(['like', 'email', $this->email])
-            ->andFilterWhere(['=', 'percentage', $this->email]);
+            ->andFilterWhere(['like', 'date_last_payment', $this->date_last_payment])
+            ->andFilterWhere(['=', 'last_payment_invoice', $this->last_payment_invoice])
+            ->andFilterWhere(['=', 'percentage', $this->percentage]);
 
         $query->andFilterWhere(['>=', 'deposit', $this->deposit])
         ->andFilterWhere(['>=', 'deposit_1', $this->deposit_1]);

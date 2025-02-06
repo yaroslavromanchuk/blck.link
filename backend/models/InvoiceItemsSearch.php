@@ -48,6 +48,9 @@ class InvoiceItemsSearch extends InvoiceItems
 
         $dataProvider = new ActiveDataProvider([
             'query' => $query,
+            'pagination' => [
+                'pageSize' => 1000,
+            ],
         ]);
 
         $this->load($params);
@@ -64,12 +67,13 @@ class InvoiceItemsSearch extends InvoiceItems
             'invoice_id' => $this->invoice_id,
             'track_id' => $this->track_id,
             'artist_id' => $this->artist_id,
+            'isrc' => $this->isrc,
            // 'amount' => $this->amount,
             //'date_item' => $this->date_item,
            // 'last_update' => $this->last_update,
         ]);
 
-        $query->andFilterWhere(['like', 'isrc', $this->isrc]);
+       // $query->andFilterWhere(['like', 'isrc', $this->isrc]);
 
         return $dataProvider;
     }

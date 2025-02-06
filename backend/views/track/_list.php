@@ -1,69 +1,107 @@
 <?php
 
+use backend\widgets\PercentageModal;
 use yii\helpers\Url;
 use yii\helpers\Html;
 
 /* @var $model backend\models\Track */
 ?>
-<div  class="row">
-    <div style="" class="col-sm-8 col-md-2">
-        <a href="<?=Url::to('https://blck.link/' . $model->url)?>"  target="_blank" >
-        <img class="card-img-top1" style="width: 160px;margin-left: 15px;border-radius: .25rem;" src="<?=$model->getImage()?>" alt="<?=$model->name?>">
-        </a>
-     </div>
-    <div class="col-sm-4 col-md-2">
-        <div style="">
-        <h5 class="card-title"><?=$model->artist_name?></h5>
-        <p class="card-sub-title"><?=$model->name?><br><span class="data"><?=$model->date?></span></p>
-        </div>
-    </div>
-    <div class="col-sm-6 col-md-2">
-        <div style="width: 48%"  class="d-inline-block text-center">
-            <p>
-                <span class="views"><?=$model->views?></span>
+<div  class="panel">
+    <div class="panel-body row">
+        <div style="" class="col-sm-8 col-md-2">
+            <a href="<?=Url::to('https://blck.link/' . $model->url)?>"  target="_blank" >
+            <img class="card-img-top1" style="width: 160px;margin-left: 15px;border-radius: .25rem;" src="<?=$model->getImage()?>" alt="<?=$model->name?>">
+            </a>
+         </div>
+        <div class="col-sm-4 col-md-2">
+            <div style="">
+            <h5 class="card-title"><?=$model->name?></h5>
+            <p class="card-sub-title"><?=$model->artist_name?><br>
+                <span class="data">Реліз: <?=$model->date?></span><br>
+                <span class="data">Додано: <?=date('Y-m-d', strtotime($model->date_added))?></span>
             </p>
-
-            <?=Yii::t('app', 'Перегляди')?>
+                <?php if ($model->is_album) {
+                    echo '(album)';
+                } ?>
+            </div>
         </div>
-        <div style="width: 48%" class="d-inline-block text-center">
+        <div class="col-sm-12 col-md-2">
             <p>
-                <span class="click"><?=$model->click?></span>
+                <?=Yii::t('app', 'Перегляди')?>
+                <span class="badge"><?=$model->views?></span>
             </p>
-            <?=Yii::t('app', 'Кліки')?>
+            <p>
+                <?=Yii::t('app', 'Кліки')?>
+                <span class="badge"><?=$model->click?></span>
+            </p>
+            <p>
+                <?=Yii::t('app', 'Депозит UAH')?>
+                <span class="badge"><?php echo !empty($model->deposit_uah) ? $model->deposit_uah : 0; ?></span>
+            </p>
+            <p>
+                <?=Yii::t('app', 'Депозит EURO')?>
+                <span class="badge"><?php echo !empty($model->deposit_euro) ? $model->deposit_euro : 0; ?></span>
+            </p>
+            <?php if (!$model->is_album) { ?>
+                <p>
+                    <?=Yii::t('app', 'ISRC')?>
+                    <span class=""><?=$model->isrc?></span>
+                </p>
+            <?php }?>
+            <p>
+                <?= $model->getTotalAmount()?>
+            </p>
         </div>
-    </div>
-    <div class="col-sm-6 col-md-2">
-       <?php
-        $items = [
-            'view' => '<a  href="https://blck.link/'. $model->url . '"  target="_blank" title="Переглянути" aria-label="Переглянути" ><span style="font-size: 2em" class="glyphicon glyphicon-eye-open"></span></a>',
-            'analytics' => Html::a('<span style="font-size: 2em" class="glyphicon glyphicon-stats"></span>', ['analytics', 'id' => $model->id], [ 'title' => 'Аналітика', 'aria-label' => 'Аналітика']),
-        ];
+        <div class="col-md-3">
+           <?php
+           //echo PercentageModal::widget(['trackId' => $model->id]);
 
-        if (Yii::$app->user->can('moder')) {
-            $items['update'] = Html::a('<span style="font-size: 2em" class="glyphicon glyphicon-pencil"></span>', ['update', 'id' => $model->id], [ 'title' => 'Редагувати', 'aria-label' => 'Редагувати']);
-            $items['delete'] = Html::a('<span  style="font-size: 2em" class="glyphicon glyphicon-remove"></span>',
-                ['delete', 'id' => $model->id],
-                [
-                    //'class' => 'btn btn-danger',
-                    'data' => [
-                        'confirm' => Yii::t('app', 'Ви впевнені що хочете видалити цей трек?'),
-                        'method' => 'post',
-                    ],
-                ]
-            );
-        }
-        echo Html::ul($items, ['item' => function($item) {
-            return Html::tag(
-                'li',
-                $item,
-                ['style' => 'margin: 10px; list-style: none;']
-            );
-        }, 'class' => 'myclass', ]);
-        ?>
-    </div>
-    <div class="col-sm-6 col-md-2">
-        <?= Html::Button(Yii::t('app', 'Відсотки'),  ['class' => 'btn btn-sm btn-success','data-toggle' => 'modal', 'data-target' => '#percentage-modal'. $model->id]) ?>
-        <?=\backend\widgets\PercentageModal::widget(['trackId' => $model->id])?>
+            $items = [
+                //'view2' =>
+               // 'view' => '<a  href="https://blck.link/'. $model->url . '"  target="_blank" title="Мультилінк" aria-label="Мультилінк" ><span style="font-size: 2em" class="glyphicon glyphicon-eye-open"></span></a>',
+               // 'analytics' => Html::a('<span style="font-size: 2em" class="glyphicon glyphicon-stats"></span>', ['analytics', 'id' => $model->id], [ 'title' => 'Аналітика', 'aria-label' => 'Аналітика', 'target'=>'_blank']),
+            ];
+            $items['view'] = Html::a('<span style="font-size: 2em" class="glyphicon glyphicon-eye-open"></span>', ['view', 'id' => $model->id], [ 'title' => 'Переглянути', 'aria-label' => 'Переглянути', 'target'=>'_blank']);
+
+            if (Yii::$app->user->can('moder')) {
+                $items['update'] = Html::a('<span style="font-size: 2em" class="glyphicon glyphicon-pencil"></span>', ['update', 'id' => $model->id], [ 'title' => 'Редагувати', 'aria-label' => 'Редагувати', 'target'=>'_blank']);
+                $items['copy'] = Html::a('<span style="font-size: 2em" class="glyphicon glyphicon-copy"></span>', ['copy', 'id' => $model->id], [ 'title' => 'Копіювати', 'aria-label' => 'Копіювати', 'target'=>'_blank']);
+                $items['delete'] = Html::a('<span  style="font-size: 2em" class="glyphicon glyphicon-remove"></span>',
+                    ['delete', 'id' => $model->id],
+                    [
+                        //'class' => 'btn btn-danger',
+                        'data' => [
+                            'confirm' => Yii::t('app', 'Ви впевнені що хочете видалити цей трек?'),
+                            'method' => 'post',
+                        ],
+                    ]
+                );
+            }
+           $items['per'] = Html::a('<span style="font-size: 2em" class="glyphicon glyphicon-tasks"></span>', ['copy', 'id' => $model->id], [ 'title' => 'Відсотки', 'aria-label' => 'Відсотки', 'class' => 'showModalButton',
+               'data-toggle' => 'modal',
+               'data-target' => '#percentage-modal',
+               'data-id' => $model->id]);
+
+            if ($model->sharing) {
+                $items['view2'] = '<a  href="https://blck.link/'. $model->url . '"  target="_blank" title="Мультилінк" aria-label="Мультилінк" ><span style="font-size: 2em" class="glyphicon glyphicon-film"></span></a>';
+            }
+
+          /* $items['per2'] = Html::Button('%',  [
+                   'class' => 'showModalButton',
+               'data-toggle' => 'modal',
+               'data-target' => '#percentage-modal',
+               'data-id' => $model->id
+           ]);*/
+
+            echo '<nav>' . Html::ul($items, ['item' => function($item) {
+                return Html::tag(
+                    'li',
+                    $item,
+                    ['style' => ' margin: 0 1rem; list-style: none;']
+                );
+            }, 'class' => 'myclass', 'style' => 'list-style-type: none;margin: 0;padding: 0; display: flex;align-items: center;justify-content: center;' ])
+           . '</nav>'
+            ?>
+        </div>
     </div>
 </div>
-<hr>

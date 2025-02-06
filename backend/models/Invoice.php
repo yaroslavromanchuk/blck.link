@@ -14,7 +14,10 @@ use Yii;
  * @property int $aggregator_id
  * @property int $aggregator_report_id
  * @property int|null $currency_id
- * @property float $total
+ * @property float|null $exchange
+ * @property double $total
+ * @property int $quarter
+ * @property int $year
  * @property string $date_added
  * @property string $last_update
  *
@@ -39,9 +42,17 @@ class Invoice extends \yii\db\ActiveRecord
     public function rules()
     {
         return [
-            [['invoice_type', 'currency_id', 'user_id'], 'required'],
-            [['invoice_type', 'aggregator_id', 'user_id', 'currency_id'], 'integer'],
-            [['total'], 'number'],
+            [['invoice_type', 'currency_id', 'user_id', 'quarter', 'year'], 'required'],
+            ['exchange', 'required', 'when' => function($model) {
+                return $model->currency_id == 1;
+            }, 'whenClient' => "function (attribute, value) {
+                return $('#country_id').val() == 1;
+            }"],
+            [['invoice_type', 'aggregator_id', 'user_id', 'currency_id', 'quarter', 'year'], 'integer'],
+            [['exchange'], 'number'],
+            ['quarter', 'in', 'allowArray' => true,  'range' => [1, 2, 3, 4]],
+            ['year', 'in', 'allowArray' => true,  'range' => [2024, 2025, 2026]],
+            [['total', 'quarter', 'year'], 'number'],
             [['date_added', 'last_update'], 'safe'],
             [['aggregator_id'], 'exist', 'skipOnError' => true, 'targetClass' => Aggregator::class, 'targetAttribute' => ['aggregator_id' => 'aggregator_id']],
             [['invoice_type'], 'exist', 'skipOnError' => true, 'targetClass' => InvoiceType::class, 'targetAttribute' => ['invoice_type' => 'invoice_type_id']],
@@ -63,7 +74,10 @@ class Invoice extends \yii\db\ActiveRecord
             'invoice_status_id' => Yii::t('app', 'Статус інвойсу'),
             'aggregator_id' => Yii::t('app', 'Агрегатор'),
             'currency_id' => Yii::t('app', 'Валюта'),
+            'exchange' => Yii::t('app', 'Курс'),
             'total' => Yii::t('app', 'Сума'),
+            'quarter' => Yii::t('app', 'Квартал'),
+            'year' => Yii::t('app', 'Рік'),
             'date_added' => Yii::t('app', 'Додано'),
             'last_update' => Yii::t('app', 'Оновлено'),
             'ownership_type' => Yii::t('app', 'Тип Ввласності'),
@@ -121,7 +135,7 @@ class Invoice extends \yii\db\ActiveRecord
      */
     public function getInvoiceStatus()
     {
-        return $this->hasOne(InvoiceStatus::className(), ['invoice_status_id' => 'invoice_status_id']);
+        return $this->hasOne(InvoiceStatus::class, ['invoice_status_id' => 'invoice_status_id']);
     }
 
     public function calculate()
@@ -133,8 +147,25 @@ class Invoice extends \yii\db\ActiveRecord
         }
 
         if ($total != $this->total) {
-            $this->total = $total;
+            $this->total = round($total, 4);
             $this->save();
         }
+    }
+
+    public function getInvoiceReportDataGroupArtist(): \yii\db\DataReader|array
+    {
+        return Yii::$app->db->createCommand(
+            "SELECT a.id, a.name, sum(ii.amount) as am, c.currency_name
+                    FROM `invoice_items` ii 
+                        INNER JOIN invoice i ON i.invoice_id = ii.invoice_id
+                        LEFT JOIN track t ON t.isrc = ii.isrc 
+                        LEFT join artist a ON a.id = t.artist_id 
+                        left join currency c ON c.currency_id = i.currency_id
+                    WHERE ii.invoice_id =:invoice_id
+                 GROUP BY a.id 
+                 ORDER BY `am` ASC
+            ")
+            ->bindValue(':invoice_id', $this->invoice_id)
+            ->queryAll();
     }
 }

@@ -17,7 +17,7 @@ class SubLabelSearch extends SubLabel
     public function rules()
     {
         return [
-            [['id', 'user_id', 'active'], 'integer'],
+            [['id', 'active'], 'integer'],
             [['name', 'url', 'description', 'logo', 'date_added', 'last_update'], 'safe'],
         ];
     }
@@ -59,7 +59,6 @@ class SubLabelSearch extends SubLabel
         // grid filtering conditions
         $query->andFilterWhere([
             'id' => $this->id,
-            'user_id' => $this->user_id,
             'active' => $this->active,
             //'date_added' => $this->date_added,
             //'last_update' => $this->last_update,

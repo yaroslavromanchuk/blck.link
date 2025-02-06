@@ -12,7 +12,7 @@ use frontend\models\Track;
  * User model
  *
  * @property integer $id
- * @property integer $type
+ * @property integer $label_id
  * @property string $username
  * @property string $password_hash
  * @property string $password_reset_token
@@ -255,7 +255,7 @@ class User extends ActiveRecord implements IdentityInterface
 
     public function getLabel()
     {
-        return $this->hasOne(SubLabel::class, ['user_id' => 'id']);
+        return $this->hasOne(SubLabel::class, ['id' => 'label_id']);
     }
     /**
      * Gets query for [[Tracks]].

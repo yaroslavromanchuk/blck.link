@@ -16,8 +16,7 @@ use yii\widgets\ActiveForm;
                   <div class="clearfix"></div>
                 </div>
                 <div class="x_content">
-                    
-    <?php $form = ActiveForm::begin([ 'options' => ['enctype' => 'multipart/form-data']]); ?>
+                    <?php $form = ActiveForm::begin([ 'options' => ['enctype' => 'multipart/form-data']]); ?>
                     <div class="row">
                         <?= $form->field($model, 'admin_id')->hiddenInput(['value'=>Yii::$app->user->identity->id])->label(false)?>
                         <div class="col-sm-12 col-md-2 col-lg-2">
@@ -26,8 +25,13 @@ use yii\widgets\ActiveForm;
                         <div class="col-sm-12 col-md-2 col-lg-1">
                             <?= $form->field($model, 'percentage')->textInput(['max' => 100]) ?>
                         </div>
+                    </div>
+                    <div class="row">
                         <div class="col-sm-12 col-md-2 col-lg-1">
                             <?= $form->field($model, 'name')->textInput(['maxlength' => true]) ?>
+                        </div>
+                        <div class="col-sm-12 col-md-2 col-lg-2">
+                            <?= $form->field($model, 'full_name')->textInput(['maxlength' => true]) ?>
                         </div>
                         <div class="col-sm-12 col-md-6 col-lg-3">
                             <?= $form->field($model, 'phone')->textInput(['maxlength' => true]) ?>

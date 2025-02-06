@@ -1,5 +1,6 @@
 <?php
 
+use yii\bootstrap\Modal;
 use yii\helpers\Html;
 use yii\grid\GridView;
 use yii\widgets\Pjax;
@@ -17,8 +18,19 @@ $this->params['breadcrumbs'][] = $this->title;
         <?= Html::a(Yii::t('app', 'Додати трек'), ['create'], ['class' => 'btn btn-danger']) ?>
     </p>
      <?php } ?>
-    <?php Pjax::begin([ 'enablePushState' => false]); ?>
+
+    <?php //Pjax::begin([ 'enablePushState' => true]);
+    Modal::begin([
+        'id' => 'percentage-modal',
+        'header' => '<h4>Відсотки</h4>',
+    ]);
+
+    echo '<div id="modalContent"></div>';
+
+    Modal::end();
+    // ?>
     <?=$this->render('_search', ['model' => $searchModel]) ?>
+
     <?=ListView::widget([
         'dataProvider' => $dataProvider,
         'itemView' => '_list',
@@ -71,5 +83,18 @@ $this->params['breadcrumbs'][] = $this->title;
         ],
     ]);*/ ?>
 
-    <?php Pjax::end(); ?>
+    <?php //Pjax::end(); ?>
 </div>
+<?php
+$script = <<< JS
+$(function() {
+    
+     $(document).on('click', '.showModalButton', function(){
+         $('#percentage-modal')
+         .find('#modalContent')
+         .load('load-modal', 'trackId=' + $(this).attr('data-id'));
+     });
+    
+    });
+JS;
+$this->registerJs($script);
