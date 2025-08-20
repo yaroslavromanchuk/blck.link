@@ -83,4 +83,56 @@ class DateFormat
 
         return str_replace($men, $mcz, $date);
     }
+
+    public static function datumUah2(string $time = 'now'): string
+    {
+        $time = strtotime($time);
+
+        $date = date('F Y', $time);
+
+        $men = [
+            'January', 'February', 'March', 'April', 'May',
+            'June', 'July', 'August', 'September', 'October',
+            'November', 'December'
+        ];
+
+        $mcz = [
+            'Січ.', 'Лют.', 'Бер.', 'Квіт.', 'Трав.',
+            'Черв.', 'Лип.', 'Серп.', 'Верес.', 'Жовт.',
+            'Лист.', 'Груд.'
+        ];
+
+        return str_replace($men, $mcz, $date);
+    }
+
+    public static function getQuarterDate(int $quarter, int $year): array
+    {
+        switch ($quarter) {
+            case 1 :
+                return [
+                    'start' => '01.01.'.$year,
+                    'end' => '31.03.'.$year,
+                ];
+            case 2 :
+                return [
+                    'start' => '01.04.'.$year,
+                    'end' => '30.06.'.$year,
+                ];
+            case 3 :
+                return [
+                    'start' => '01.07.'.$year,
+                    'end' => '30.09.'.$year,
+                ];
+            case 4 :
+                return [
+                    'start' => '01.10.'.$year,
+                    'end' => '31.12.'.$year,
+                ];
+        }
+
+        return [
+            'start' => '01.01.'.$year,
+            'end' => '31.03.'.$year,
+        ];
+    }
 }

@@ -66,7 +66,50 @@ AppAsset::register($this);
                     ?>
                 </div>
             <?php endif; ?>
+            <?php if (Yii::$app->session->hasFlash('info')): ?>
+                <div class="alert alert-info alert-dismissable" style="margin-top: 50px">
+                    <button aria-hidden="true" data-dismiss="alert" class="close" type="button">×</button>
+                    <h4><i class="icon fa fa-check"></i>ERROR!</h4>
+                    <?php $infos = Yii::$app->session->getFlash('info');
 
+                    if (is_array($infos)) {
+                        foreach ($infos as $info) {
+                            if (is_array($info)) {
+                                echo '<pre>';
+                                print_r($info);
+                                echo '</pre>';
+                            } else {
+                                echo $info . '<br>';
+                            }
+                        }
+                    } else {
+                        echo $infos;
+                    }
+                    ?>
+                </div>
+            <?php endif; ?>
+            <?php if (Yii::$app->session->hasFlash('warning')): ?>
+                <div class="alert alert-warning alert-dismissable" style="margin-top: 50px">
+                    <button aria-hidden="true" data-dismiss="alert" class="close" type="button">×</button>
+                    <h4><i class="icon fa fa-check"></i>ERROR!</h4>
+                    <?php $warnings = Yii::$app->session->getFlash('warning');
+
+                    if (is_array($warnings)) {
+                        foreach ($warnings as $warning) {
+                            if (is_array($warning)) {
+                                echo '<pre>';
+                                print_r($warning);
+                                echo '</pre>';
+                            } else {
+                                echo $warning . '<br>';
+                            }
+                        }
+                    } else {
+                        echo $warnings;
+                    }
+                    ?>
+                </div>
+            <?php endif; ?>
             <?php if (Yii::$app->session->hasFlash('error')): ?>
                 <div class="alert alert-danger alert-dismissable" style="margin-top: 50px">
                     <button aria-hidden="true" data-dismiss="alert" class="close" type="button">×</button>
@@ -75,7 +118,13 @@ AppAsset::register($this);
 
                     if (is_array($errors)) {
                         foreach ($errors as $error) {
-                            echo $error . '<br>';
+                            if (is_array($error)) {
+                                echo '<pre>';
+                                print_r($error);
+                                echo '</pre>';
+                            } else {
+                                echo $error . '<br>';
+                            }
                         }
                     } else {
                         echo $errors;

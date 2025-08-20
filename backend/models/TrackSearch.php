@@ -18,7 +18,7 @@ class TrackSearch extends Track
     {
         return [
             [['artist_id', 'sharing', 'is_album', 'views', 'click', 'active'], 'integer'],
-            [['artist_name', 'date', 'date_added', 'name', 'img', 'url', 'youtube_link', 'tag', 'isrc'], 'safe'],
+            [['artist_name', 'date', 'date_added', 'name', 'url', 'isrc'], 'safe'],
         ];
     }
 
@@ -74,7 +74,8 @@ class TrackSearch extends Track
             return $dataProvider;
         }
 
-        $query->innerJoin(User::tableName(), 'user.id = track.admin_id');
+       /// $query->innerJoin(User::tableName(), 'user.id = track.admin_id');
+       // $query->innerJoin(Artist::tableName(), 'artist.id = track.artist_id');
 
         // grid filtering conditions
         $query->andFilterWhere([
@@ -85,6 +86,7 @@ class TrackSearch extends Track
             'track.views' => $this->views,
             'track.click' => $this->click,
             'track.active' => $this->active,
+           // 'artist.label_id' => $this->label_id,
         ]);
 
         if ($this->is_album == 1) {
@@ -95,10 +97,10 @@ class TrackSearch extends Track
             ->andFilterWhere(['like', 'track.name', '%' .$this->name.'%', false])
             ->andFilterWhere(['like', 'track.url', $this->url])
             ->andFilterWhere(['like', 'track.tag', $this->tag])
-            ->andFilterWhere(['like', "REPLACE(track.isrc, '-', '')", str_replace('-', '', $this->isrc), false])
-            ->andFilterWhere(['>=', 'date', $this->date])
+            ->andFilterWhere(['like', "track.isrc", str_replace('-', '', $this->isrc), false])
+            ->andFilterWhere(['>=', 'track.date', $this->date])
             //->andFilterWhere(['<', 'date', '2025-01-01'])
-            ->andFilterWhere(['>=', 'date_added', $this->date_added]);
+            ->andFilterWhere(['>=', 'track.date_added', $this->date_added]);
         ;
        //    ->andFilterWhere(['like', 'apple', $this->apple]) 
          //  ->andFilterWhere(['like', 'boom', $this->boom]) 

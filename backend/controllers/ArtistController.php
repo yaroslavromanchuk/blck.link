@@ -5,6 +5,7 @@ namespace backend\controllers;
 use backend\models\ArtistLog;
 use backend\models\Invoice;
 use backend\models\InvoiceItems;
+use backend\widgets\DateFormat;
 use backend\widgets\Str;
 use PhpOffice\PhpSpreadsheet\Reader\Html;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -27,6 +28,7 @@ use yii\bootstrap\ActiveForm;
  */
 class ArtistController extends Controller
 {
+    private static string $homePage = '/home/atpjwxlx/domains/blck.link/public_html/backend/web/';
     /**
      * {@inheritdoc}
      */
@@ -50,17 +52,25 @@ class ArtistController extends Controller
     {
         $searchModel = new ArtistSearch();
         $dataProvider = $searchModel->search(Yii::$app->request->queryParams);
-
-      ///  foreach ($dataProvider->models as $model) {
-       //     $model->saveBalance(3, 1);
-       //    $model->saveBalance(3, 2);
-       // }
+       // $i = 0;
+        //$j = 0;
+        //foreach ($dataProvider->models as $model) {
+           // if(!$model->isSavedBalance(4, 2, 2024)) {
+             //   $model->saveBalance(4, 2, 2024);
+           // }
+            /*if($model->isSavedBalance(4, 1, 2024)) {
+                $i++;
+               $model->saveBalance(4, 1, 2024);
+            }*/
+      //  }
+//echo $j.PHP_EOL;
+      //  echo $i;
 
         return $this->render('index', [
             'searchModel' => $searchModel,
             'dataProvider' => $dataProvider,
-            'sumDepositUAH' => (new \yii\db\Query())->from(Artist::tableName())->where(['!=', 'id', 0])->sum('deposit'),
-            'sumDepositEURO' => (new \yii\db\Query())->from(Artist::tableName())->where(['!=', 'id', 0])->sum('deposit_1'),
+            'sumDepositUAH' => 0, //(new \yii\db\Query())->from(Artist::tableName())->where(['!=', 'id', 0])->sum('deposit'),
+            'sumDepositEURO' => 0, //(new \yii\db\Query())->from(Artist::tableName())->where(['!=', 'id', 0])->sum('deposit_1'),
         ]);
     }
 
@@ -180,8 +190,6 @@ class ArtistController extends Controller
 			return true;
 		}
 
-
-
         if($model->load(Yii::$app->request->post())) {
             
             $file = UploadedFile::getInstance($model, 'file');
@@ -236,7 +244,14 @@ class ArtistController extends Controller
 
             return $res;
         } else {
-            Artist::calculationDeposit();
+           $errors = Artist::calculationDeposit();
+
+           if (!empty($errors)) {
+               Yii::$app->session->setFlash('error', "Оновлено депозити:");
+               foreach ($errors as $error) {
+                   Yii::$app->session->addFlash('error', $error);
+               }
+           }
         }
 
         return $this->redirect($url);
@@ -244,27 +259,34 @@ class ArtistController extends Controller
 
     public function actionCreateInvoice()
     {
-        $Invoice = Yii::$app->request->post('Invoice');
-        $artist_ids = explode(',', $Invoice['artist_ids']);
         $model = new Invoice();
 
-        if (Yii::$app->request->isAjax && $model->load(Yii::$app->request->post())) {
+        if (Yii::$app->request->isAjax) {
+            Yii::$app->response->format = Response::FORMAT_JSON;
+           $model->load(Yii::$app->request->post());
 
-           $validate = ActiveForm::validate($model);
-
-           if (!empty($validate)) {
-               Yii::$app->response->format = Response::FORMAT_JSON;
-
-               return $validate;
-           }
+            return ActiveForm::validate($model);
         }
-            if ($model->load(Yii::$app->request->post()) && $model->save()) {
+
+        if ($model->load(Yii::$app->request->post()) && $model->validate()) {
+
+            $model->description = 'Виплата за ' .$model->quarter . 'кв ' . $model->year;
+            if ($model->save()) {
+                $Invoice = Yii::$app->request->post('Invoice');
+                $artist_ids = explode(',', $Invoice['artist_ids']);
 
                 if ($model->currency_id == 1) { // EURO
                     $data = Artist::find()
                         ->select(['deposit_1', 'id'])
                         ->where(['in', 'id', $artist_ids])
                         ->andWhere(['>', 'deposit_1', 0])
+                        ->indexBy('id')
+                        ->column();
+                } else  if ($model->currency_id == 3) {
+                    $data = Artist::find()
+                        ->select(['deposit_3', 'id'])
+                        ->where(['in', 'id', $artist_ids])
+                        ->andWhere(['>', 'deposit_3', 0])
                         ->indexBy('id')
                         ->column();
                 } else {
@@ -281,6 +303,7 @@ class ArtistController extends Controller
                     $invoiceItem->invoice_id = $model->invoice_id;
                     $invoiceItem->artist_id = $artist_id;
                     $invoiceItem->amount = $dep * -1;
+                    $invoiceItem->date_item = date('Y-m-d');
 
                     if (!$invoiceItem->save()) {
                         $model->delete();
@@ -288,6 +311,7 @@ class ArtistController extends Controller
                         $errors = $invoiceItem->getErrors();
 
                         Yii::$app->session->setFlash('error', 'Помилка додаваня запису в інвойс інвойсу на виплату: ' .current($errors));
+
                         return $this->redirect(['artist/index']);
                     }
                 }
@@ -296,15 +320,26 @@ class ArtistController extends Controller
 
                 return $this->redirect(['invoice/view', 'id' => $model->invoice_id]);
             } else {
-                $errors = $model->getErrors();
+                Yii::$app->session->setFlash('error', 'Не вдалось створити інвойс');
 
-                Yii::$app->session->setFlash('error', 'Помилка сворення інвойсу на виплату: ' .current($errors));
+                return $this->redirect(['artist/index']);
             }
+        } else {
+            $errors = $model->getErrors();
 
+            Yii::$app->session->setFlash('error', 'Помилка сворення інвойсу на виплату: ' .current($errors));
+        }
 
         return $this->redirect(['artist/index']);
     }
 
+    /**
+     * @param int $id
+     * @return void
+     * @throws NotFoundHttpException
+     * @throws \yii\db\Exception
+     * @deprecated use actionExportAct
+     */
     public function actionExportBalance(int $id)
     {
         $model = $this->findModel($id);
@@ -323,7 +358,7 @@ class ArtistController extends Controller
             ->one(); // euro
 
         if (empty($balance->artist_id)) {
-            $model->saveBalance(3, 1);
+            $model->saveBalance(3, 1, 2024);
         }
 
         $balance = ArtistLog::find()
@@ -331,7 +366,7 @@ class ArtistController extends Controller
             ->one(); // uah
 
         if (empty($balance->artist_id)) {
-            $model->saveBalance(3, 2);
+            $model->saveBalance(3, 2, 2024);
         }
 
         $this->layout = 'pdf';
@@ -374,7 +409,7 @@ class ArtistController extends Controller
                         LEFT JOIN invoice i ON i.invoice_id = ii.invoice_id 
                         LEFT JOIN currency c ON c.currency_id = i.currency_id 
                         left join invoice_type it ON it.invoice_type_id = i.invoice_type 
-                    WHERE i.invoice_status_id = 2 
+                    WHERE i.invoice_status_id in (2, 4) 
                       and i.invoice_type in (3, 4) 
                       and i.currency_id =:currency_id
                         and i.date_added >= '2024-07-01'#a.date_last_payment 
@@ -392,7 +427,7 @@ class ArtistController extends Controller
                         LEFT JOIN invoice i ON i.invoice_id = ii.invoice_id 
                         LEFT JOIN currency c ON c.currency_id = i.currency_id 
                         left join invoice_type it ON it.invoice_type_id = i.invoice_type 
-                    WHERE i.invoice_status_id = 2 
+                    WHERE i.invoice_status_id in (2, 4) 
                         and i.invoice_type in (3, 4) 
                         and i.currency_id =:currency_id
                         and i.date_added >= '2024-07-01'#a.date_last_payment 
@@ -419,188 +454,73 @@ class ArtistController extends Controller
         $this->redirect("/balance_q3_{$d}_{$name}.xlsx");
     }
 
-    public function actionExportAct(int $id)
+    /**
+     * Звіт артиста по останній виплаті
+     *
+     * @param int $id
+     * @return void
+     * @throws NotFoundHttpException
+     * @throws \yii\db\Exception
+     */
+    public function actionExportAct(int $id, int $quarter = null, int $year = null)
     {
         $model = $this->findModel($id);
+        //$lastInvoice = $model->getLastPayInvoice();
+        $lastInvoice = (new \yii\db\Query())
+            ->from(InvoiceItems::tableName())
+            ->select('invoice.invoice_id,
+             invoice.currency_id,
+              invoice.quarter,
+               invoice.year,
+                invoice.date_pay,
+                 invoice.date_added,
+                  abs(invoice_items.amount) as amount
+            ')
+            ->innerJoin(Invoice::tableName(), 'invoice.invoice_id = invoice_items.invoice_id')
+            ->where([
+                'invoice.invoice_status_id' => 2,
+                'invoice.invoice_type' => 2,
+            ])->orderBy(['invoice.year' => SORT_DESC, 'invoice.quarter' =>  SORT_DESC])
+            ->limit(1)
+            ->one();
+        $quarter = $lastInvoice['quarter'] ?? DateFormat::getQuarterNumber();
+        $year = $lastInvoice['year'] ?? date('Y');
 
-        $d = date('Y_m_d_i');
         $name = Str::transliterate($model->name);
-        $filename = "/home/atpjwxlx/domains/blck.link/public_html/backend/web/report_q3_{$d}_{$name}.xlsx";
+        $filename = "report_q_{$quarter}_{$year}_{$name}.xlsx";
 
-        if (file_exists($filename)) {
-            $this->redirect("/report_q3_{$d}_{$name}.xlsx");
+        if (file_exists(self::$homePage . 'xls/' .  $filename)) {
+            $this->redirect("/xls/" . $filename);
         }
 
-        $this->layout = 'pdf';
+        $all_euro = Artist::getLog(
+            $model->id,
+            $quarter,
+            $year,
+            1,
+            'EUR'
+        );
 
-        $data = Yii::$app->db->createCommand(
-            "SELECT  a.name as artist_name,
-                    t.name as track_name,
-                    ari.count, 
-                    t2p.percentage,
-                    ari.amount,
-                    t2p2.percentage as pr2,
-                    (t2p2.percentage / 100 * (t2p.percentage / 100 *ari.amount)) as am_2,
-                    c.currency_name,
-                    o.name as prav1,
-                    ot.name as prav2,
-                    ari.platform, ari.date_report 
-                FROM `invoice_items` ii
-                	INNER JOIN invoice i ON i.invoice_id = ii.invoice_id and i.invoice_type = 1
-                    INNER JOIN track t ON t.isrc = ii.isrc and ii.artist_id = t.artist_id
-                     LEFT JOIN currency c ON c.currency_id = i.currency_id
-                    LEFT JOIN artist a ON a.id = ii.artist_id
-                    
-                    LEFT JOIN aggregator_report ar ON ar.id = i.aggregator_report_id
-                    LEFT JOIN `aggregator_report_item` ari ON ari.report_id = ar.id and ii.isrc = ari.isrc
-                    LEFT JOIN aggregator agg ON agg.aggregator_id = ar.aggregator_id
-                    LEFT JOIN aggregator_to_ownership_type a2ow ON a2ow.aggregator_id = agg.aggregator_id 
-                    LEFT JOIN ownership o ON o.id = agg.ownership_type 
-                    LEFT JOIN ownership_type ot ON ot.id = a2ow.ownership_type_id 
-                    LEFT JOIN track_to_percentage t2p ON t2p.track_id = t.id and t2p.artist_id = a.id and t2p.ownership_type = a2ow.ownership_type_id 
-                    LEFT JOIN track_to_percentage t2p2 ON t2p2.track_id = t.id and t2p2.artist_id = a.id and t2p2.ownership_type = 5 
-                WHERE t2p.percentage > 0 
-                  AND t2p2.percentage > 0
-                  and ari.amount > 0
-                  AND i.quarter =:quarter
-                  AND i.year = :year
-                  AND t.artist_id =:artist_id")
-            ->bindValue(':quarter', 3)
-            ->bindValue(':year', date('Y'))
-            ->bindValue(':artist_id', $model->id)
-            ->queryAll();
+        $all_usd = Artist::getLog(
+            $model->id,
+            $quarter,
+            $year,
+            3,
+            'USD'
+        );
 
-        $feats = Yii::$app->db->createCommand(
-            "SELECT  a.name as artist_name,
-                        a2.name as feat_name,
-                    t.name as track_name,
-                    ari.count,
-                    t2p.percentage,
-                    ari.amount,
-                    t2p2.percentage as pr2,
-                    (t2p2.percentage / 100 * (t2p.percentage / 100 *ari.amount)) as am_2,
-                    c.currency_name,
-                    o.name as prav1,
-                    ot.name as prav2,
-                    ari.platform, ari.date_report
-                 FROM `invoice_items` ii
-                   	INNER JOIN invoice i ON i.invoice_id = ii.invoice_id and i.invoice_type = 1
-                    INNER JOIN track t ON t.isrc = ii.isrc and ii.artist_id != t.artist_id
-                     LEFT JOIN currency c ON c.currency_id = i.currency_id
-                    LEFT JOIN artist a ON a.id = ii.artist_id
-                    LEFT JOIN artist a2 ON a2.id = t.artist_id
-                  
-                    LEFT JOIN aggregator_report ar ON ar.id = i.aggregator_report_id
-                    LEFT JOIN `aggregator_report_item` ari ON ari.report_id = ar.id and ii.isrc = ari.isrc
-                    LEFT JOIN aggregator agg ON agg.aggregator_id = ar.aggregator_id
-                    LEFT JOIN aggregator_to_ownership_type a2ow ON a2ow.aggregator_id = agg.aggregator_id
-                    LEFT JOIN ownership o ON o.id = agg.ownership_type
-                    LEFT JOIN ownership_type ot ON ot.id = a2ow.ownership_type_id
-                    LEFT JOIN track_to_percentage t2p ON t2p.track_id = t.id and t2p.artist_id = a.id and t2p.ownership_type = a2ow.ownership_type_id
-                    LEFT JOIN track_to_percentage t2p2 ON t2p2.track_id = t.id and t2p2.artist_id = a.id and t2p2.ownership_type = 5
-                 WHERE  t2p.percentage > 0 
-                  AND t2p2.percentage > 0
-                 and i.quarter =:quarter
-                     and i.year = :year
-                    AND ii.artist_id =:artist_id
-                    and ari.amount > 0")
-            ->bindValue(':quarter', 3)
-            ->bindValue(':year', date('Y'))
-            ->bindValue(':artist_id', $model->id)
-            ->queryAll();
-
-        $balance = ArtistLog::find()
-            ->where(['artist_id' => $id, 'quarter' => 3, 'currency_id' => 1])
-            ->one(); // euro
-
-        if (empty($balance->artist_id)) {
-            $model->saveBalance(3, 1);
-        }
-
-        $balance = ArtistLog::find()
-            ->where(['artist_id' => $id, 'quarter' => 3, 'currency_id' => 2])
-            ->one(); // uah
-
-        if (empty($balance->artist_id)) {
-            $model->saveBalance(3, 2);
-        }
-
-        $this->layout = 'pdf';
-
-        $all_euro = Yii::$app->db->createCommand(
-            "SELECT alt.name, `al`.`sum`, c.currency_name
-                                    FROM `artist_log` `al` 
-                                    INNER JOIN artist_log_type alt ON alt.log_type_id = `al`.`type_id` 
-                                    INNER JOIN currency c ON c.currency_id = `al`.`currency_id`
-                                 WHERE al.artist_id =:artist_id
-                                    and al.quarter =:quarter
-                                           AND al.currency_id = :currency_id
-                                    and YEAR(`date_added`) =:year")
-            ->bindValue(':artist_id', $model->id)
-            ->bindValue(':quarter', 3)
-            ->bindValue(':currency_id', 1)
-            ->bindValue(':year', date('Y'))
-            ->queryAll();
-
-        $all_uah = Yii::$app->db->createCommand(
-            "SELECT alt.name, `al`.`sum`, c.currency_name
-                                    FROM `artist_log` `al` 
-                                    INNER JOIN artist_log_type alt ON alt.log_type_id = `al`.`type_id` 
-                                    INNER JOIN currency c ON c.currency_id = `al`.`currency_id`
-                                 WHERE al.artist_id =:artist_id
-                                    and al.quarter =:quarter
-                                           AND al.currency_id = :currency_id
-                                    and YEAR(`date_added`) =:year")
-            ->bindValue(':artist_id', $model->id)
-            ->bindValue(':quarter', 3)
-            ->bindValue(':currency_id', 2)
-            ->bindValue(':year', date('Y'))
-            ->queryAll();
-
-        $costs = Yii::$app->db->createCommand(
-            "SELECT it.invoice_type_name, ii.date_item, a.name as a_name, t.name as t_name, ii.description, ii.amount, c.currency_name 
-                    FROM `invoice_items` ii 
-                        LEFT JOIN artist a ON a.id = ii.artist_id 
-                        LEFT JOIN track t ON t.id = ii.track_id 
-                        LEFT JOIN invoice i ON i.invoice_id = ii.invoice_id 
-                        LEFT JOIN currency c ON c.currency_id = i.currency_id 
-                        left join invoice_type it ON it.invoice_type_id = i.invoice_type 
-                    WHERE i.invoice_status_id = 2 
-                      and i.invoice_type in (3, 4)
-                        and i.quarter =:quarter
-                        and i.year =:year
-                      and ii.artist_id =:artist_id
-                    ORDER BY ii.date_item, i.currency_id
-            ")
-            ->bindValue(':quarter', 3)
-            ->bindValue(':year', date('Y'))
-            ->bindValue(':artist_id', $model->id)
-            ->queryAll();
-
-        $income = Yii::$app->db->createCommand(
-            "SELECT it.invoice_type_name, ii.date_item, a.name as a_name, t.name as t_name, ii.description, ii.amount, c.currency_name 
-                    FROM `invoice_items` ii 
-                        LEFT JOIN artist a ON a.id = ii.artist_id 
-                        LEFT JOIN track t ON t.id = ii.track_id 
-                        LEFT JOIN invoice i ON i.invoice_id = ii.invoice_id 
-                        LEFT JOIN currency c ON c.currency_id = i.currency_id 
-                        left join invoice_type it ON it.invoice_type_id = i.invoice_type 
-                    WHERE i.invoice_status_id = 2 
-                      and i.invoice_type = 5 
-                        and i.quarter =:quarter
-                        and i.year =:year
-                      and ii.artist_id =:artist_id
-                    ORDER BY ii.date_item, i.currency_id
-            ")
-            ->bindValue(':quarter', 3)
-            ->bindValue(':year', date('Y'))
-            ->bindValue(':artist_id', $model->id)
-            ->queryAll();
+        $all_uah = Artist::getLog(
+            $model->id,
+            $quarter,
+            $year,
+            2,
+            'UAH'
+        );
 
         $spreadSheet = new Spreadsheet();
         $workSheet = $spreadSheet->getActiveSheet();
         $workSheet->setTitle('Баланс');
-        $workSheet->getColumnDimension('A')->setWidth(25);
+        $workSheet->getColumnDimension('A')->setWidth(40);
         $workSheet->getColumnDimension('B')->setWidth(10);
         $workSheet->getColumnDimension('C')->setWidth(10);
         $workSheet->mergeCells('A1:C1');
@@ -609,17 +529,18 @@ class ArtistController extends Controller
         $workSheet->getStyle('A2:Q2')->getFont()->setBold(true);
 
         $tempData = [];
-        $tempData[] = ['Звіт за 3 квартал, ' . $model->name];
+        $tempData[] = ['Звіт за ' . $quarter . ' кв. ' . $year . ', ' . $model->name];
 
         $tempData[] = [
             'Операція',
             'Сума',
             'Валюта'
         ];
+
         $temp = array_map(function ($item) {
             return [
-                'name' => $item['name'],
-                'sum' => number_format($item['sum'],2, '.', ''),
+                'name' => strip_tags($item['name']),
+                'sum' => number_format($item['value'],2, '.', ''),
                 'currency' => $item['currency_name']
             ];
         }, $all_euro);
@@ -640,8 +561,29 @@ class ArtistController extends Controller
 
         $temp = array_map(function ($item) {
             return [
-                'name' => $item['name'],
-                'sum' => number_format($item['sum'],2, '.', ''),
+                'name' => strip_tags($item['name']),
+                'sum' => number_format($item['value'],2, '.', ''),
+                'currency' => $item['currency_name']
+            ];
+        }, $all_usd);
+
+        $tempData = array_merge($tempData, $temp);
+        $co = count($tempData);
+        $co+=2;
+        $tempData[] = [];
+
+        $workSheet->getStyle("A{$co}:C{$co}")->getFont()->setBold(true);
+
+        $tempData[] = [
+            'Операція',
+            'Сума',
+            'Валюта'
+        ];
+
+        $temp = array_map(function ($item) {
+            return [
+                'name' => strip_tags($item['name']),
+                'sum' => number_format($item['value'],2, '.', ''),
                 'currency' => $item['currency_name']
             ];
         }, $all_uah);
@@ -650,6 +592,26 @@ class ArtistController extends Controller
 
         $workSheet->fromArray($tempData, null, 'A1');
         $tempData = [];
+
+        $income = Yii::$app->db->createCommand(
+            "SELECT it.invoice_type_name, ii.date_item, a.name as a_name, t.name as t_name, ii.description, ii.amount, c.currency_name 
+                    FROM `invoice_items` ii 
+                        LEFT JOIN artist a ON a.id = ii.artist_id 
+                        LEFT JOIN track t ON t.id = ii.track_id 
+                        LEFT JOIN invoice i ON i.invoice_id = ii.invoice_id 
+                        LEFT JOIN currency c ON c.currency_id = i.currency_id 
+                        left join invoice_type it ON it.invoice_type_id = i.invoice_type 
+                    WHERE i.invoice_status_id in (2, 4)  
+                      and i.invoice_type = 5 
+                      and i.quarter =:quarter
+                      and i.year =:year
+                      and ii.artist_id =:artist_id
+                    ORDER BY ii.date_item, i.currency_id
+            ")
+            ->bindValue(':quarter', $quarter)
+            ->bindValue(':year', $year)
+            ->bindValue(':artist_id', $model->id)
+            ->queryAll();
 
         if (count($income)) {
             $tempData[] = ['Додавткові надходження'];
@@ -665,15 +627,37 @@ class ArtistController extends Controller
                 ];
             }, $income);
 
+            $tempData = array_merge($tempData, $temp);
+
             $workSheet->getColumnDimension('E')->setWidth(12);
             $workSheet->getColumnDimension('F')->setWidth(12);
             $workSheet->getColumnDimension('G')->setWidth(30);
             $workSheet->getColumnDimension('H')->setWidth(12);
             $workSheet->getColumnDimension('I')->setWidth(12);
 
-            $workSheet->fromArray(array_merge($tempData, $temp), null, 'E1');
+            $workSheet->fromArray($tempData, null, 'E1');
             $tempData = [];
         }
+
+        $costs = Yii::$app->db->createCommand(
+            "SELECT it.invoice_type_name, ii.date_item, a.name as a_name, t.name as t_name, ii.description, ii.amount, c.currency_name 
+                    FROM `invoice_items` ii 
+                        LEFT JOIN artist a ON a.id = ii.artist_id 
+                        LEFT JOIN track t ON t.id = ii.track_id 
+                        LEFT JOIN invoice i ON i.invoice_id = ii.invoice_id 
+                        LEFT JOIN currency c ON c.currency_id = i.currency_id 
+                        left join invoice_type it ON it.invoice_type_id = i.invoice_type 
+                    WHERE i.invoice_status_id in (2, 4)  
+                      and i.invoice_type in (3, 4)
+                      and i.quarter =:quarter
+                      and i.year =:year
+                      and ii.artist_id =:artist_id
+                    ORDER BY ii.date_item, i.currency_id
+            ")
+            ->bindValue(':quarter', $quarter)
+            ->bindValue(':year', $year)
+            ->bindValue(':artist_id', $model->id)
+            ->queryAll();
 
         if (count($costs)) {
             $tempData[] = ['Витрати'];
@@ -692,7 +676,7 @@ class ArtistController extends Controller
 
             $tempData = array_merge($tempData, $temp);
 
-            if (count($costs)) {
+            if (count($income)) {
                 $workSheet->mergeCells('K1:Q1');
                 $workSheet->getColumnDimension('K')->setWidth(12);
                 $workSheet->getColumnDimension('L')->setWidth(12);
@@ -701,7 +685,7 @@ class ArtistController extends Controller
                 $workSheet->getColumnDimension('O')->setWidth(30);
                 $workSheet->getColumnDimension('P')->setWidth(8);
                 $workSheet->getColumnDimension('Q')->setWidth(8);
-                $workSheet->fromArray(array_merge($tempData, $temp), null, 'K1');
+                $workSheet->fromArray($tempData, null, 'K1');
             } else {
                 $workSheet->mergeCells('E1:I1');
                 $workSheet->getColumnDimension('E')->setWidth(12);
@@ -709,8 +693,113 @@ class ArtistController extends Controller
                 $workSheet->getColumnDimension('G')->setWidth(30);
                 $workSheet->getColumnDimension('H')->setWidth(8);
                 $workSheet->getColumnDimension('I')->setWidth(8);
-                $workSheet->fromArray(array_merge($tempData, $temp), null, 'E1');
+                $workSheet->fromArray($tempData, null, 'E1');
             }
+        }
+
+        $data = Yii::$app->db->createCommand(
+            "SELECT  a.name as artist_name,
+                    t.name as track_name,
+                    ari.count, 
+                    t2p.percentage,
+                    t2p2.percentage as percentage_label,
+                    o.name as prav1,
+                    IFNULL(atu.name, a2ow.name) as prav2,
+                    IFNULL(a_s.name, ari.platform) as platform,
+                    ari.date_report,
+                    ari.country,
+                    c.currency_name,
+                    ari.count,
+                    IF(t2p.percentage != 100, t2p.percentage / 100 * ari.amount, ari.amount) as amount
+                FROM `invoice_items` ii
+                	INNER JOIN invoice i ON i.invoice_id = ii.invoice_id and i.invoice_type = 1
+                    INNER JOIN track t ON REPLACE(t.isrc, '-', '') = REPLACE(ii.isrc, '-', '') and ii.artist_id = t.artist_id
+                    LEFT JOIN currency c ON c.currency_id = i.currency_id
+                    LEFT JOIN artist a ON a.id = ii.artist_id
+                    
+                    LEFT JOIN aggregator_report ar ON ar.id = i.aggregator_report_id
+                    LEFT JOIN `aggregator_report_item` ari ON ari.report_id = ar.id and ii.isrc = ari.isrc
+                    LEFT JOIN aggregator agg ON agg.aggregator_id = ar.aggregator_id
+                    LEFT JOIN aggregator_type_use atu ON atu.type_id = agg.type_use_id
+                    LEFT JOIN aggregator_service a_s ON a_s.service_id = agg.service_id
+                    LEFT JOIN (
+                        SELECT aggregator_id, ownership_type_id , GROUP_CONCAT(ot_.name) as name
+                        FROM aggregator_to_ownership_type 
+                            LEFT JOIN ownership_type ot_ ON ot_.id = ownership_type_id 
+                        GROUP BY aggregator_id
+                    ) as a2ow ON a2ow.aggregator_id = agg.aggregator_id 
+                    LEFT JOIN ownership o ON o.id = agg.ownership_type
+                    LEFT JOIN (
+                        SELECT 100 / count(a2ot.id) * SUM(t2p.percentage) / 100 AS percentage, a2ot.aggregator_id, t2p.track_id, t2p.artist_id
+                            FROM track_to_percentage t2p
+                            LEFT JOIN aggregator_to_ownership_type a2ot ON a2ot.ownership_type_id = t2p.ownership_type
+                        WHERE t2p.artist_id = :artist_id
+                        GROUP BY t2p.artist_id, t2p.track_id, a2ot.aggregator_id
+                    ) as t2p ON t2p.aggregator_id = agg.aggregator_id 
+                        and t2p.artist_id = ii.artist_id 
+                        and t2p.track_id = t.id
+                   LEFT JOIN track_to_percentage t2p2 ON t2p2.track_id = t.id and t2p2.artist_id = a.id and t2p2.ownership_type = 5 
+                WHERE i.quarter =:quarter
+                  AND i.year = :year
+                  AND t.artist_id =:artist_id")
+            ->bindValue(':quarter', $quarter)
+            ->bindValue(':year', $year)
+            ->bindValue(':artist_id', $model->id)
+            ->queryAll();
+
+        $feats = [];
+
+        if ($model->label_id == 0) {
+            $feats = Yii::$app->db->createCommand(
+                "SELECT  a.name as artist_name,
+                    t.name as track_name,
+                    ari.count, 
+                    t2p.percentage,
+                    t2p2.percentage as percentage_label,
+                    o.name as prav1,
+                    IFNULL(atu.name, a2ow.name) as prav2,
+                    IFNULL(a_s.name, ari.platform) as platform,
+                    ari.date_report,
+                    ari.country,
+                    c.currency_name,
+                    ari.count,
+                    IF(t2p.percentage != 100, t2p.percentage / 100 * ari.amount, ari.amount) as amount
+                FROM `invoice_items` ii
+                	INNER JOIN invoice i ON i.invoice_id = ii.invoice_id and i.invoice_type = 1
+                    INNER JOIN track t ON REPLACE(t.isrc, '-', '') = REPLACE(ii.isrc, '-', '') 
+                        and ii.artist_id != t.artist_id
+                    LEFT JOIN currency c ON c.currency_id = i.currency_id
+                    LEFT JOIN artist a ON a.id = ii.artist_id
+                    
+                    LEFT JOIN aggregator_report ar ON ar.id = i.aggregator_report_id
+                    LEFT JOIN `aggregator_report_item` ari ON ari.report_id = ar.id and ii.isrc = ari.isrc
+                    LEFT JOIN aggregator agg ON agg.aggregator_id = ar.aggregator_id
+                    LEFT JOIN aggregator_type_use atu ON atu.type_id = agg.type_use_id
+                    LEFT JOIN aggregator_service a_s ON a_s.service_id = agg.service_id
+                    LEFT JOIN (
+                        SELECT aggregator_id, ownership_type_id , GROUP_CONCAT(ot_.name) as name
+                        FROM aggregator_to_ownership_type 
+                            LEFT JOIN ownership_type ot_ ON ot_.id = ownership_type_id 
+                        GROUP BY aggregator_id
+                    ) as a2ow ON a2ow.aggregator_id = agg.aggregator_id 
+                    LEFT JOIN ownership o ON o.id = agg.ownership_type
+                    LEFT JOIN (
+                        SELECT 100 / count(a2ot.id) * SUM(t2p.percentage) / 100 AS percentage, a2ot.aggregator_id, t2p.track_id, t2p.artist_id
+                            FROM track_to_percentage t2p
+                            LEFT JOIN aggregator_to_ownership_type a2ot ON a2ot.ownership_type_id = t2p.ownership_type
+                        WHERE t2p.artist_id = :artist_id
+                        GROUP BY t2p.artist_id, t2p.track_id, a2ot.aggregator_id
+                    ) as t2p ON t2p.aggregator_id = agg.aggregator_id 
+                        and t2p.artist_id = ii.artist_id 
+                        and t2p.track_id = t.id
+                   LEFT JOIN track_to_percentage t2p2 ON t2p2.track_id = t.id and t2p2.artist_id = a.id and t2p2.ownership_type = 5 
+                WHERE  i.quarter =:quarter
+                    and i.year = :year
+                    AND ii.artist_id =:artist_id")
+                ->bindValue(':quarter', $quarter)
+                ->bindValue(':year', $year)
+                ->bindValue(':artist_id', $model->id)
+                ->queryAll();
         }
 
         $spreadSheet->createSheet();
@@ -718,9 +807,10 @@ class ArtistController extends Controller
         $workSheet = $spreadSheet->getActiveSheet();
         $workSheet->setTitle('Звіт');
 
-        $workSheet->getStyle('A1')->getAlignment()->setWrapText(true)
+        $workSheet->getStyle('A1:N1')->getAlignment()->setWrapText(true)
             ->setHorizontal(Alignment::HORIZONTAL_CENTER)
             ->setVertical(Alignment::HORIZONTAL_CENTER);
+        /*
         $workSheet->getStyle('B1')->getAlignment()->setWrapText(true)
             ->setHorizontal(Alignment::HORIZONTAL_CENTER)
             ->setVertical(Alignment::HORIZONTAL_CENTER);
@@ -757,6 +847,9 @@ class ArtistController extends Controller
         $workSheet->getStyle('M1')->getAlignment()->setWrapText(true)
             ->setHorizontal(Alignment::HORIZONTAL_CENTER)
             ->setVertical(Alignment::HORIZONTAL_CENTER);
+        $workSheet->getStyle('N1')->getAlignment()->setWrapText(true)
+            ->setHorizontal(Alignment::HORIZONTAL_CENTER)
+            ->setVertical(Alignment::HORIZONTAL_CENTER);*/
 
         $workSheet->getColumnDimension('A')->setWidth(4);
         $workSheet->getColumnDimension('B')->setWidth(12);
@@ -770,9 +863,10 @@ class ArtistController extends Controller
         $workSheet->getColumnDimension('J')->setWidth(11);
         $workSheet->getColumnDimension('K')->setWidth(14);
         $workSheet->getColumnDimension('L')->setWidth(14);
-        $workSheet->getColumnDimension('M')->setWidth(15);
+        $workSheet->getColumnDimension('M')->setWidth(14);
+        $workSheet->getColumnDimension('N')->setWidth(15);
 
-        $workSheet->getStyle('A1:M1')->getFont()->setBold(true);
+        $workSheet->getStyle('A1:N1')->getFont()->setBold(true);
 
         $workSheet->getRowDimension('1')->setRowHeight(100);
 
@@ -790,51 +884,62 @@ class ArtistController extends Controller
             'Вид прав',
             'Тип використання',
             'Тип та/або ресурс використання',
+            'Країна',
             'Період використання Об\'єкта',
         ];
 
         $i = 1;
 
-        if (count($data)) {
-            foreach ($data as $item) {
-                $tempData[] = [
-                    $i,
-                    $item['artist_name'],
-                    str_replace("1", "", $item['track_name']),
-                    $item['count'],
-                    $item['percentage'],
-                    $item['amount'],
-                    $item['pr2'],
-                    round($item['am_2'], 4),
-                    $item['currency_name'],
-                    $item['prav1'],
-                    $item['prav2'],
-                    $item['platform'],
-                    date('F Y', strtotime($item['date_report'])),
-                ];
-                $i++;
+        foreach ($data as $item) {
+            // Skip items with empty amount
+            if (empty($item['amount'])) {
+                continue;
             }
+
+            $amount = round($item['amount'] * ($item['percentage_label'] /100), 4);
+            $tempData[] = [
+                $i,
+                $item['artist_name'],
+                str_replace("1", "", $item['track_name']),
+                $item['count'],
+                $item['percentage'],
+                round($item['amount'], 4),
+                $item['percentage_label'],
+                $amount,
+                $item['currency_name'],
+                $item['prav1'],
+                $item['prav2'],
+                $item['platform'],
+                $item['country'],
+                DateFormat::datumUah2($item['date_report'] ?? 'now'),
+            ];
+            $i++;
         }
 
-        if (count($feats)) {
-            foreach ($feats as $item) {
-                $tempData[] = [
-                    $i,
-                    $item['artist_name'],
-                    str_replace("1", "", $item['track_name']),
-                    $item['count'],
-                    $item['percentage'],
-                    $item['amount'],
-                    $item['pr2'],
-                    round($item['am_2'], 4),
-                    $item['currency_name'],
-                    $item['prav1'],
-                    $item['prav2'],
-                    $item['platform'],
-                    date('F Y', strtotime($item['date_report'])),
-                ];
-                $i++;
+        foreach ($feats as $item) {
+            // Skip items with empty amount
+            if (empty($item['amount'])) {
+                continue;
             }
+
+            $amount = round($item['amount'] * ($item['percentage_label'] /100), 4);
+            $tempData[] = [
+                $i,
+                $item['artist_name'],
+                str_replace("1", "", $item['track_name']),
+                $item['count'],
+                $item['percentage'],
+                round($item['amount'], 4),
+                $item['percentage_label'],
+                $amount,
+                $item['currency_name'],
+                $item['prav1'],
+                $item['prav2'],
+                $item['platform'],
+                $item['country'],
+                DateFormat::datumUah2($item['date_report'] ?? 'now'),
+            ];
+            $i++;
         }
 
         $workSheet->fromArray($tempData);
@@ -842,9 +947,9 @@ class ArtistController extends Controller
        // $data = $reader->loadFromString($content, $spreadSheet);
         $spreadSheet->setActiveSheetIndex(0);
         $writer = new Xlsx($spreadSheet);
-        $writer->save($filename);
+        $writer->save(self::$homePage . 'xls/' . $filename);
 
-        $this->redirect("/report_q3_{$d}_{$name}.xlsx");
+        $this->redirect("/xls/" . $filename);
     }
 
     /**

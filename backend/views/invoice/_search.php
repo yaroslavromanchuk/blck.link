@@ -16,6 +16,7 @@ use yii\widgets\ActiveForm;
     ]); ?>
 
     <?= $form->field($model, 'invoice_id') ?>
+    <?= $form->field($model, 'label_id') ?>
 
     <?= $form->field($model, 'invoice_type') ?>
 

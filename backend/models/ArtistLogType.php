@@ -8,7 +8,8 @@ use Yii;
  * This is the model class for table "artist_log_type".
  *
  * @property int $log_type_id
- * @property int $name
+ * @property string $name
+ * @property int $sort
  * @property string $date_add
  * @property string $last_update
  *

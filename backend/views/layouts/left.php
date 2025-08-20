@@ -20,23 +20,25 @@ use yii\helpers\Html;
 
                         if(Yii::$app->user->can('label')) {
                             $items[] = ["label" => Yii::t('app', 'Артисти'), "url" => ['/artist'], "icon" => "files-o"];
+                            $items[] = ["label" => Yii::t('app', 'Альбоми'), "url" => ['/album'], "icon" => "files-o"];
                             $items[] = ["label" => Yii::t('app', 'Треки'), "url" => ['/track'], "icon" => "files-o"];
-                            $items[] = ['label' => Yii::t('app', 'Релізи'),  'url' => ['/release'], "icon" => "files-o"];
+                            //$items[] = ['label' => Yii::t('app', 'Релізи'),  'url' => ['/release'], "icon" => "files-o"];
                         }
 
                         if(Yii::$app->user->can('moder')) {
                             //$items[] = ['label' => Yii::t('app', 'Агрегатори'),  'url' => ['/aggregator'], "icon" => "files-o"];
                             $items[] = [
-                                'label' => Yii::t('app', 'Звіти'),
+                                'label' => Yii::t('app', 'Фінанси'),
                                 'icon' => 'table',
                                 'url' => "#",
                                 'items'=> [
                                     [
-                                        'label' => Yii::t('app', 'Агрегатори'),
+                                        'label' => Yii::t('app', 'Звіти'),
                                         'url' => '#',
                                         'items' => [
-                                            ['label' => Yii::t('app', 'Список агрегатори'), 'url' => ['/aggregator']],
-                                            ['label' => Yii::t('app', 'Звіти агрегаторів'), 'url' => ['/aggregator-report']],
+                                            ['label' => Yii::t('app', 'Звіти'), 'url' => ['/aggregator-report']],
+                                            ['label' => Yii::t('app', 'Пошук ISRC'), 'url' => ['/aggregator/isrc']],
+                                            ['label' => Yii::t('app', 'Агрегатори'), 'url' => ['/aggregator']],
                                             ['label' => Yii::t('app', 'Статуси звітів агрегаторів'), 'url' => ['/aggregator-report-status']],
                                             ['label' => Yii::t('app', 'Власність'), 'url' => ['/ownership']],
                                             ['label' => Yii::t('app', 'Катеорія власності'), 'url' => ['/ownership-type']],
@@ -48,14 +50,33 @@ use yii\helpers\Html;
                                         'items' => [
                                             ['label' => Yii::t('app', 'Список інвойсів'), 'url' => ['/invoice']],
                                             ['label' => Yii::t('app', 'Типи інвойсів'), 'url' => ['/invoice-type']],
+                                            ['label' => Yii::t('app', 'Звітність'), 'url' => ['/invoice/report']],
                                         ],
                                     ],
+                                ],
+                            ];
+                            $items[] = [
+                                'label' => Yii::t('app', 'Суб Лейбли'),
+                                'url' => '#',
+                                "icon" => "table",
+                                'items'=> [
+                                    ['label' => Yii::t('app', 'Список лейбів'), 'url' => ['/sub-label']],
+                                    //['label' => Yii::t('app', 'Типи'), 'url' => ['/sub-label-type']],
+                                    ['label' => Yii::t('app', 'Інвойси'), 'url' => ['/sub-label/invoice']],
                                 ],
                             ];
                         }
 
                         if(Yii::$app->user->can('manager')) {
-                            $items[] = ['label' => Yii::t('app', 'Аналітика'),  'url' => ['/log'], "icon" => "files-o"];
+                            $items[] = [
+                                 'label' => Yii::t('app', 'Аналітика'),
+                                'url' => "#",
+                                "icon" => "files-o",
+                                'items'=> [
+                                    ['label' => Yii::t('app', 'Перегляди'), 'url' => ['/log/view-track']],
+                                    ['label' => Yii::t('app', 'Фінанси'), 'url' => ['/log/finance']],
+                                ],
+                            ];
                         }
 
                         if(Yii::$app->user->can('manager') && isset(Yii::$app->user->identity->label->id)) {
@@ -72,7 +93,7 @@ use yii\helpers\Html;
                                                 ['label' => Yii::t('app', 'Користувачі'),  'url' => ['/user']],
                                                // ['label' => Yii::t('app', 'Аналитика'),  'url' => ['/log']],
                                                 ['label' => Yii::t('app', 'Переклади'),  'url' => ['/message']],
-                                                ['label' => Yii::t('app', 'Суб Лейбли'), 'url' => ['/sub-label']],
+
                                                 //['label' => Yii::t('app', 'Агрегатори'),  'url' => ['/aggregator']],
                                         ],
                                     ];

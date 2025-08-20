@@ -92,7 +92,7 @@ $(function() {
      $(document).on('click', '.showModalButton', function(){
          $('#percentage-modal')
          .find('#modalContent')
-         .load('load-modal', 'trackId=' + $(this).attr('data-id'));
+         .load($(this).attr('href'));
      });
     
     });

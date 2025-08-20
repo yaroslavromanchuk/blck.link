@@ -86,6 +86,7 @@ $(function() {
     var platform = 0;
     var count = 0;
     var amount = 0;
+    var country = 0;
     var column_data = [];
 
     $(document).on('change', '.set_column_data', function() {
@@ -114,13 +115,14 @@ $(function() {
 
         total_selection = Object.keys(column_data).length;
 
-        if(total_selection === 5) {
+        if(total_selection === 6) {
             $('#import').attr('disabled', false);
             isrc = column_data.isrc;
             date_report = column_data.date_report;
             platform = column_data.platform;
             count = column_data.count;
             amount = column_data.amount;
+            country = column_data.country;
         } else {
             $('#import').attr('disabled', 'disabled');
         }
@@ -131,7 +133,7 @@ $(function() {
         $.ajax({
             url:"/aggregator/upload-import",
             method:"POST",
-            data:{isrc:isrc, date_report:date_report, platform:platform, count:count, amount:amount},
+            data:{isrc:isrc, date_report:date_report, platform:platform, count:count, amount:amount, country:country},
             beforeSend:function(){
                 $('#import').attr('disabled', 'disabled');
                 $('#import').text('Importing...');

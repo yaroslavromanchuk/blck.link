@@ -1,9 +1,12 @@
 <?php
 
+use common\models\SubLabel;
+use kartik\select2\Select2;
+use yii\helpers\ArrayHelper;
 use yii\helpers\Html;
 use yii\grid\GridView;
 use yii\widgets\Pjax;
-use  yii\helpers\Url;
+use yii\helpers\Url;
 
 /* @var $this yii\web\View */
 /* @var $searchModel backend\models\ArtistSearch */
@@ -16,9 +19,9 @@ $this->params['breadcrumbs'][] = $this->title;
 ?>
 <div class="page-header">
     <h1><?= Html::encode($this->title) ?></h1>
-    <a href="<?=Url::to(['artist/calculate-deposit', 'id' => null, 'url' => '/artist/index'])?>" class="btn btn-danger" style="position: absolute;right: 0px; margin-top: -40px;">Депозит
-        <span class="badge">UAH: <?=$sumDepositUAH?></span>
-        <span class="badge">EURO: <?=$sumDepositEURO?></span>
+    <a href="<?=Url::to(['artist/calculate-deposit', 'id' => null, 'url' => '/artist/index'])?>" class="btn btn-danger" style="position: absolute;right: 0px; margin-top: -40px;">Перерахувати допозити артистам
+        <!--<span class="badge">UAH: <?php //$sumDepositUAH ?></span>
+        <span class="badge">EURO: <?php //$sumDepositEURO ?></span>-->
     </a>
 </div>
 <div class="artist-index">
@@ -27,18 +30,32 @@ $this->params['breadcrumbs'][] = $this->title;
         <?= Html::button('Створити інвойс на виплату', ['class' => 'btn btn-info', 'id' => 'generate', 'data-toggle' => 'modal', 'data-target' => '#invoice-add-modal']) ?>
     </p>
 
-    <?php Pjax::begin(); ?>
+    <?php //Pjax::begin(); ?>
     <?php // echo $this->render('_search', ['model' => $searchModel]); ?>
 
     <?php
+    $selected = [];
 
-    $total_amount = $total_amount_uah = 0;
+  // if(isset($_GET['ArtistSearch']['label_id'])) {
+    //   $selected[$_GET['ArtistSearch']['label_id']] = ['selected' => true];
+  // }
+
+    $total_amount = $total_amount_uah = $total_amount_usd = 0;
 
     foreach($dataProvider->models as $m)
     {
-        $total_amount += $m->deposit_1;
-        $total_amount_uah += $m->deposit;
+        if ($m->id !=0) {
+            $total_amount += $m->deposit_1;
+            $total_amount_uah += $m->deposit;
+            $total_amount_usd += $m->deposit_3;
+        }
     }
+
+    $labelList = SubLabel::find()
+            ->select(['name', 'id'])
+            ->where(['active' => 1])
+        ->indexBy('id')
+        ->column();
     ?>
 
     <?= GridView::widget([
@@ -58,28 +75,49 @@ $this->params['breadcrumbs'][] = $this->title;
                         }
                     }
             ],
-
-           // 'id',
-           // 'logo:raw',
             [
-            'label' => 'Фото',
-            'attribute' => 'logo',
-            'format' => 'raw',
-            'value' => function($data) {
-				    return !empty($data->logo) ? '<div class="trumb_foto"> ' . Html::img($data->getLogo(),['alt' => 'logo', 'style' => 'border-radius: 50%;width:50px; padding:1px;']) .'</div>' : '';
+                'label' => 'Фото',
+                'attribute' => 'logo',
+                'format' => 'raw',
+                'value' => function($data) {
+                    return !empty($data->getLogo()) ? '<div class="trumb_foto"> ' . Html::img($data->getLogo(),['alt' => 'logo', 'style' => 'border-radius: 50%;width:50px; padding:1px;']) .'</div>' : '';
                 },
             ],
             'name',
-            //'phone',
-           // 'email:email',
-           [ // name свойство зависимой модели owner
+            [
+                'attribute' => 'label_id',
+                'format' => 'raw',
+                'filter' => Select2::widget([
+                   // 'name' => 'ArtistSearch[label_id]',
+                    'attribute' => 'label_id',
+                    'model' => $searchModel,
+                    'language' => 'uk',
+                    'data' => $labelList,
+                    'options' => [
+                       // 'multiple' => true,
+                        'placeholder' => 'Виберіть лейб...',
+                        'options' => $selected,
+                        //'value' => 8,
+                    ],
+                    'pluginOptions' => [
+                        'allowClear' => true,
+                    ],
+                ]),
+                'value' => function($data) {
+                    return $data->label->name;
+                }
+            ],
+            [ // name свойство зависимой модели owner
                 'attribute' => 'reliz',
                 'label' => Yii::t('app', 'Треків'),
                 'value' => function($data) { return $data->getTracks()->count(); },
-           ],
-            'percentage',
+            ],
             [
-                 'attribute' => 'deposit',
+                'attribute' => 'percentage',
+                'value' => function($data) { return $data->isSubLabel() ? 'N/A' : $data->percentage; },
+            ],
+            [
+                'attribute' => 'deposit',
                 'label' => 'Депозит UAH >=',
                 'value' => function($data) { return $data->deposit; },
                 'footer' => $total_amount_uah
@@ -90,9 +128,12 @@ $this->params['breadcrumbs'][] = $this->title;
                 'value' => function($data) { return $data->deposit_1; },
                 'footer' => $total_amount
             ],
-            'date_last_payment',
-            //'active',
-
+            [
+                'attribute' => 'deposit_3',
+                'label' => 'Депозит USD >=',
+                'value' => function($data) { return $data->deposit_3; },
+                'footer' => $total_amount_usd
+            ],
             [
                 'class' => 'yii\grid\ActionColumn',
                 'template' => Yii::$app->user->can('admin') ? '{view} {update} {delete} {export-act}': '{view} {update} {export-act}',
@@ -116,16 +157,16 @@ $this->params['breadcrumbs'][] = $this->title;
         ],
     ]); ?>
 
-    <?php Pjax::end(); ?>
+    <?php //Pjax::end(); ?>
 
 </div>
-<?= \backend\widgets\CreateInvoice::widget(); ?>
+<?=\backend\widgets\CreateInvoice::widget();?>
 <?php
 $script = <<< JS
 jQuery(function($) {
     
     $('#invoice-add-modal').on('show.bs.modal', function (event) {
-         var keys = jQuery('#w0').yiiGridView("getSelectedRows");
+         var keys = jQuery('.grid-view').yiiGridView("getSelectedRows");
         if (keys.length > 0) {
            var modal = $(this);
             modal.find('#invoice-artist_ids').val(keys);
@@ -139,7 +180,7 @@ jQuery(function($) {
     
     $("#generate1").on("click", function(e) {
        e.preventDefault()
-       var keys = jQuery('#w0').yiiGridView("getSelectedRows");
+       var keys = jQuery('.grid-view').yiiGridView("getSelectedRows");
        
        if (keys.length > 0) {
            alert(keys);
@@ -147,16 +188,6 @@ jQuery(function($) {
        } else {
              alert('Не вибрано жодного артиста');
        }
-       
-      
-      /* $.ajax({
-         url: "'. \yii\helpers\Url::toRoute('delete') .'",
-         type: "POST",
-         data: {id: keys},
-         success: function(){
-            alert("yes")
-         }
-       });*/
    });
     
    /// jQuery('.select-on-check-all, .checkbox-row').click(function() {

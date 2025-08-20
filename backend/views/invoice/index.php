@@ -1,6 +1,9 @@
 <?php
 
 use backend\widgets\DateFormat;
+use common\models\SubLabel;
+use kartik\select2\Select2;
+use yii\helpers\ArrayHelper;
 use yii\helpers\Html;
 use yii\grid\GridView;
 use yii\helpers\Url;
@@ -20,6 +23,14 @@ $this->params['breadcrumbs'][] = $this->title;
 
     <?php // echo $this->render('_search', ['model' => $searchModel]); ?>
 
+    <?php
+    $selected = [];
+
+    if(isset($_GET['InvoiceSearch']['label_id'])) {
+        $selected[$_GET['InvoiceSearch']['label_id']] = ['selected' => true];
+    }
+    ?>
+
     <?= GridView::widget([
         'dataProvider' => $dataProvider,
         'filterModel' => $searchModel,
@@ -35,6 +46,22 @@ $this->params['breadcrumbs'][] = $this->title;
             ['class' => 'yii\grid\SerialColumn'],
 
             'invoice_id',
+            [
+                'attribute' => 'aggregator_report_id',
+                'label' => 'Звіт №',
+				'value' => function($data) {
+					return $data->aggregator_report_id;
+				}
+            ],
+            /*[
+                'attribute' => 'label_id',
+                'format' => 'raw',
+                'filter' => ArrayHelper::map(SubLabel::find()->where(['active' => 1])->asArray()->all(), 'id', 'name'),
+
+                'value' => function($data) {
+                    return $data->label->name;
+                },
+            ],*/
             //'invoice_type',
             [
                 'attribute' => 'invoice_type',
@@ -45,33 +72,25 @@ $this->params['breadcrumbs'][] = $this->title;
             ],
             [
                 'attribute' => 'invoice_status_id',
-                'filter'=> [1 => 'Згенерований', 2 =>"Розрахований", 3=>"Помилка"],
+                'filter'=> [1 => 'Новий', 2 =>"Проведений", 3=>"Помилка"],
                 'value' => function($data) {
                     return $data->invoiceStatus->invoice_status_name;
                 },
             ],
             [
                 'attribute' => 'aggregator_id',
+                'filter'=> ArrayHelper::map(\backend\models\Aggregator::find()->asArray()->all(), 'aggregator_id', 'name'),
                 'value' => function($data) {
                     return $data->aggregator->name;
                 },
             ],
-            //[
-            //    'attribute' => 'ownership_type',
-            //    'value' => function($data) {
-            //        return $data->aggregator->ownershipType->name;
-            //    },
-            //],
             [
                 'attribute' => 'currency_id',
-                'filter'=> [1 => 'EURO', 2 =>'UAH'],
+                'filter'=> [1 => 'EUR', 2 =>'UAH', 3 => 'USD'],
                 'value' => function($data) {
                     return $data->currency->name;
                 },
             ],
-            //'invoice_status_id',
-           //'aggregator_id',
-            //'currency_id',
             'total',
             [
                 'attribute' => 'user_id',
@@ -92,43 +111,58 @@ $this->params['breadcrumbs'][] = $this->title;
                 'attribute' => 'year',
                 'filter'=> [2024 => 2024, 2025 =>2025],
             ],
+            'description:text',
             //'last_update',
             [
                 'class' => 'yii\grid\ActionColumn',
-                'template' => '{view} {export-to-excel}  {delete}' ,// {update}  {delete} | {view-report} {export} {pdf}
-               'buttons' => [
+                'template' => in_array(yii::$app->user->id, [1, 16])? '{view} {update} {export-to-excel} {export-to-pdf-act-for-sub-label} {export-to-excel-report-for-sub-label} {delete}' : '{view} {export-to-excel} {export-to-pdf-act-for-sub-label} {export-to-excel-report-for-sub-label}'  ,// {update}  {delete} | {view-report} {export} {pdf}
+                'buttons' => [
                     'view-report' => function ($url, $model) {
                         return Html::a('<span class="glyphicon glyphicon-indent-left"></span>', $url, [
-
                             'title' => Yii::t('yii', 'Звіт по доходу'),
                             'data-pjax' => 0,
                             'style' => $model->invoice_type != 1 ?'display:none; margin-left:5px;' : 'margin-left:5px;',
+                            'data-toggle'=>'tooltip',
+                            'data-placement'=>'left',
                         ]);
                     },
-                   'pdf' => function ($url, $model) {
-                       return Html::a('<span class="glyphicon glyphicon-floppy-save"></span>', $url, [
-
-                           'title' => Yii::t('yii', 'Скачати Акт'),
-                           'data-pjax' => 0,
-                           'style' => $model->invoice_type != 2 ?'display:none;margin-left:5px;' : 'margin-left:5px;',
-                       ]);
-                   },
                    'export' => function ($url, $model) {
                        return Html::a('<span class="glyphicon glyphicon-cloud-download"></span>', $url, [
 
-                           'title' => Yii::t('yii', 'Export report'),
+                           'title' => Yii::t('yii', 'Export report to xlsx'),
                            'data-pjax' => 0,
                            'style' => !in_array($model->invoice_type, [1,2]) ?'display:none;margin-left:5px;' : 'margin-left:5px;',
+                           'data-toggle'=>'tooltip',
+                           'data-placement'=>'left',
                        ]);
                    },
                    'export-to-excel' => function ($url, $model) {
                        return Html::a('<span class="glyphicon glyphicon-cloud-download"></span>', $url, [
-
-                           'title' => Yii::t('yii', 'Звіт по артистам'),
+                           'title' => Yii::t('yii', 'Звіт по артистам в xlsx'),
                           // 'target' => '_blank',
                            'style' => $model->invoice_type != 1 ? 'display:none;margin-left:5px;' : 'margin-left:5px;',
+                           'data-toggle'=>'tooltip',
+                           'data-placement'=>'left',
                        ]);
                    },
+                    'export-to-pdf-act-for-sub-label' => function ($url, $model) {
+                        return Html::a('<span class="glyphicon glyphicon-cloud-download"></span>', $url, [
+                            'title' => Yii::t('yii', 'Акт для СубЛейба в pdf'),
+                            // 'target' => '_blank',
+                            'style' => ($model->label_id != 0 && $model->invoice_type == 2 && $model->invoice_status_id == 2) ? 'margin-left:5px;' : 'display:none;margin-left:5px;',
+                            'data-toggle'=>'tooltip',
+                            'data-placement'=>'left',
+                        ]);
+                    },
+                    'export-to-excel-report-for-sub-label' => function ($url, $model) {
+                        return Html::a('<span class="glyphicon glyphicon-cloud-download"></span>', $url, [
+                            'title' => Yii::t('yii', 'Звіт для СубЛейба в xlsx'),
+                            // 'target' => '_blank',
+                            'style' => ($model->label_id != 0 && $model->invoice_type == 2 && $model->invoice_status_id == 2) ? 'margin-left:5px;' : 'display:none;margin-left:5px;',
+                            'data-toggle'=>'tooltip',
+                            'data-placement'=>'left',
+                        ]);
+                    },
                 ],
                 //'urlCreator' => function ($action, $model, $key, $index) {
                   //  return Url::to(['invoice/'.$action, 'id' => $model->invoice_id]);

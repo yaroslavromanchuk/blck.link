@@ -1,5 +1,7 @@
 <?php
 
+use backend\models\Artist;
+use backend\models\Track;
 use yii\helpers\Html;
 use yii\widgets\ActiveForm;
 use yii\jui\DatePicker;
@@ -7,6 +9,8 @@ use kartik\select2\Select2;
 /* @var $this yii\web\View */
 /* @var $model backend\models\TrackSearch */
 /* @var $form yii\widgets\ActiveForm */
+
+$traks = Track::find()->select(['name', 'id'])->indexBy('name')->column();
 ?>
 
 <div class="card">
@@ -22,26 +26,30 @@ use kartik\select2\Select2;
         <span class="card-title">Пошук треку</span>
         <div class="row">
         <div class="col-sm-12 col-md-6 col-lg-2">
-              <?= $form->field($model, 'artist_id')->widget(Select2::class, [
-    'model' => $model,
-    'data' => \backend\models\Artist::find()->select(['name', 'id'])->indexBy('id')->column(),
-    'language' => 'uk',
-    'options' => ['placeholder' =>  Yii::t('app', 'Виберіть артиста'),],
-    'pluginOptions' => [
-        'allowClear' => true
-    ],        
-]) ?>
+              <?= $form->field($model, 'artist_id')
+                  ->widget(Select2::class, [
+                        'model' => $model,
+                        'data' => Artist::find()
+                            ->leftJoin('sub_label', 'sub_label.id = artist.label_id')
+                            ->select(['CONCAT(artist.name, " (", sub_label.name, ")")', 'artist.id'])->indexBy('artist.id')->column(),
+                        'language' => 'uk',
+                        'options' => ['placeholder' =>  Yii::t('app', 'Виберіть артиста'),],
+                        'pluginOptions' => [
+                            'allowClear' => true
+                        ],
+                    ])
+              ?>
         </div>
         <div class="col-sm-12 col-md-6 col-lg-2">
               <?= $form->field($model, 'name')->widget(Select2::class, [
-    'model' => $model,
-    'data' => \backend\models\Track::find()->select(['name', 'id'])->indexBy('name')->column(),
-    'language' => 'uk',
-    'options' => ['placeholder' =>  Yii::t('app', 'Вибеіть трек'),],
-    'pluginOptions' => [
-        'allowClear' => true
-    ],        
-]) ?>
+                'model' => $model,
+                'data' => $traks,
+                'language' => 'uk',
+                'options' => ['placeholder' =>  Yii::t('app', 'Вибеіть трек'),],
+                'pluginOptions' => [
+                    'allowClear' => true
+                ],
+            ]) ?>
         </div>
        <!-- <div class="col-sm-12 col-md-6 col-lg-3">
             <?php  /*echo $form->field($model, 'url')->widget(Select2::class, [
@@ -56,23 +64,23 @@ use kartik\select2\Select2;
         </div>-->
         <div class="col-sm-12 col-md-6 col-lg-2">
              <?= $form->field($model, 'date')->widget(DatePicker::class, [
-    'language' => 'uk',
-    'dateFormat' => 'yyyy-MM-dd',
-    'options' => [
-       // 'placeholder' => Yii::$app->formatter->asDate($model->created_at),
-        'class'=> 'form-control',
-        'autocomplete'=>'off'
-    ],
-    'clientOptions' => [
-        'changeMonth' => true,
-        'changeYear' => true,
-       // 'yearRange' => '2020:2025',
-        //'showOn' => 'button',
-        //'buttonText' => 'Выбрать дату',
-        'buttonImageOnly' => true,
-       //'buttonImage' => 'images/calendar.gif'
-    ]
-])?>
+                'language' => 'uk',
+                'dateFormat' => 'yyyy-MM-dd',
+                'options' => [
+                   // 'placeholder' => Yii::$app->formatter->asDate($model->created_at),
+                    'class'=> 'form-control',
+                    'autocomplete'=>'off'
+                ],
+                'clientOptions' => [
+                    'changeMonth' => true,
+                    'changeYear' => true,
+                   // 'yearRange' => '2020:2025',
+                    //'showOn' => 'button',
+                    //'buttonText' => 'Выбрать дату',
+                    'buttonImageOnly' => true,
+                   //'buttonImage' => 'images/calendar.gif'
+                ]
+            ])?>
         </div>
             <div class="col-sm-12 col-md-6 col-lg-2">
                 <?= $form->field($model, 'date_added')->widget(DatePicker::class, [
@@ -109,7 +117,6 @@ use kartik\select2\Select2;
             </div>
         </div>
     </div>
-    
 
     <?php ActiveForm::end(); ?>
 

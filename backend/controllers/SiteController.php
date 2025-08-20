@@ -3,6 +3,7 @@ namespace backend\controllers;
 
 use backend\models\SignupLabelForm;
 use Yii;
+use yii\base\InvalidParamException;
 use yii\web\Controller;
 use yii\filters\VerbFilter;
 use yii\filters\AccessControl;
@@ -14,12 +15,13 @@ use frontend\models\ResendVerificationEmailForm;
 use frontend\models\VerifyEmailForm;
 use yii\base\InvalidArgumentException;
 use yii\web\BadRequestHttpException;
-
 /**
  * Site controller
  */
 class SiteController extends Controller
 {
+	
+	
     /**
      * {@inheritdoc}
      */
@@ -107,7 +109,8 @@ class SiteController extends Controller
             ]);
         }
     }
-/*
+
+    /*
      * Signs user up.
      *
      * @return mixed
@@ -115,14 +118,18 @@ class SiteController extends Controller
     public function actionSignup()
     {
         $this->layout = 'main-login';
-
         $model = new SignupForm();
 
         if ($model->load(Yii::$app->request->post())) {
-            if ($user = $model->signup()) {
-                if (Yii::$app->getUser()->login($user)) {
+            if ($model->signup()) {
+                return $this->redirect(['login']);
+
+               /* $user = \common\models\User::findByUsername($model->username);
+                if ($user !== null && Yii::$app->getUser()->login($user)) {
                     return $this->goHome();
-                }
+                } else {
+                    $this->redirect(['site/login']);
+                }*/
             }
         }
 
@@ -138,7 +145,7 @@ class SiteController extends Controller
         $model = new SignupLabelForm();
 
         if ($model->load(Yii::$app->request->post())) {
-            if ($user = $model->signup()) {
+            if ($model->signup()) {
                 Yii::$app->session->setFlash('success', 'Check your email for further instructions.');
                 //if (Yii::$app->getUser()->login($user)) {
                     return $this->redirect(['login']);

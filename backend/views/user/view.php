@@ -35,23 +35,36 @@ $this->params['breadcrumbs'][] = $this->title;
             //'sex',
             [
                 'attribute' => 'sex',
-                 'value' => function($data){
-                 switch ($data->sex)
-                 {
-                     case 'm': return 'Чоловік';
-                     case 'w': return 'Жінка';
-                     default : return '';
-                 }
-        }
+                'value' => function($data){
+                     switch ($data->sex)
+                     {
+                         case 'm': return 'Чоловік';
+                         case 'w': return 'Жінка';
+                         default : return '';
+                     }
+                }
             ],
             //'logo',
              [
-        'attribute' => 'logo',
-        'format' => 'raw',
-        'value' => function($data){
-        return Html::img($data->img, ['style'=>'border-radius: 50%', 'alt'=>$data->lastName] );
-        }
-                ],
+                'attribute' => 'logo',
+                'format' => 'raw',
+                'value' => function($data){
+                    return Html::img($data->img, ['style'=>'border-radius: 50%', 'alt'=>$data->lastName] );
+                }
+             ],
+            [
+                'attribute' => 'balance',
+                'label' => Yii::t('app', 'Баланс'),
+                'format' => 'raw',
+                'value' => function($data) {
+                    $echo = '';
+                    foreach ($data->balance as $balance) {
+                        $echo .= Html::tag('span', $balance['name'] . ': ' . $balance['amount'], ['class' => 'badge badge-info']) . PHP_EOL;
+                    }
+
+                    return Html::tag('p', $echo, ['class' => 'badge badge-success']);
+                }
+            ]
             //'auth_key',
            // 'password_hash',
            // 'password_reset_token',
@@ -60,5 +73,6 @@ $this->params['breadcrumbs'][] = $this->title;
            // 'updated_at',
         ],
     ]) ?>
-
 </div>
+
+

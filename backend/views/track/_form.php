@@ -9,29 +9,32 @@ use backend\models\Release;
 use backend\models\Track;
 use backend\widgets\CreateArtist;
 use backend\widgets\CreateRelease;
+use backend\widgets\CreateAlbum;
 use yii\widgets\Pjax;
 
 /* @var $this yii\web\View */
 /* @var $model Track */
 
 $artistData = Artist::find()
-    ->select(['artist.name', 'artist.id'])
-    ->leftJoin('user', 'user.id = artist.admin_id')
-    ->andFilterWhere(['user.label_id' => Yii::$app->user->identity->label_id])
+    ->select(['CONCAT(artist.name, " (", sub_label.name, ")")', 'artist.id'])
+    ->leftJoin('sub_label', 'sub_label.id = artist.label_id')
+    //->leftJoin('user', 'user.id = artist.admin_id')
+    //->andFilterWhere(['user.label_id' => Yii::$app->user->identity->label_id])
     ->indexBy('artist.id')
     ->column();
 
 $releaseData = Release::find()
     ->select(['releases.release_name', 'releases.release_id'])
-    ->leftJoin('user', 'user.id = releases.admin_id')
-    ->andFilterWhere(['user.label_id' => Yii::$app->user->identity->label_id])
+    //->leftJoin('user', 'user.id = releases.admin_id')
+    //->andFilterWhere(['user.label_id' => Yii::$app->user->identity->label_id])
     ->indexBy('releases.release_id')
     ->column();
 
 $albumData = Track::find()
     ->select(['track.name', 'track.id'])
-    ->leftJoin('user', 'user.id = track.admin_id')
-    ->andFilterWhere(['track.is_album' => 1, 'user.label_id' => Yii::$app->user->identity->label_id])
+   /// ->leftJoin('user', 'user.id = track.admin_id')
+    //->andFilterWhere(['user.label_id' => Yii::$app->user->identity->label_id])
+    ->andFilterWhere(['track.is_album' => 1])
     ->indexBy('track.id')
     ->column();
 ?>
@@ -123,7 +126,44 @@ $albumData = Track::find()
                             </div>
                         </div>
                     <div class="row">
-                            <div class="col-sm-12 col-md-6 col-lg-6">
+                        <div class="col-sm-12 col-md-6 col-lg-6">
+                        <div class="card">
+                            <h5 class="card-header">Альбом</h5>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-sm-12">
+										<?= $form->field($model, 'album_id')
+											->widget(Select2::class, [
+												'model' => $model,
+												'data' => \backend\models\Albums::find()
+													->select(['albums.name', 'albums.id'])
+													//->leftJoin('user', 'user.id = releases.admin_id')
+													//->andFilterWhere(['user.label_id' => Yii::$app->user->identity->label_id])
+													->indexBy('albums.id')
+													->column(),
+												'language' => 'uk',
+												'options' => ['placeholder' =>  Yii::t('app', 'Виберіть альбом'),],
+												'pluginOptions' => [
+													 'allowClear' => true
+												],
+												//'pluginEvents' => [
+													//'select2:select' => ' function(e) {  $("input.release").val(e.params.data.text); }'
+												//]
+											]) ?>
+                                    </div>
+                                    <div class="col-sm-12">
+                                        <span class="release"></span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card-footer">
+                                <div class="form-group text-center">
+									<?= Html::Button(Yii::t('app', 'Створити альбом'),  ['class' => 'btn btn-sm btn-success','data-toggle' => 'modal', 'data-target' => '#album-add-modal']) ?>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-12 col-md-6 col-lg-6">
                         <div class="card">
                             <h5 class="card-header">Реліз</h5>
                             <div class="card-body">
@@ -154,7 +194,7 @@ $albumData = Track::find()
                                 </div>
                             </div>
                         </div>
-                            </div>
+                    </div>
                             <div class="col-sm-12">
                         <div class="card"><!--Площадки-->
                             <h5 class="card-header">Площадки</h5>
@@ -210,23 +250,8 @@ $albumData = Track::find()
                                     </div>
                                     <div class="col-sm-6 col-md-6">
 
-                                        <?= $form->field($model, 'is_album')
+                                        <?php $form->field($model, 'is_album')
                                             ->checkbox([ 'value' => 1, 'checked' => (bool) $model->is_album, 'label' => 'Це альбом', 'onchange' => 'if($(this).prop("checked")) { $("#track-album_id").val(\'\').prop("disabled", true);} else {$("#track-album_id").prop("disabled", false);}']) ?>
-                                    </div>
-                                    <div class="col-sm-6 col-md-6">
-                                        <?= $form->field($model, 'album_id')
-                                            ->widget(Select2::class, [
-                                                'model' => $model,
-                                                'data' => $albumData,
-                                                'language' => 'uk',
-                                                'options' => ['placeholder' =>  Yii::t('app', 'Вкажіть альбом при потребі'),],
-                                                'pluginOptions' => [
-                                                    //  'allowClear' => true
-                                                ],
-                                                //'pluginEvents' => [
-                                                 //   'select2:select' => ' function(e) {  $("input#track-artist").val(e.params.data.text); }'
-                                               // ]
-                                            ]) ?>
                                     </div>
                                     <div class="col-sm-12 col-md-6">
                                         <?= $form->field($model, 'isrc')->textInput(['maxlength' => true]) ?>
@@ -289,6 +314,7 @@ $albumData = Track::find()
 </div>
 <?php echo CreateArtist::widget(); ?>
 <?php echo CreateRelease::widget(); ?>
+<?php echo CreateAlbum::widget(); ?>
   <?php
 
 $script = <<< JS

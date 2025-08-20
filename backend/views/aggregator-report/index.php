@@ -17,7 +17,7 @@ $this->params['breadcrumbs'][] = $this->title;
 
     <p>
         <?= Html::a(Yii::t('app', 'Завантажити звіт'), ['aggregator/upload-report'], ['class' => 'btn btn-success']) ?>
-        <?// Html::a(Yii::t('app', 'Create Aggregator Report'), ['create'], ['class' => 'btn btn-success']) ?>
+        <?php // Html::a(Yii::t('app', 'Create Aggregator Report'), ['create'], ['class' => 'btn btn-success']) ?>
     </p>
 
     <?php // echo $this->render('_search', ['model' => $searchModel]); ?>
@@ -53,7 +53,7 @@ $this->params['breadcrumbs'][] = $this->title;
             'total',
             [
                 'attribute' => 'currency_id',
-                'filter'=> [1 => 'EURO', 2 =>'UAH'],
+                'filter'=> [1 => 'EUR', 2 =>'UAH', 3 => 'USD'],
                 'value' => function($data) {
                     return $data->aggregator->currency->name;
                 },
@@ -77,6 +77,4 @@ $this->params['breadcrumbs'][] = $this->title;
             ['class' => 'yii\grid\ActionColumn'],
         ],
     ]); ?>
-
-
 </div>

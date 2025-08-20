@@ -10,6 +10,8 @@ use backend\models\Invoice;
 use backend\models\InvoiceItems;
 use backend\models\InvoiceStatus;
 use backend\models\Track;
+use backend\models\UserBalance;
+use backend\models\UserToTrack;
 use common\models\t;
 use InvalidArgumentException;
 use RuntimeException;
@@ -17,6 +19,7 @@ use Throwable;
 use Yii;
 use backend\models\AggregatorReport;
 use backend\models\AggregatorReportSearch;
+use yii\db\StaleObjectException;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\filters\VerbFilter;
@@ -65,13 +68,12 @@ class AggregatorReportController extends Controller
     public function actionView($id)
     {
         $model = $this->findModel($id);
+
         $loaded = InvoiceItems::find()
                 ->select([InvoiceItems::tableName() . '.isrc'])
                 ->from(InvoiceItems::tableName())
                 ->InnerJoin(Invoice::tableName(), Invoice::tableName() . '.invoice_id = '. InvoiceItems::tableName() .' .invoice_id')
-                ->where([
-                    Invoice::tableName() . '.aggregator_report_id' => $id
-                ])
+                ->where([Invoice::tableName() . '.aggregator_report_id' => $id])
                 ->groupBy([InvoiceItems::tableName() . '.isrc'])
                 ->asArray()
                 ->all();
@@ -83,9 +85,8 @@ class AggregatorReportController extends Controller
         $notLoaded = AggregatorReportItem::find()
             ->select([AggregatorReportItem::tableName() . '.isrc'])
             ->from(AggregatorReportItem::tableName())
-            ->where([
-                AggregatorReportItem::tableName() . '.report_id' => $id
-            ])
+            ->where([AggregatorReportItem::tableName() . '.report_id' => $id])
+            //->andFilterWhere(['>', AggregatorReportItem::tableName() . '.amount', 0])
             ->groupBy([AggregatorReportItem::tableName() . '.isrc'])
             ->asArray()
             ->all();
@@ -160,22 +161,24 @@ class AggregatorReportController extends Controller
             ->select([InvoiceItems::tableName() . '.isrc'])
             ->from(InvoiceItems::tableName())
             ->InnerJoin(Invoice::tableName(), Invoice::tableName() . '.invoice_id = '. InvoiceItems::tableName() .' .invoice_id')
-            ->where([
-                Invoice::tableName() . '.aggregator_report_id' => $id
-            ])
+            ->where([Invoice::tableName() . '.aggregator_report_id' => $id])
             ->groupBy([InvoiceItems::tableName() . '.isrc'])
             ->asArray()
             ->all();
 
         $loaded = array_column($loaded, 'isrc');
-
+        /*$loaded = array_map(function($item) {
+            return str_replace('-', '', $item);
+        }, $loaded);
+*/
         $is_have = (bool) count($loaded);
 
         $reportItems = (new \yii\db\Query())
             ->from(AggregatorReportItem::tableName())
-            ->select('isrc, SUM(amount) as amount')
+            ->select('isrc, SUM(amount) as amount, track_id')
             ->where(['report_id' => $id])
             ->andFilterWhere(['not in', 'isrc', $loaded])
+            //->andFilterWhere(['>', AggregatorReportItem::tableName() . '.amount', 0])
             ->groupBy(['isrc'])
             ->all();
 
@@ -192,7 +195,15 @@ class AggregatorReportController extends Controller
 
         foreach ($reportItems as $item) {
             $isrc = trim($item['isrc']);
-            $track = Track::getTrackByIsrc($isrc);
+            $track = null;
+
+            if (!empty($item['track_id'])) {
+                $track = Track::findOne($item['track_id']);
+            }
+
+            if (is_null($track)) {
+                $track = Track::getTrackByIsrc($isrc);
+            }
 
             if (null === $track) {
                 $emptyTrack[] = $isrc;
@@ -200,10 +211,14 @@ class AggregatorReportController extends Controller
                 continue;
             }
 
-            $tracks[$track->isrc] = [
-                'track' => $track,
-                'amount' => round($item['amount'], 4),
-            ];
+            if (isset($tracks[$track->isrc])) {
+                $tracks[$track->isrc]['amount'] += round($item['amount'], 4);
+            } else {
+                $tracks[$track->isrc] = [
+                    'track' => $track,
+                    'amount' => round($item['amount'], 4),
+                ];
+            }
         }
 
         if (empty($tracks)) {
@@ -240,6 +255,7 @@ class AggregatorReportController extends Controller
             $invoice->quarter = $report->quarter;
             $invoice->year = $report->year;
             $invoice->total = $total;
+            $invoice->description = 'Звіт ' . $report->aggregator->name . ' за ' . $report->quarter . 'кв.' . $report->year;
 
             if (!$invoice->validate()) {
                //print_r($invoice->getErrors());
@@ -263,44 +279,84 @@ class AggregatorReportController extends Controller
 
         try {
             foreach ($tracks as $item) {
-                $calculation = $item['track']->getCalculation($invoice->aggregator_id, $item['amount']);
+                //if ($item['amount'] > 0) {
+                    /** @var Track $track */
+                    $track = $item['track'];
+                    $calculation = $track->getCalculation($invoice->aggregator_id, $item['amount']);
 
-                foreach ($calculation as $value) {
-                    $invoiceItem = new InvoiceItems();
-                    $invoiceItem->invoice_id = $invoice->invoice_id;
-                    $invoiceItem->track_id = $item['track']->id;
-                    $invoiceItem->isrc = $item['track']->isrc;
-                    $invoiceItem->artist_id = $value['artist_id'];
+                    $temp_amount = 0.0;
+                    foreach ($calculation as $value) {
+                        $invoiceItem = new InvoiceItems();
+                        $invoiceItem->invoice_id = $invoice->invoice_id;
+                        $invoiceItem->track_id = $track->id;
+                        $invoiceItem->isrc = $track->isrc;
+                        $invoiceItem->artist_id = $value['artist_id'];
+                        $invoiceItem->date_item = date('Y-m-d');
+                        $invoiceItem->percentage = $value['percentage'];
 
-                    if (!empty($value['from_artist_id'])) {
-                        $invoiceItem->from_artist_id = $value['from_artist_id'];
+                        if (!empty($value['from_artist_id'])) {
+                            $invoiceItem->from_artist_id = $value['from_artist_id'];
+                        }
+
+                      /*  if ($value['artist_id'] == Artist::LABEL
+                            && !empty($value['from_artist_id'])
+                        ) {
+                            // @var UserToTrack $user
+                                foreach ($track->getUserToTracks() as $user) {
+                                    $userBalance = new UserBalance();
+                                    $userBalance->invoice_id = $invoice->invoice_id;
+                                    $userBalance->currency_id = $invoice->currency_id;
+                                    $userBalance->user_id = $user->user_id;
+                                    $userBalance->track_id = $track->id;
+                                    $userBalance->amount = round($value['amount'] * ($user->percentage / 100), 2);
+                                    $userBalance->save();
+                                }
+                        }*/
+
+                        $invoiceItem->amount = $value['amount'];
+
+                        $total2 += $invoiceItem->amount;
+                        $temp_amount += $invoiceItem->amount;
+
+                        if (!$invoiceItem->save()) {
+                            if (!$is_have) {
+                                //InvoiceItems::deleteAll(['invoice_id' => $invoice->invoice_id]);
+                                $invoice->delete();
+                            }
+
+                            $report->report_status_id = AggregatorReportStatus::CONFLICT; // Конфлікт
+                            $report->save();
+
+                            throw new RuntimeException('Помилка збереження даних для треку: ' . $item['track']->id . current($invoiceItem->getErrors()));
+                        }
                     }
 
-                    $invoiceItem->amount = $value['amount'];
-
-                    $total2 += $value['amount'];
-
-                    if (!$invoiceItem->save()) {
+                    if (abs($temp_amount - $item['amount']) > 0.01) {
                         if (!$is_have) {
-                            InvoiceItems::deleteAll(['invoice_id' => $invoice->invoice_id]);
                             $invoice->delete();
                         }
 
-                        $report->report_status_id = AggregatorReportStatus::CONFLICT; // Конфлікт
+                        $report->report_status_id = AggregatorReportStatus::LOADED; // Конфлікт
                         $report->save();
 
-                        throw new RuntimeException('Помилка збереження даних для треку: ' . $item['track']->id);
+                        $m = 'Помилка розрахунку треку: ' . $track->isrc . '. Сума у звіті: ' . $item['amount'] . ', сума після розрахунку:' . $temp_amount;
+
+                        t::log($m);
+
+                        Yii::$app->session->setFlash('error', $m);
+
+                        return $this->redirect(['/aggregator-report/view', 'id' => $id]);
                     }
-                }
+                //}
             }
 
-            if ($total2 == 0) {
-                throw new InvalidArgumentException('Нульовий тотал' . PHP_EOL . implode(',', array_keys($tracks)));
-            }
+          //  if ($total2 == 0) {
+             //   throw new InvalidArgumentException('Нульовий тотал' . PHP_EOL . implode(',', array_keys($tracks)));
+          //  }
 
             if (count($emptyTrack) > 0) {
                 $report->report_status_id = AggregatorReportStatus::CONFLICT;
-                $report->description = 'В системі не занйдено ' . count($emptyTrack) . ' ISRC';
+                $report->description = 'В системі не занйдено ' . count($emptyTrack) . ' - ' . implode(',', $emptyTrack) . ' ISRC';
             } else {
                 $report->report_status_id = AggregatorReportStatus::GENERATED_INVOICE; // Згенерований інвойс
                 $report->description = '';
@@ -308,8 +364,10 @@ class AggregatorReportController extends Controller
 
              $report->save();
 
-            if ($invoice->invoice_status_id != InvoiceStatus::Calculated) {
-                $invoice->invoice_status_id = InvoiceStatus::Calculated;
+            if ($invoice->invoice_status_id != InvoiceStatus::Calculated
+                && $report->report_status_id != AggregatorReportStatus::CONFLICT
+            ) {
+               // $invoice->invoice_status_id = InvoiceStatus::Calculated;
             }
 
             if ($is_have) {
@@ -322,18 +380,28 @@ class AggregatorReportController extends Controller
         } catch (Throwable $e) {
 
             if (!$is_have) {
-                InvoiceItems::deleteAll(['invoice_id' => $invoice->invoice_id]);
+                //InvoiceItems::deleteAll(['invoice_id' => $invoice->invoice_id]);
                 $invoice->delete();
+                UserBalance::deleteAll(['invoice_id' => $invoice->invoice_id]);
             }
 
-           t::log($e->getMessage());
+           t::log($e->getMessage() . $e->getTraceAsString());
 
             Yii::$app->session->setFlash('error', 'Помилка генерації інвойсу: ' . $e->getMessage());
 
             return $this->redirect(['/aggregator-report/view', 'id' => $id]);
         }
 
-        Artist::calculationDeposit();
+        if ($invoice->invoice_status_id == InvoiceStatus::Calculated) {
+            Artist::calculationDeposit();
+        }
+		
+		Yii::$app->db->createCommand(
+			"UPDATE aggregator_report_item a
+					INNER JOIN track t ON t.isrc = a.isrc and t.isrc is not null
+				SET a.`track_id` = t.id
+				WHERE a.track_id is null and a.report_id = {$report->id}"
+		)->execute();
 
         if (count($emptyTrack) > 0) {
             return $this->redirect(['/aggregator-report/view', 'id' => $id]);
@@ -386,12 +454,14 @@ class AggregatorReportController extends Controller
      * @param integer $id
      * @return mixed
      * @throws NotFoundHttpException if the model cannot be found
+     * @throws Throwable
+     * @throws StaleObjectException
      */
     public function actionDelete($id)
     {
         $model = $this->findModel($id);
 
-        if ($model->report_status_id != 2) {
+        if (in_array($model->report_status_id, [1, 3]) && is_null(Invoice::findOne(['aggregator_report_id' => $model->id, 'invoice_type' => 1]))) {
             $model->delete();
         } else {
             Yii::$app->session->setFlash('error', "Неможа видалити репорт для якого згенеровано інвойст");

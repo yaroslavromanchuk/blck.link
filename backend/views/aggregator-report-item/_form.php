@@ -12,7 +12,7 @@ use yii\widgets\ActiveForm;
 
     <?php $form = ActiveForm::begin(); ?>
 
-    <?= $form->field($model, 'report_id')->textInput() ?>
+    <?php // $form->field($model, 'report_id')->textInput() ?>
 
     <?= $form->field($model, 'isrc')->textInput(['maxlength' => true]) ?>
 
@@ -20,19 +20,9 @@ use yii\widgets\ActiveForm;
 
     <?= $form->field($model, 'platform')->textInput(['maxlength' => true]) ?>
 
-    <?= $form->field($model, 'artist')->textInput(['maxlength' => true]) ?>
+    <?php // $form->field($model, 'count')->textInput() ?>
 
-    <?= $form->field($model, 'releas')->textInput(['maxlength' => true]) ?>
-
-    <?= $form->field($model, 'track')->textInput(['maxlength' => true]) ?>
-
-    <?= $form->field($model, 'count')->textInput() ?>
-
-    <?= $form->field($model, 'amount')->textInput(['maxlength' => true]) ?>
-
-    <?= $form->field($model, 'date_added')->textInput() ?>
-
-    <?= $form->field($model, 'last_update')->textInput() ?>
+    <?php // $form->field($model, 'amount')->textInput(['maxlength' => true]) ?>
 
     <div class="form-group">
         <?= Html::submitButton(Yii::t('app', 'Save'), ['class' => 'btn btn-success']) ?>

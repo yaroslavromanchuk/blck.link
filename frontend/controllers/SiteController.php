@@ -113,14 +113,14 @@ class SiteController extends Controller
                 ->andFilterWhere(['<=', '`date`', date('Y-m-d')])
                 ->one();
 
-         if(!$track){
+         if(!$track) {
              return $this->redirect(['index']);
          }
 
 		$referal = !empty($_SESSION["referal"]) ? $_SESSION["referal"] : '';
 
          if (empty($referal)) {
-			 $referal =  !empty($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : '';
+			 $referal = !empty($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : '';
 		 }
 
 		$track->views = (int)($track->views+1);
@@ -246,7 +246,8 @@ class SiteController extends Controller
      */
     public function actionAbout()
     {
-        return $this->renderPartial('about');
+        return $this->redirect(['index']);
+        //return $this->renderPartial('about');
     }
 
     /**
@@ -362,7 +363,7 @@ class SiteController extends Controller
         ]);
     }
      //Карта сайта. Выводит в виде XML файла.
-    public function actionSitemap(){
+    public function actionSitemap() {
         
     $sitemap = new Sitemap();
     

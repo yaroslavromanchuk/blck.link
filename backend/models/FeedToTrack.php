@@ -12,6 +12,9 @@ use Yii;
  * @property int $artist_id
  * @property string $date_added
  * @property string $last_update
+ *
+ * @property Track $track
+ * @property Artist $artist
  */
 class FeedToTrack extends \yii\db\ActiveRecord
 {
@@ -32,6 +35,8 @@ class FeedToTrack extends \yii\db\ActiveRecord
             [['track_id', 'artist_id'], 'required'],
             [['track_id', 'artist_id'], 'integer'],
             [['date_added', 'last_update'], 'safe'],
+            [['track_id'], 'exist', 'skipOnError' => true, 'targetClass' => Track::class, 'targetAttribute' => ['track_id' => 'id']],
+            [['artist_id'], 'exist', 'skipOnError' => true, 'targetClass' => Artist::class, 'targetAttribute' => ['artist_id' => 'id']],
         ];
     }
 
@@ -47,5 +52,25 @@ class FeedToTrack extends \yii\db\ActiveRecord
             'date_added' => Yii::t('app', 'Date Added'),
             'last_update' => Yii::t('app', 'Last Update'),
         ];
+    }
+
+    /**
+     * Gets query for [[Track]].
+     *
+     * @return \yii\db\ActiveQuery
+     */
+    public function getTrack()
+    {
+        return $this->hasOne(Track::class, ['id' => 'track_id']);
+    }
+
+    /**
+     * Gets query for [[Artist]].
+     *
+     * @return \yii\db\ActiveQuery
+     */
+    public function getArtist()
+    {
+        return $this->hasOne(Artist::class, ['id' => 'artist_id']);
     }
 }

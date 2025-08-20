@@ -56,18 +56,17 @@ class ReleaseSearch extends Release
             return $dataProvider;
         }
 
+        $query->innerJoin(User::tableName(), 'user.id = releases.admin_id');
+
         // grid filtering conditions
         $query->andFilterWhere([
-            'release_id' => $this->release_id,
-            'date_add' => $this->date_add,
+            'releases.release_id' => $this->release_id,
+            'releases.date_add' => $this->date_add,
             //'last_update' => $this->last_update,
         ]);
 
-        if (Yii::$app->user->identity->type != 1) {
-            $query->andFilterWhere(['admin_id' => Yii::$app->user->identity->id]);
-        }
-
-        $query->andFilterWhere(['like', 'release_name', $this->release_name]);
+        $query->andFilterWhere(['user.label_id' => Yii::$app->user->identity->label_id]);
+        $query->andFilterWhere(['like', 'releases.release_name', $this->release_name]);
 
         return $dataProvider;
     }

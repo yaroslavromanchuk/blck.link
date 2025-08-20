@@ -13,6 +13,8 @@ class SignupForm extends Model
     public $username;
     public $email;
     public $password;
+    public $firstName = '';
+    public $lastName = '';
 
 
     /**
@@ -34,6 +36,25 @@ class SignupForm extends Model
 
             ['password', 'required'],
             ['password', 'string', 'min' => 6],
+
+            ['firstName', 'trim'],
+            ['firstName', 'required'],
+            ['firstName', 'string', 'min' => 2, 'max' => 255],
+
+            ['lastName', 'trim'],
+            ['lastName', 'required'],
+            ['lastName', 'string', 'min' => 2, 'max' => 255],
+        ];
+    }
+
+    public function attributeLabels()
+    {
+        return [
+            'username' => 'Логін',
+            'firstName' => 'Прізвище',
+            'lastName' => 'Ім\'я',
+            'email' => 'Email',
+            'password' => 'Пароль',
         ];
     }
 
@@ -52,6 +73,8 @@ class SignupForm extends Model
         $user = new User();
         $user->username = $this->username;
         $user->email = $this->email;
+        $user->firstName = $this->firstName;
+        $user->lastName = $this->lastName;
         $user->setPassword($this->password);
 
         $user->generateAuthKey();

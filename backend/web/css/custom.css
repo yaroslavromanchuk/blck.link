@@ -181,6 +181,10 @@ body.nav-md .container.body .right_col {
   border-radius: 0;
   height: 57px;
 }
+.left_col {
+  background: #000000
+}
+
 @media (max-width: 991px) {
   body.nav-md .container.body .right_col, body.nav-md .container.body .top_nav {
     width: 100%;

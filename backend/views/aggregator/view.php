@@ -1,5 +1,6 @@
 <?php
 
+use backend\models\AggregatorToOwnershipType;
 use yii\helpers\Html;
 use yii\widgets\DetailView;
 

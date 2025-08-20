@@ -25,7 +25,7 @@ class LogController extends Controller
                 'class' => AccessControl::class,
                 'rules' => [
                     [
-                        'actions' => ['index', 'view', 'create', 'update', 'delete'],
+                        'actions' => ['index', 'view', 'create', 'update', 'delete', 'view-track', 'finance'],
                         'allow' => true,
                         'roles' => ['manager'],
 
@@ -47,32 +47,45 @@ class LogController extends Controller
      */
     public function actionIndex()
     {
+        return $this->render('index', []);
+    }
+    public function actionViewTrack()
+    {
         $searchModel = new LogSearch();
         $dataProvider = $searchModel->search(Yii::$app->request->queryParams);
 
-		$country = \common\models\Views::find()->select('views.country as name, count(views.id) as value')->groupBy(['country'])->asArray()->all();
-		$map = [
-			'Russian Federation' => 'Russia',
-			'United States' => 'United States of America'
-		];
+        $country = \common\models\Views::find()
+            ->select('views.country as name, count(views.id) as value')
+            ->groupBy(['country'])
+            ->asArray()
+            ->all();
+        $map = [
+            'Russian Federation' => 'Russia',
+            'United States' => 'United States of America'
+        ];
 
-		$cc = [];
-		$max = 0;
+        $cc = [];
+        $max = 0;
 
-		foreach ($country as $c) {
-			if ($c['value'] > $max) {
-				$max = $c['value'];
-			}
+        foreach ($country as $c) {
+            if ($c['value'] > $max) {
+                $max = $c['value'];
+            }
 
-			$cc[] = ['name' => $map[$c['name']] ?? $c['name'], 'value' => (float) $c['value']];
-		}
+            $cc[] = ['name' => $map[$c['name']] ?? $c['name'], 'value' => (float) $c['value']];
+        }
 
-        return $this->render('index', [
+        return $this->render('view-track', [
             'searchModel' => $searchModel,
             'dataProvider' => $dataProvider,
             'country' => json_encode($cc),
             'max' => $max
         ]);
+    }
+
+    public function actionFinance()
+    {
+        return $this->render('index', []);
     }
 
     /**

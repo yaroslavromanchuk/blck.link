@@ -19,11 +19,13 @@ use common\models\SubLabel;
  * @property string $sex
  * @property string $logo
  * @property string $auth_key
+ * @property int $telegram_id
  * @property string $password_hash
  * @property string $password_reset_token
  * @property int $status
  * @property int $created_at
  * @property int $updated_at
+ * @property array $balance
  */
 class User extends ActiveRecord
 {
@@ -146,5 +148,58 @@ class User extends ActiveRecord
     public function getTracks()
     {
         return $this->hasMany(Track::class, ['admin_id' => 'id']);
+    }
+
+    public function getUserBalances()
+    {
+        return $this->hasMany(UserBalance::class, ['user_id' => 'id']);
+    }
+
+    /**
+     * Gets query for [[UserToTracks]].
+     *
+     * @return \yii\db\ActiveQuery
+     */
+    public function getUserToTracks()
+    {
+        return $this->hasMany(UserToTrack::class, ['user_id' => 'id']);
+    }
+
+    public  function getBalance(): array
+    {
+        $result = [
+            1 => [
+                'name' => 'EUR',
+                'amount' => 0,
+            ],
+            2 => [
+                'name' => 'UAH',
+                'amount' => 0,
+            ],
+            3 => [
+                'name' => 'USD',
+                'amount' => 0,
+            ],
+        ];
+        $balances = $this->getUserBalances();
+
+        if ($balances->count()) {
+            /* @var UserBalance $balance */
+            foreach ($balances as $balance) {
+                $result[$balance->currency_id]['amount'] += $balance->amount;
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * Get telegram ID
+     * @param int $userId
+     * @return int|null
+     */
+    public static function getTelegramId(int $userId): ?int
+    {
+        return self::findOne($userId)->telegram_id;
     }
 }

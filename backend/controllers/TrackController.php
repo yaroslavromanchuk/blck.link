@@ -6,7 +6,11 @@ use backend\models\Perc;
 use backend\models\Percentage;
 use backend\models\PercentageSearch;
 use backend\models\ReleaseSearch;
+use backend\models\SubLabel;
+use backend\models\UploadReport;
 use common\models\t;
+use PhpOffice\PhpSpreadsheet\Reader\Xlsx;
+use Throwable;
 use Yii;
 use backend\models\Track;
 use backend\models\Artist;
@@ -135,12 +139,12 @@ class TrackController extends Controller
                 $model->url = trim(Yii::$app->translit->t($model->name));//     Yii::$app->getSecurity()->generateRandomString(8);
             }
 
-            $model->isrc = trim($model->isrc);
+            $model->isrc = str_replace("-", "", trim($model->isrc));
             $model->servise = serialize($model->servise);
 
             if($model->validate() && $model->save()) {
 
-                if (!$model->is_album) {
+                if (!$model->is_album && !$model->isSubLabel()) {
                     $model->addArtistPercentage();
                 }
 
@@ -152,7 +156,7 @@ class TrackController extends Controller
 
                 if (Yii::$app->user->id != 16) {
                     $message = $model->is_album == 1 ? 'трек: ' . $model->name : 'трек: ' . $model->name . ' (' . $model->isrc . ')';
-                    t::log(Yii::$app->user->identity->getFullName()  . ', додав '. $message, 529871503);
+                    t::log(Yii::$app->user->identity->getFullName()  . "\nДодав " . $message, 529871503);
                 }
 
                 return $this->redirect(['view', 'id' => $model->id]);
@@ -204,7 +208,7 @@ class TrackController extends Controller
 
                 if($model->validate() && $model->save()) {
 
-                    if (!$model->is_album) {
+                    if (!$model->is_album && !$model->isSubLabel()) {
                         $model->addArtistPercentage();
                     }
 
@@ -216,7 +220,7 @@ class TrackController extends Controller
 
                     if (Yii::$app->user->id != 16) {
                         $message = $model->is_album == 1 ? 'трек: ' . $model->name : 'трек: ' . $model->name . ' (' . $model->isrc . ')';
-                        t::log(Yii::$app->user->identity->getFullName()  . ', додав '. $message, 529871503);
+                        t::log(Yii::$app->user->identity->getFullName()  . "\nДодав ". $message, 529871503);
                     }
 
                     return $this->redirect(['view', 'id' => $model->id]);
@@ -410,8 +414,7 @@ class TrackController extends Controller
 
                         $model->percentage = $percentage;
                         if($model->save()) {
-                            $res .= '
-                            ' . implode(",", $temp);
+                            $res .= implode(",", $temp) . "\n";
                         }
                     }
                 }
@@ -419,18 +422,15 @@ class TrackController extends Controller
         }
 
         if (!empty($res)) {
-            t::log(
-                'User: ' . Yii::$app->user->identity->getFullName() . '
-                    update % for track ID: ' . $trackId . '
-                    ' . $res
-            );
+            $track =  $this->findModel($trackId);
+            t::log(Yii::$app->user->identity->getFullName() . "\nОнеовлено % для треку. ISRC: {$track->isrc}\n" .  $res);
         }
     }
 
         echo 'Дані збережено!';
         die;
 
-        return $this->redirect(['index']);
+      //  return $this->redirect(['index']);
     }
 
     public function actionLoadModal(int $trackId)
@@ -446,7 +446,7 @@ class TrackController extends Controller
             ->leftJoin('ownership_type', 'ownership_type.id = track_to_percentage.ownership_type')
             ->leftJoin('ownership', 'ownership.id = ownership_type.ownership_id')
             ->where(['track_to_percentage.track_id' => $trackId])
-            ->orderBy('track_to_percentage.artist_id')
+            ->orderBy('track_to_percentage.artist_id, ownership_type.sort')
             ->asArray()
             ->all();
 
@@ -475,6 +475,115 @@ class TrackController extends Controller
     }
 
     #endregion Percentage
+
+    #region load track
+
+    public function actionImport()
+    {
+        $model = new UploadReport();
+
+        if (Yii::$app->request->isPost) {
+            $model->load(Yii::$app->request->post());
+            $model->file = UploadedFile::getInstance($model, 'file');
+
+            if (is_null($model->file)) {
+                throw new \RuntimeException('Please Select xls File');
+            }
+
+            $reader = new Xlsx();
+
+            try {
+                $spreadsheet = $reader->load($model->file->tempName);
+            } catch (Throwable $e) {
+                die($e->getMessage());
+            }
+
+            $worksheet = $spreadsheet->getActiveSheet();
+            $importResults = $worksheet->toArray();
+            unset($importResults[0]);
+
+            $errorTrack = [];
+            $errorArtist = [];
+            $foundTrack = [];
+            $addedTrack = 0;
+            $addedArtist = 0;
+
+            foreach ($importResults as $item) {
+                $isrc = trim($item[0]);
+                $track = Track::getTrackByIsrc($isrc);
+
+                if (!is_null($track)) {
+                    $foundTrack[] = $item;
+                    continue;
+                }
+
+                $artist = Artist::getArtistByName(trim($item[3]), $item[4]);
+
+                if (is_null($artist)) {
+                    $label = SubLabel::findOne($item[4]);
+                    $artist = new Artist();
+                    $artist->name = mb_strlen(trim($item[3])) > 150 ? substr(trim($item[3]), 0, 150) : trim($item[3]);
+                    $artist->percentage = $label->percentage;
+                    $artist->label_id = $label->id;
+                    $artist->artist_type_id = 1;
+                    $artist->admin_id = 16;
+                    $artist->full_name = mb_strlen(trim($item[2])) > 150 ? substr(trim($item[2]), 0, 150) : trim($item[2]);
+
+                    if (!$artist->save()) {
+                        $errorArtist[] = $item;
+                        continue;
+                    }
+
+                    $addedArtist++;
+                }
+
+                $track = new Track();
+                $track->isrc = $isrc;
+                $track->admin_id = 16;
+                $track->artist_id = $artist->id;
+                $track->artist_name = $artist->name;
+                $track->name = trim($item[1]);
+                $track->img = '2565_XZEVWO7R.jpg';
+                $track->is_album = 0;
+                $url = trim(Yii::$app->translit->t($track->name));
+                $bytes = random_bytes(3);
+                $track->url = substr($url, 0, 48) . bin2hex($bytes);
+                $track->servise = serialize([]);
+
+                if(!$track->validate()) {
+                    print_r($track->getErrors());
+                }
+
+                if(!$track->save()) {
+                    $errorTrack[] = $item;
+                    continue;
+                }
+
+                $addedTrack++;
+
+                if (!$track->isSubLabel()) {
+                    $track->addArtistPercentage();
+                }
+            }
+
+            echo '<pre>';
+            echo 'Added artist:' . $addedArtist. PHP_EOL;
+            echo 'Added track:' . $addedTrack . PHP_EOL;
+
+            echo 'Error Artist:' . PHP_EOL;
+            print_r($errorArtist);
+            echo 'Error Track:' . PHP_EOL;
+            print_r($errorTrack);
+            echo 'Found Track:' . PHP_EOL;
+            print_r($foundTrack);
+            echo '</pre>';
+            exit;
+        }
+
+        return $this->render('import', ['model' => $model]);
+
+    }
+    #endregion load track
 
     /**
      * Finds the Track model based on its primary key value.

@@ -13,6 +13,7 @@ use Yii;
  * @property int $type_id
  * @property float $sum
  * @property int $quarter
+ * @property int $year
  * @property string $date_added
  * @property string $last_update
  *
@@ -36,8 +37,8 @@ class ArtistLog extends \yii\db\ActiveRecord
     public function rules()
     {
         return [
-            [['artist_id', 'currency_id', 'type_id', 'sum', 'quarter'], 'required'],
-            [['artist_id', 'currency_id', 'type_id', 'quarter'], 'integer'],
+            [['artist_id', 'currency_id', 'type_id', 'sum', 'quarter', 'year'], 'required'],
+            [['artist_id', 'currency_id', 'type_id', 'quarter', 'year'], 'integer'],
             [['sum'], 'number'],
             [['date_added', 'last_update'], 'safe'],
             [['artist_id'], 'exist', 'skipOnError' => true, 'targetClass' => Artist::class, 'targetAttribute' => ['artist_id' => 'id']],
@@ -58,6 +59,7 @@ class ArtistLog extends \yii\db\ActiveRecord
             'type_id' => 'Type ID',
             'sum' => 'Sum',
             'quarter' => 'Квартал',
+            'year' => 'Рік',
             'date_added' => 'Date Added',
             'last_update' => 'Last Update',
         ];

@@ -2,6 +2,7 @@
 
 use backend\models\Currency;
 use backend\models\InvoiceType;
+use yii\jui\DatePicker;
 use yii\helpers\Html;
 use yii\helpers\Url;
 use yii\widgets\ActiveForm;
@@ -13,7 +14,7 @@ use kartik\select2\Select2;
 
 $invoice_type = InvoiceType::find()
     ->select(['invoice_type_name', 'invoice_type_id'])
-    ->where('invoice_type_id != 1')
+    #->where('invoice_type_id != 1')
     ->indexBy('invoice_type_id')
     ->column();
 $currency = Currency::find()
@@ -55,18 +56,58 @@ $currency = Currency::find()
         ]) ?>
     </div>
     <div class="col-sm-12 col-md-6 col-lg-2">
-        <?= $form->field($model, 'quarter')->dropDownList([1 => 1, 2 => 2, 3 => 3, 4 => 4]) ?>
-    </div>
-    <div class="col-sm-12 col-md-6 col-lg-2">
-        <?= $form->field($model, 'year')->dropDownList([2024 => 2024, 2025 => 2025]) ?>
-    </div>
-    <div class="col-sm-12 col-md-6 col-lg-2">
         <?= $form->field($model, 'exchange')
             ->textInput() ?>
     </div>
+    <div class="col-sm-12 col-md-6 col-lg-2">
+        <?= $form->field($model, 'quarter')->dropDownList([1 => 1, 2 => 2, 3 => 3, 4 => 4]) ?>
+    </div>
+    <div class="col-sm-12 col-md-6 col-lg-2">
+        <?= $form->field($model, 'year')->dropDownList([2024 => 2024, 2025 => 2025, 2026 => 2026]) ?>
+    </div>
+    <div class="col-sm-12 col-md-6 col-lg-2">
+        <?= $form->field($model, 'description')
+            ->textInput() ?>
+    </div>
 
-    <?= $form->field($model, 'total')->hiddenInput(['value'=> 0])->label(false)?>
-    <?= $form->field($model, 'aggregator_id')->hiddenInput(['value'=> 10])->label(false)?>
+    <?php if ($model->invoice_type == 2) { ?>
+        <div class="col-sm-12 col-md-6 col-lg-2">
+           <?= $form->field($model, 'date_pay')->widget(DatePicker::class, [
+               'language' => 'uk',
+               'dateFormat' => 'yyyy-MM-dd',
+               'options' => [
+                   // 'placeholder' => Yii::$app->formatter->asDate($model->created_at),
+                   'class'=> 'form-control',
+                  // 'autocomplete'=>'off'
+               ]
+           ])?>
+        </div>
+        <div class="col-sm-12 col-md-6 col-lg-2">
+            <?= $form->field($model, 'period_from')->widget(DatePicker::class, [
+                'language' => 'uk',
+                'dateFormat' => 'yyyy-MM-dd',
+                'options' => [
+                    // 'placeholder' => Yii::$app->formatter->asDate($model->created_at),
+                    'class'=> 'form-control',
+                    // 'autocomplete'=>'off'
+                ]
+            ])?>
+        </div>
+        <div class="col-sm-12 col-md-6 col-lg-2">
+            <?= $form->field($model, 'period_to')->widget(DatePicker::class, [
+                'language' => 'uk',
+                'dateFormat' => 'yyyy-MM-dd',
+                'options' => [
+                    // 'placeholder' => Yii::$app->formatter->asDate($model->created_at),
+                    'class'=> 'form-control',
+                    // 'autocomplete'=>'off'
+                ]
+            ])?>
+        </div>
+    <?php } ?>
+
+    <?= $form->field($model, 'total')->hiddenInput(['value'=> !empty($model->total) ? $model->total : 0])->label(false)?>
+    <?= $form->field($model, 'aggregator_id')->hiddenInput(['value'=> !empty($model->aggregator_id) ?: 10])->label(false)?>
 <br>
     <div class="form-group col-sm-12">
         <?= Html::submitButton(Yii::t('app', 'Зберегти'), ['class' => 'btn btn-success']) ?>

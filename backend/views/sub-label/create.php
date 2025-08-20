@@ -3,7 +3,7 @@
 use yii\helpers\Html;
 
 /* @var $this yii\web\View */
-/* @var $model common\models\SubLabel */
+/* @var $model backend\models\SubLabel */
 
 $this->title = Yii::t('app', 'Create Sub Label');
 $this->params['breadcrumbs'][] = ['label' => Yii::t('app', 'Sub Labels'), 'url' => ['index']];

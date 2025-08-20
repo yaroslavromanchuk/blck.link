@@ -8,6 +8,7 @@ use Yii;
  * This is the model class for table "releases".
  *
  * @property int $release_id
+ * @property int $label_id
  * @property int $admin_id
  * @property string $release_name
  * @property string $date_add
@@ -30,7 +31,7 @@ class Release extends \yii\db\ActiveRecord
     {
         return [
             [['release_name'], 'required'],
-            [['admin_id'], 'integer'],
+            [['label_id', 'admin_id'], 'integer'],
             [['date_add', 'last_update'], 'safe'],
             [['release_name'], 'string', 'max' => 255],
         ];

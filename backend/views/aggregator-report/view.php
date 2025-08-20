@@ -4,6 +4,7 @@ use backend\models\AggregatorReportStatus;
 use yii\helpers\Html;
 use yii\widgets\DetailView;
 use yii\grid\GridView;
+use yii\helpers\Url;
 
 /* @var $this yii\web\View */
 /* @var $model backend\models\AggregatorReport */
@@ -97,12 +98,21 @@ $this->params['breadcrumbs'][] = $this->title;
             }
         },
         'columns' => [
-            'isrc',
+                'country',
+            'date_report',
             'platform',
+            'isrc',
             'count',
             'amount',
-            'date_report',
-        ]
+            [
+                    'class' => 'yii\grid\ActionColumn',
+                'template'=> '{update}',
+                'urlCreator' => function ($action, $item, $key, $index) {
+                    return Url::to(['aggregator-report-item/'.$action, 'id' => $item->id]);
+                 }
+                ],
+        ],
+
     ]); ?>
 
 </div>

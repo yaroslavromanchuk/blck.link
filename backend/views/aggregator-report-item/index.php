@@ -15,7 +15,7 @@ $this->params['breadcrumbs'][] = $this->title;
     <h1><?= Html::encode($this->title) ?></h1>
 
     <p>
-        <?= Html::a(Yii::t('app', 'Create Aggregator Report Item'), ['create'], ['class' => 'btn btn-success']) ?>
+        <?php // Html::a(Yii::t('app', 'Create Aggregator Report Item'), ['create'], ['class' => 'btn btn-success']) ?>
     </p>
 
     <?php // echo $this->render('_search', ['model' => $searchModel]); ?>
@@ -25,18 +25,14 @@ $this->params['breadcrumbs'][] = $this->title;
         'filterModel' => $searchModel,
         'columns' => [
             ['class' => 'yii\grid\SerialColumn'],
-
-            'id',
+            //'id',
             'report_id',
             'isrc',
             'date_report',
             'platform',
-            //'artist',
-            //'releas',
-            //'track',
-            //'count',
-            //'amount',
-            //'date_added',
+            'count',
+            'amount',
+            'date_added',
             //'last_update',
 
             ['class' => 'yii\grid\ActionColumn'],

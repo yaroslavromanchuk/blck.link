@@ -20,7 +20,7 @@ class InvoiceItemsSearch extends InvoiceItems
             [['id', 'invoice_id', 'track_id', 'artist_id'], 'integer'],
             [['isrc', 'date_item', 'last_update', 'platform'], 'safe'],
            // [[ 'platform'], 'string'],
-            [['amount', 'count'], 'number'],
+            [['amount', 'count', 'note', 'apr', 'pay'], 'number'],
         ];
     }
 
@@ -49,7 +49,7 @@ class InvoiceItemsSearch extends InvoiceItems
         $dataProvider = new ActiveDataProvider([
             'query' => $query,
             'pagination' => [
-                'pageSize' => 1000,
+                'pageSize' => 100,
             ],
         ]);
 
@@ -61,13 +61,42 @@ class InvoiceItemsSearch extends InvoiceItems
             return $dataProvider;
         }
 
+/*
+        if ($this->note >= 0 || $this->apr >= 0 || $this->pay >= 0) {
+            $query->leftJoin(InvoiceLog::tableName(), 'invoice_log.invoice_id = invoice_items.invoice_id and invoice_log.artist_id = invoice_items.artist_id');
+
+            $n = [];
+            if ($this->note >= 0) {
+                if ($this->note == 1) {
+                    $n[] = 1;
+                    $query->andWhere(['invoice_log.log_type_id' => 1]);
+                }
+            }
+
+            if ($this->apr >= 0) {
+                if ($this->apr == 1) {
+                    $n[] = 2;
+                    $query->andWhere(['invoice_log.log_type_id' => 2]);
+                }
+            }
+
+            if ($this->pay >= 0) {
+                if ($this->pay == 1) {
+                    $n[] = 3;
+                    $query->andWhere(['invoice_log.log_type_id' => 3]);
+                }
+            }
+
+           // $query->andWhere(['in', 'invoice_log.log_type_id', $n]);
+        }*/
+
         // grid filtering conditions
         $query->andFilterWhere([
-            'id' => $this->id,
-            'invoice_id' => $this->invoice_id,
-            'track_id' => $this->track_id,
-            'artist_id' => $this->artist_id,
-            'isrc' => $this->isrc,
+            'invoice_items.id' => $this->id,
+            'invoice_items.invoice_id' => $this->invoice_id,
+            'invoice_items.track_id' => $this->track_id,
+            'invoice_items.artist_id' => $this->artist_id,
+            'invoice_items.isrc' => $this->isrc,
            // 'amount' => $this->amount,
             //'date_item' => $this->date_item,
            // 'last_update' => $this->last_update,

@@ -18,6 +18,8 @@ use frontend\models\Track;
  * @property string $password_reset_token
  * @property string $verification_token
  * @property string $email
+ * @property string $firstName
+ * @property string $lastName
  * @property string $auth_key
  * @property integer $status
  * @property integer $created_at

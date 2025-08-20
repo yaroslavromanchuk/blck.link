@@ -18,7 +18,7 @@ class ArtistSearch extends Artist
     public function rules(): array
 	{
         return [
-            [['id', 'label_id', 'active', 'deposit', 'deposit_1', 'reliz', 'percentage', 'last_payment_invoice'], 'integer'],
+            [['id', 'label_id', 'active', 'deposit', 'deposit_1', 'deposit_3', 'reliz', 'percentage', 'last_payment_invoice', 'label_id'], 'integer'],
             [['name',  'phone', 'email', 'date_last_payment'], 'safe'],
         ];
     }
@@ -70,20 +70,25 @@ class ArtistSearch extends Artist
         $query->andFilterWhere([
             'id' => $this->id,
             'active' => $this->active,
+            'label_id' => $this->label_id,
             //'reliz' => $this->reliz,
         ]);
 
-        $query->andFilterWhere(['label_id' => Yii::$app->user->identity->label_id]);
+       // if (Yii::$app->user->identity->label_id == 0) {
+           // $query->andFilterWhere(['label_id' => $this->label_id]);
+       // } else {
+          //  $query->andFilterWhere(['label_id' => Yii::$app->user->identity->label_id]);
+      //  }
 
         $query->andFilterWhere(['like', 'name', '%'.$this->name.'%', false])
             ->andFilterWhere(['like', 'phone', $this->phone])
             ->andFilterWhere(['like', 'email', $this->email])
             ->andFilterWhere(['like', 'date_last_payment', $this->date_last_payment])
-            ->andFilterWhere(['=', 'last_payment_invoice', $this->last_payment_invoice])
-            ->andFilterWhere(['=', 'percentage', $this->percentage]);
-
-        $query->andFilterWhere(['>=', 'deposit', $this->deposit])
-        ->andFilterWhere(['>=', 'deposit_1', $this->deposit_1]);
+           // ->andFilterWhere(['=', 'last_payment_invoice', $this->last_payment_invoice])
+            ->andFilterWhere(['=', 'percentage', $this->percentage])
+            ->andFilterWhere(['>', 'deposit', $this->deposit])
+            ->andFilterWhere(['>', 'deposit_1', $this->deposit_1])
+            ->andFilterWhere(['>', 'deposit_3', $this->deposit_3]);
 
         return $dataProvider;
     }

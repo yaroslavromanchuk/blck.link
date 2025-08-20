@@ -17,7 +17,7 @@ class AggregatorReportItemSearch extends AggregatorReportItem
     {
         return [
             [['id', 'report_id', 'count'], 'integer'],
-            [['isrc', 'date_report', 'platform', 'date_added', 'last_update'], 'safe'],
+            [['isrc', 'date_report', 'platform', 'date_added', 'last_update', 'country'], 'safe'],
             [['amount'], 'number'],
         ];
     }

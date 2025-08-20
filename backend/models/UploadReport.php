@@ -15,9 +15,9 @@ use yii\web\UploadedFile;
 class UploadReport extends Model
 {
     /**
-     * @var ?UploadedFile
+     * @var string|UploadedFile
      */
-    public ?UploadedFile $file = null;
+    public string|UploadedFile $file = '';
     public ?int $aggregatorId = null;
     public ?int $quarter = null;
     public ?int $year = null;
@@ -30,7 +30,7 @@ class UploadReport extends Model
             [['file'], 'file',
                 'extensions'=>'xls,xlsx,csv',
                 //'wrongType' => 'Дозволяється тільки csv.',
-                'maxSize' => 1024 * 1024 * 15, // 15MB
+                'maxSize' => 1024 * 1024 * 30, // 15MB
                 //'tooLarge' => 'Розмір файлу перевищує 15 МБ. Будь ласка, завантажте файл меншого розміру.',
                 'skipOnEmpty' => false,
             ],

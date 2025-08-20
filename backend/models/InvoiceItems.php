@@ -2,6 +2,7 @@
 
 namespace backend\models;
 
+use common\models\MailLog;
 use Yii;
 
 /**
@@ -13,17 +14,24 @@ use Yii;
  * @property int $artist_id
  * @property int $from_artist_id
  * @property string|null $isrc
+ * @property int|null $percentage
  * @property double $amount
  * @property string $description
  * @property string $date_item
  * @property string $last_update
  *
  * @property Invoice $invoice
+ * @property MailLog $mail
+ * @property InvoiceLog $log
  * @property Track $track
  * @property Artist $artist
+ * @property $note
  */
 class InvoiceItems extends \yii\db\ActiveRecord
 {
+    public null|string  $note = null;
+    public null|string $apr = null;
+    public null|string  $pay = null;
     /**
      * {@inheritdoc}
      */
@@ -38,8 +46,8 @@ class InvoiceItems extends \yii\db\ActiveRecord
     public function rules()
     {
         return [
-            [['invoice_id', 'artist_id', 'amount'], 'required'],
-            [['invoice_id', 'track_id', 'artist_id', 'from_artist_id'], 'integer'],
+            [['invoice_id', 'artist_id', 'amount', 'date_item'], 'required'],
+            [['invoice_id', 'track_id', 'artist_id', 'from_artist_id', 'percentage'], 'integer'],
             [['amount'], 'number'],
             [['date_item', 'last_update'], 'safe'],
             [['isrc'], 'string', 'max' => 100],
@@ -65,8 +73,9 @@ class InvoiceItems extends \yii\db\ActiveRecord
             //'platform' => Yii::t('app', 'Платформа'),
             'description' => Yii::t('app', 'Коментар'),
             'amount' => Yii::t('app', 'Сума'),
-            'date_item' => Yii::t('app', 'Завантажено'),
+            'date_item' => Yii::t('app', 'Додано'),
             'last_update' => Yii::t('app', 'Оновлено'),
+            'percentage' => Yii::t('app', 'Відсоток %'),
         ];
     }
 
@@ -78,6 +87,95 @@ class InvoiceItems extends \yii\db\ActiveRecord
     public function getInvoice()
     {
         return $this->hasOne(Invoice::class, ['invoice_id' => 'invoice_id']);
+    }
+
+    /**
+     * Gets query for [[MailLog]].
+     *
+     * @return \yii\db\ActiveQuery
+     */
+    public function getMail()
+    {
+        return $this->hasMany(MailLog::class, ['invoice_id' => 'invoice_id']);
+    }
+
+    /**
+     * Gets query for [[MailLog]].
+     *
+     * @return \yii\db\ActiveQuery
+     */
+    public function getLog()
+    {
+        return $this->hasMany(InvoiceLog::class, ['invoice_id' => 'invoice_id']); //,
+    }
+
+    /**
+     * Gets query for [[MailLog]].
+     *
+     * @return bool
+     */
+    public function getNotified(): bool
+    {
+        $logs = $this->getLog()->all();
+
+        if (empty($logs)) {
+            return false;
+        }
+
+        /* @var InvoiceLog $log */
+        foreach ($logs as $log) {
+            if ($log->artist_id == $this->artist_id && $log->log_type_id == InvoiceLogType::EMAIL) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Gets query for [[MailLog]].
+     *
+     * @return bool
+     */
+    public function getApproved(): bool
+    {
+        $logs = $this->getLog()->all();
+
+        if (empty($logs)) {
+            return false;
+        }
+
+        /* @var InvoiceLog $log */
+        foreach ($logs as $log) {
+          if ($log->artist_id == $this->artist_id && $log->log_type_id == InvoiceLogType::APPROVED) {
+               return true;
+          }
+        }
+
+        return false;
+    }
+
+    /**
+     * Gets query for [[MailLog]].
+     *
+     * @return bool
+     */
+    public function getPayed()
+    {
+        $logs = $this->getLog()->all();
+
+        if (empty($logs)) {
+            return false;
+        }
+
+        /* @var InvoiceLog $log */
+        foreach ($logs as $log) {
+            if ($log->artist_id == $this->artist_id && $log->log_type_id == InvoiceLogType::PAYED) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

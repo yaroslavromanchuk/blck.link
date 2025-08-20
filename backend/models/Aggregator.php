@@ -11,6 +11,8 @@ use Yii;
  * @property string $name
  * @property string|null $description
  * @property int $ownership_type
+ * @property int $type_use_id
+ * @property int $service_id
  * @property int|null $currency_id
  * @property string $date_add
  * @property string $last_update
@@ -18,6 +20,8 @@ use Yii;
  * @property AggregatorReportItem[] $aggregatorReports
  * @property Ownership $ownershipType
  * @property Currency $currency
+ * @property AggregatorTypeUse $type
+ * @property AggregatorService $service
  */
 class Aggregator extends \yii\db\ActiveRecord
 {
@@ -36,7 +40,7 @@ class Aggregator extends \yii\db\ActiveRecord
     {
         return [
             [['name'], 'required'],
-            [['ownership_type', 'currency_id'], 'integer'],
+            [['ownership_type', 'currency_id', 'type_use_id', 'service_id'], 'integer'],
             [['date_add', 'last_update'], 'safe'],
             [['name', 'description'], 'string', 'max' => 255],
             [['ownership_type'], 'exist', 'skipOnError' => true, 'targetClass' => Ownership::className(), 'targetAttribute' => ['ownership_type' => 'id']],
@@ -55,6 +59,8 @@ class Aggregator extends \yii\db\ActiveRecord
             'description' => Yii::t('app', 'Деталі'),
             'ownership_type' => Yii::t('app', 'Тип Ввласності'),
             'currency_id' => Yii::t('app', 'Валюта'),
+            'type_use_id' => Yii::t('app', 'Тип використання'),
+            'service_id' => Yii::t('app', 'Ресурс використання'),
             'date_add' => Yii::t('app', 'Додано'),
             'last_update' => Yii::t('app', 'Оновлено'),
         ];
@@ -78,6 +84,15 @@ class Aggregator extends \yii\db\ActiveRecord
     public function getOwnershipType()
     {
         return $this->hasOne(Ownership::class, ['id' => 'ownership_type']);
+    }
+
+    public function getType()
+    {
+        return $this->hasOne(AggregatorTypeUse::class, ['type_id' => 'type_use_id']);
+    }
+    public function getService()
+    {
+        return $this->hasOne(AggregatorService::class, ['service_id' => 'service_id']);
     }
 
     /**

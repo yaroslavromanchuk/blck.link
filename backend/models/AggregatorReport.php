@@ -19,6 +19,7 @@ use Yii;
  * @property int $year
  *
  * @property User $user
+ * @property Aggregator $aggregator
  * @property AggregatorReportStatus $reportStatus
  * @property AggregatorReportItem[] $aggregatorReportItems
  */

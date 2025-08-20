@@ -72,6 +72,8 @@ return [
                 ],
                 'about' => 'site/about',
                 'telegram' => 'site/telegram',
+				'album' => 'album/index',
+				'album/<url:([\w\-_\d]+)>' => 'album/view',
                 'label' => 'label/index',
                 'label/<url:([\w\-_\d]+)>' => 'label/list',
                 'label/<url:([\w\-_\d]+)>/<track:([\w\-_\d]+)>' => 'label/view',

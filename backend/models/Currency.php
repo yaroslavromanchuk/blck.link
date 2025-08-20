@@ -9,6 +9,7 @@ use Yii;
  *
  * @property int $currency_id
  * @property string $currency_name
+ * @property string $currency_symbol
  * @property string $date_add
  * @property string $last_update
  */
@@ -31,6 +32,7 @@ class Currency extends \yii\db\ActiveRecord
             [['currency_name'], 'required'],
             [['date_add', 'last_update'], 'safe'],
             [['currency_name'], 'string', 'max' => 50],
+            [['currency_symbol'], 'string', 'max' => 10],
         ];
     }
 
@@ -42,6 +44,7 @@ class Currency extends \yii\db\ActiveRecord
         return [
             'currency_id' => Yii::t('app', 'Currency ID'),
             'currency_name' => Yii::t('app', 'Currency Name'),
+            'currency_symbol' => Yii::t('app', 'Currency Symbol'),
             'date_add' => Yii::t('app', 'Date Add'),
             'last_update' => Yii::t('app', 'Last Update'),
         ];

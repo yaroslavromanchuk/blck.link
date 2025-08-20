@@ -4,7 +4,6 @@ namespace backend\models;
 
 use yii\base\Model;
 use yii\data\ActiveDataProvider;
-use common\models\SubLabel;
 
 /**
  * SubLabelSearch represents the model behind the search form of `backend\models\SubLabel`.
@@ -59,7 +58,7 @@ class SubLabelSearch extends SubLabel
         // grid filtering conditions
         $query->andFilterWhere([
             'id' => $this->id,
-            'active' => $this->active,
+            'active' => 1, //$this->active,
             //'date_added' => $this->date_added,
             //'last_update' => $this->last_update,
         ]);

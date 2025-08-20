@@ -12,16 +12,17 @@ use yii\jui\DatePicker;
 /* @var $form yii\widgets\ActiveForm */
 
 $artistData = Artist::find()
-    ->select(['artist.name', 'artist.id'])
-    ->leftJoin('user', 'user.id = artist.admin_id')
-    ->andFilterWhere(['user.label_id' => Yii::$app->user->identity->label_id])
+    ->select(['CONCAT(artist.name, " (", sub_label.name, ")")', 'artist.id'])
+    ->leftJoin('sub_label', 'sub_label.id = artist.label_id')
+   // ->leftJoin('user', 'user.id = artist.admin_id')
+    //->andFilterWhere(['user.label_id' => Yii::$app->user->identity->label_id])
     ->indexBy('artist.id')
     ->column();
 
 $trackData = \backend\models\Track::find()
     ->select(['track.name', 'track.id'])
-    ->leftJoin('user', 'user.id = track.admin_id')
-    ->andFilterWhere(['user.label_id' => Yii::$app->user->identity->label_id])
+   // ->leftJoin('user', 'user.id = track.admin_id')
+   // ->andFilterWhere(['user.label_id' => Yii::$app->user->identity->label_id])
     ->indexBy('track.id')
     ->column();
 ?>

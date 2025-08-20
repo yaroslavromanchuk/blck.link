@@ -26,10 +26,11 @@ $invoice = new ActiveDataProvider([
         ->leftJoin('currency', 'currency.currency_id = invoice.currency_id')
         ->leftJoin('aggregator', 'aggregator.aggregator_id = invoice.aggregator_id')
         ->where(['invoice_items.artist_id' => $model->id, 'invoice.invoice_status_id' => 2])
+        ->orderBy('invoice.invoice_id DESC')
         ->groupBy(['invoice.invoice_id']),
-    'pagination' => [
-        'pageSize' => 20,
-    ],
+        'pagination' => [
+            'pageSize' => 20,
+        ],
 ]);
 
 $query = new \yii\db\Query();
@@ -48,19 +49,21 @@ $tracks = new ActiveDataProvider([
 <div class="artist-view">
     <p class="text-left">
         <?= Html::a(Yii::t('app', 'Редагувати'), ['update', 'id' => $model->id], ['class' => 'btn btn-primary']) ?>
-        <?php if(Yii::$app->user->can('admin')){ echo Html::a(Yii::t('app', 'Видалити'), ['delete', 'id' => $model->id], [
-            'class' => 'btn btn-danger',
-            'data' => [
-                'confirm' => Yii::t('app', 'Are you sure you want to delete this item?'),
-                'method' => 'post',
-            ],
-        ]); } ?>
+        <?php if(Yii::$app->user->can('admin')) {
+            echo Html::a(Yii::t('app', 'Видалити'), ['delete', 'id' => $model->id], [
+                'class' => 'btn btn-danger',
+                'data' => [
+                    'confirm' => Yii::t('app', 'Are you sure you want to delete this item?'),
+                    'method' => 'post',
+                ],
+            ]);
+        } ?>
     </p>
     <div class="row">
         <div class="col-xs-12 col-md-3 col-sm-3">
             <div class="panel panel-default">
                 <div class="panel-heading">Превью: <?=$model->name?></div>
-                <img class="card-img-top" src="<?=$model->getLogo()?>" alt="Card image cap">
+                <img class="card-img-top img-rounded" src="<?=$model->getLogo()?>" alt="Card image cap">
                     <?= DetailView::widget([
                         'model' => $model,
                         'attributes' => [
@@ -85,7 +88,19 @@ $tracks = new ActiveDataProvider([
                                     return "<p id='deposit_1' style='display: inline'>" . $data->deposit_1 . "</p><button id='deposit_1_refresh' style='margin-left: 15px' type='button' class='ml-2 btn btn-danger btn-xs' title='Перерахувати'><span class='glyphicon glyphicon-refresh' aria-hidden='true'></span></button>";
                                 },
                             ],
-                            'telegram_id',
+                            [
+                                'attribute' => 'deposit_3',
+                                //'label' => 'Релизов',
+                                'format'=>'raw',
+                                'value' => function($data) {
+                                    return "<p id='deposit_3' style='display: inline'>" . $data->deposit_3 . "</p><button id='deposit_3_refresh' style='margin-left: 15px' type='button' class='ml-2 btn btn-danger btn-xs' title='Перерахувати'><span class='glyphicon glyphicon-refresh' aria-hidden='true'></span></button>";
+                                },
+                            ],
+                            'full_name',
+                            'contract',
+                            'iban',
+                            'description:text',
+                           // 'telegram_id',
                             // 'active',
                             [ // name свойство зависимой модели owner
                                 'attribute' => 'admin_id',
@@ -203,6 +218,7 @@ $this->registerJs(
 "
 $('#deposit_refresh').on('click', function () {send();});
 $('#deposit_1_refresh').on('click', function () {send();});
+$('#deposit_3_refresh').on('click', function () {send();});
 
 $(function(){
 $('.custom_button').click(function(){
@@ -222,7 +238,7 @@ function send()
  {
      $.ajax({
          type: 'POST',
-         url: '<?php echo Url::to(['artist/calculate-deposit', 'id' => $model->id]); ?>',
+         url: '<?=Url::to(['artist/calculate-deposit', 'id' => $model->id]); ?>',
          dataType: 'json',
          success: function(data) {
              console.log(data);

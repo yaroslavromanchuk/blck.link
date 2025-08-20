@@ -17,7 +17,7 @@ class InvoiceSearch extends Invoice
     public function rules()
     {
         return [
-            [['invoice_id', 'invoice_type', 'aggregator_id', 'currency_id', 'aggregator_report_id', 'invoice_status_id', 'quarter', 'year'], 'integer'],
+            [['invoice_id', 'invoice_type', 'aggregator_id', 'currency_id', 'aggregator_report_id', 'invoice_status_id', 'quarter', 'year', 'label_id'], 'integer'],
             [['total'], 'number'],
             [['date_added', 'last_update'], 'safe'],
         ];
@@ -47,6 +47,11 @@ class InvoiceSearch extends Invoice
 
         $dataProvider = new ActiveDataProvider([
             'query' => $query,
+            'sort' => [
+                'defaultOrder' => [
+                    'invoice_id' => SORT_DESC
+                ]
+            ]
         ]);
 
         $this->load($params);
@@ -71,6 +76,12 @@ class InvoiceSearch extends Invoice
             'year' => $this->year,
             'last_update' => $this->last_update,
         ]);
+
+        if ($this->label_id == 999999) {
+            $query->andFilterWhere(['>', 'label_id', 0]);
+        } else
+            $query->andFilterWhere(['label_id' => $this->label_id]);{
+        }
 
         return $dataProvider;
     }
