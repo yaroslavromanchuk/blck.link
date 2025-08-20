@@ -39,5 +39,7 @@ phpunit.phar
 /frontend/web/error_log
 /frontend/web/test.txt
 /frontend/web/images
+/frontend/web/pdf
+/frontend/web/xls
 /backend/web/index-test.php
 /backend/web/robots.txt
