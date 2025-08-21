@@ -77,7 +77,13 @@ $this->params['breadcrumbs'][] = $this->title;
                 return $data->currency->name;
             },
         ],
-        'total',
+        [
+            'attribute' => 'total',
+            'format' => 'raw',
+            'value' => function($data) {
+				return round($data->total, 2);
+			}
+        ],
         [
             'attribute' => 'user_id',
             'value' => function($data) {

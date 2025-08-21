@@ -15,6 +15,9 @@ use Yii;
  */
 class Currency extends \yii\db\ActiveRecord
 {
+	const EUR = 1;
+	const UAH = 2;
+	const USD = 3;
     /**
      * {@inheritdoc}
      */

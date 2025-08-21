@@ -4,6 +4,7 @@ namespace backend\controllers;
 
 use backend\models\Artist;
 use backend\models\ArtistLogType;
+use backend\models\Currency;
 use backend\models\Invoice;
 use backend\models\InvoiceLog;
 use backend\models\InvoiceLogType;
@@ -94,23 +95,53 @@ class InvoiceItemsController extends Controller
 
             return $this->redirect(['invoice/view', 'id' => $id]);
         }
-
-        if (in_array($model->invoice->invoice_type, [3, 4]) && $model->amount > 0) { // 3- витрати, 4 - баланс
+		
+		
+        if (in_array($model->invoice->invoice_type, [InvoiceType::$costs, InvoiceType::$advance]) // 3- витрати, 4 - баланс
+			&& $model->amount > 0
+		) {
             $model->amount = $model->amount * -1;
-        }
-
-        if ($model->invoice->invoice_type == 2 && $model->amount == 0) { // 2- виплата
+        } else if ($model->invoice->invoice_type == InvoiceType::$credit // 2- виплата
+			&& $model->amount == 0
+		) {
             $artist = Artist::findOne($model->artist_id);
             if (!is_null($artist)) {
-                if ($model->invoice->currency_id == 1) {
-                    $model->amount = $artist->deposit_1 * -1;
-                } else {
-                    $model->amount = $artist->deposit * -1;
-                }
-            }
+				switch ($model->invoice->currency_id) {
+					case Currency::EUR:
+						if ($artist->deposit_1 > 0) {
+							$model->amount = $artist->deposit_1 * -1;
+						} else {
+							Yii::$app->session->setFlash('error', 'Артист з мінуосвим депозитом EUR, не можна додати в інвойс на виплату.');
+							
+							return $this->redirect(['invoice/view', 'id' => $id]);
+						}
+						break;
+					case Currency::UAH:
+						if ($artist->deposit > 0) {
+							$model->amount = $artist->deposit * -1;
+						} else {
+							Yii::$app->session->setFlash('error', 'Артист з мінуосвим депозитом UAH, не можна додати в інвойс на виплату.');
+							
+							return $this->redirect(['invoice/view', 'id' => $id]);
+						}
+						break;
+					case Currency::USD:
+						if ($artist->deposit_3 > 0) {
+							$model->amount = $artist->deposit_3 * -1;
+						} else {
+							Yii::$app->session->setFlash('error', 'Артист з мінуосвим депозитом USD, не можна додати в інвойс на виплату.');
+							
+							return $this->redirect(['invoice/view', 'id' => $id]);
+						}
+						break;
+				}
+            } else {
+				Yii::$app->session->setFlash('error', 'Артиста не знайдений.');
+				return $this->redirect(['invoice/view', 'id' => $id]);
+			}
         }
 
-        if ($model->track_id && !$model->isrc) {
+        if ($model->track_id && empty($model->isrc)) {
             $model->isrc = Track::findOne($model->track_id)->isrc;
         }
 
@@ -421,10 +452,11 @@ class InvoiceItemsController extends Controller
         $model = $this->findModel($id);
 
         $invoiceItemsIds = !empty($invoiceItemsIds) ? $invoiceItemsIds : $this->getAllInvoiceItemsInProgressForArtist($model);
-
+		$invoiceIds = $invoiceItemsIds['invoice'];
+		sort($invoiceIds);
         //$date = new \DateTime($model->invoice->date_pay);
        // $name = Str::transliterate($model->artist->name);
-        $name = Str::transliterate($model->artist->name) . "_" . implode('_', $invoiceItemsIds['invoice']);
+        $name = Str::transliterate($model->artist->name) . "_" . implode('_', $invoiceIds);
       //  $filename = $date->format('Y_m_d') . "_{$name}_act_q{$model->invoice->quarter}_invoice_{$model->invoice->invoice_id}.xlsx";
 
         $filename = "report_{$name}_q{$model->invoice->quarter}_year_{$model->invoice->year}.xlsx";
@@ -650,6 +682,9 @@ class InvoiceItemsController extends Controller
         $workSheet->getStyle('A'. $q)->getFont()->setBold(true);
 
         foreach ($sum2 as $key => $item) {
+			 if(empty($item)) {
+				 continue;
+			 }
             $temp = ++$q;
             $workSheet->setCellValue('A' . $temp, $key);
             $workSheet->setCellValue('B' . $temp, round($item, 2));
@@ -695,7 +730,10 @@ class InvoiceItemsController extends Controller
         $attach = [];
 
         $invoiceItemsIds = $this->getAllInvoiceItemsInProgressForArtist($model, InvoiceStatus::InProgress, 1);
-        $name = Str::transliterate($model->artist->name) . "_" . implode('_', $invoiceItemsIds['invoice']);
+		
+		$invoiceIds = $invoiceItemsIds['invoice'];
+		sort($invoiceIds);
+		$name = Str::transliterate($model->artist->name) . "_" . implode('_', $invoiceIds);
 
 
         //$date = new \DateTime($model->invoice->date_pay);
@@ -721,7 +759,7 @@ class InvoiceItemsController extends Controller
 
         $mail = new Mail([
             'from' => ['reports@blackbeatsmusic.com' => 'Black Beats Reports'],
-            'to' => [$model->artist->email => $model->artist->name],
+            'to' => ['reports@blackbeatsmusic.com'/*$model->artist->email*/ => $model->artist->name],
             'subject' => "Black Beats | Royalty Report Q{$model->invoice->quarter} {$model->invoice->year}",
             'bcc' => 'gmmkam123@gmail.com',
             'replyTo' => 'reports@blackbeatsmusic.com',

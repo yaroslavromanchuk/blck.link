@@ -45,7 +45,6 @@ $totalAmount = number_format($amount, 2, '.', '');
         <tr>
             <td>№</td>
             <td>Виконавець</td>
-            <td>Назва Твору</td>
             <td>Кіл-ть Викон.</td>
             <td>Частка авторських (суміжних) прав, %</td>
             <td>Загальна сума отриманої Винагороди Видавцем</td>
@@ -68,7 +67,6 @@ $totalAmount = number_format($amount, 2, '.', '');
             <tr>
                 <td><?=$i?></td>
                 <td><?=$item['artist_name']?></td>
-                <td><?=rtrim($item['track_name'], '12')?></td>
                 <td><?=$item['count']?></td>
                 <td><?=$item['percentage']?></td>
                 <td><?=$item['amount']?></td>

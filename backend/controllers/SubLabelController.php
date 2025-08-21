@@ -197,14 +197,6 @@ class SubLabelController extends Controller
 			|| Yii::$app->user->id == 1
 		) {
 			if ($model->delete() !== false) {
-				if (!empty($model->aggregator_report_id)) {
-					$aggregatorReport = AggregatorReport::findOne($model->aggregator_report_id);
-					if (!is_null($aggregatorReport)) {
-						$aggregatorReport->report_status_id = 1;
-						$aggregatorReport->save();
-					}
-				}
-				
 				$db = Yii::$app->db;
 				$db->createCommand(
 					"UPDATE `invoice_items` ii
@@ -218,13 +210,7 @@ class SubLabelController extends Controller
                         WHERE ari.payment_invoice_id = {$id}"
 				)->execute();
 				
-				//if (in_array($model->invoice_status_id, [])) {
-				//	Artist::calculationDeposit();
-				//}
-				
-				if ($model->invoice_type == InvoiceType::$debit) {
-					UserBalance::deleteAll(['invoice_id' => $model->invoice_id]);
-				}
+				Artist::calculationDeposit();
 			}
 		} else {
 			Yii::$app->session->setFlash('error', "Неможа видалити цей інвойст");
@@ -425,9 +411,17 @@ class SubLabelController extends Controller
 
         $this->layout = 'pdf';
         $tracks = [];
-
+		$groupBy = 'ii.artist_id, ari.track_id';
+		$artistCount = $model->getInvoiceItems()->count();
+		$templateName = 'invoice/act';
+		
+		if ($artistCount > 200) {
+			$groupBy = 'ii.artist_id';
+			$templateName = 'invoice/act_artist';
+		}
+		
         foreach ($model->invoiceItems as $it) {
-            $_tracks = $this->getReportData($model->invoice_id, $it->artist_id, 'isrc');
+            $_tracks = $this->getReportData($model->invoice_id, $it->artist_id, $groupBy);
 
             if (!empty($_tracks) && is_array($_tracks)) {
                 $tracks = array_merge($tracks, $_tracks);
@@ -440,7 +434,7 @@ class SubLabelController extends Controller
         //$quarterDate['end'] = date('d.m.Y', strtotime($model->period_to));
 
         $content = $this->render(
-            'invoice/act',
+			$templateName,
             [
                 'model' => $model,
                 'tracks' => $tracks,
@@ -506,7 +500,7 @@ class SubLabelController extends Controller
        // $filename = $date->format('Y_m_d') . "_{$name}_report_invoice_{$model->invoice_id}.xlsx";
 
         $invoiceIds = $this->getAllInvoiceInProgress($model, InvoiceStatus::InProgress, 1);
-
+		sort($invoiceIds);
         $name = Str::transliterate($model->label->name) . "_" . implode('_', $invoiceIds);
         $filename = "report_{$name}_q{$model->quarter}_y{$model->year}.xlsx";
 		
@@ -514,8 +508,8 @@ class SubLabelController extends Controller
             if ($redirect === false) {
                 return;
             }
-
-          //  $this->redirect("/xls/".$filename);
+			
+			$this->redirect("/xls/".$filename);
         }
 
         $spreadSheet = new Spreadsheet();
@@ -582,16 +576,15 @@ class SubLabelController extends Controller
                 if (!empty($tracks)) {
                     foreach ($tracks as $item) {
                         if ($item['amount'] > 0) {
-                            $amount = round($item['amount'] * ($item['percentage_label'] / 100), 4);
-                            $tempData[] = [
+                           $tempData[] = [
                                 $i,
                                 $item['artist_name'],
                                 rtrim($item['track_name'], '1'),
                                 $item['count'],
                                 $item['percentage'],
-                                round($item['amount'], 4),
+                                $item['amount'],
                                 $item['percentage_label'],
-                                $amount,
+								$item['amount_2'],
                                 $item['currency_name'],
                                 $item['prav1'],
                                 $item['prav2'],
@@ -600,7 +593,7 @@ class SubLabelController extends Controller
                                 DateFormat::datumUah2($item['date_report']),
                             ];
                             $i++;
-                            $sum[$item['currency_name']] += $amount;
+                            $sum[$item['currency_name']] += $item['amount_2'];
                         }
                     }
                 }
@@ -622,6 +615,11 @@ class SubLabelController extends Controller
         $workSheet->getStyle('A'. $j)->getFont()->setBold(true);
 
         foreach ($sum as $key => $item) {
+			
+			if (empty($item)) {
+				continue;
+			}
+			
             $temp = ++$j;
             $workSheet->setCellValue('A' . $temp, $key);
             $workSheet->setCellValue('B' . $temp, round($item, 2));
@@ -664,6 +662,10 @@ class SubLabelController extends Controller
         $workSheet->getStyle('A'. $j)->getFont()->setBold(true);
 		
         foreach ($sum2 as $key => $item) {
+			if (empty($item)) {
+				continue;
+			}
+			
             $temp = ++$j;
             $workSheet->setCellValue('A' . $temp, $key);
             $workSheet->setCellValue('B' . $temp, round($item, 2));
@@ -700,13 +702,14 @@ class SubLabelController extends Controller
         }
 
         // перевірка чи всі дані заповнені
-        if($this->checkBeforeExport($model->label) !== true) {
-            Yii::$app->session->setFlash('error', 'У сублейба не заповнені всі дані');
-            return $this->redirect(['sub-label/invoice']);
-        }
+      //  if($this->checkBeforeExport($model->label) !== true) {
+        //    Yii::$app->session->setFlash('error', 'У сублейба не заповнені всі дані');
+       //     return $this->redirect(['sub-label/invoice']);
+       // }
 
         $invoiceIds = $this->getAllInvoiceInProgress($model, InvoiceStatus::InProgress, 1);
-        $name = Str::transliterate($model->label->name) . "_" . implode('_', $invoiceIds);
+        sort($invoiceIds);
+		$name = Str::transliterate($model->label->name) . "_" . implode('_', $invoiceIds);
 
         $zvitExcelFileName = "report_{$name}_q{$model->quarter}_y{$model->year}.xlsx";
         $excel =  self::$homePage . 'xls/' .$zvitExcelFileName;
@@ -865,7 +868,7 @@ class SubLabelController extends Controller
         $temp = Yii::$app->db->createCommand("
             SELECT i.invoice_id
             FROM `invoice` as i
-            LEFT JOIN invoice_log il ON il.invoice_id = i.invoice_id and il.log_type_id = {$logTypeId}
+            	LEFT JOIN invoice_log il ON il.invoice_id = i.invoice_id and il.log_type_id = {$logTypeId}
             WHERE i.invoice_status_id = {$statusId}
                AND i.invoice_type = 2 
                AND i.label_id = {$invoice->label_id}
@@ -885,58 +888,62 @@ class SubLabelController extends Controller
 
     private function getReportData(int $invoice_id, int $artist_id, string $groupBy = ''): \yii\db\DataReader|array
     {
-        $query = "SELECT  
-                    a.name as artist_name,
-                    t.name as track_name,
-                    100 as percentage,
-                    ii2.percentage as percentage_label,
-                    o.name as prav1,
-                    IFNULL(atu.name, a2ow.name) as prav2,
-                    IFNULL(a_s.name, ari.platform) as platform,
-                    ari.date_report,
-                    ari.country,
-                    c.currency_name";
+        $query = "SELECT
+					t.artist_name,
+					t.name as track_name,
+					100 as percentage,
+					ii2.percentage as percentage_label,
+					o.name as prav1,
+					IFNULL(atu.name, a2ow.name) as prav2,
+					IFNULL(a_s.name, ari.platform) as platform,
+					ari.date_report,
+					ari.country,
+					c.currency_name";
 
         if (!empty($groupBy)) {
             $query .= ",  
                     sum(ari.count) as count,
-                     sum(ari.amount) as amount";
+                     ROUND(sum(ari.amount), 5) as amount,
+                     ROUND(sum(ari.amount * (ii2.percentage /100)), 5) as amount_2
+                     ";
         } else {
             $query .= ",  ari.count,
-                    ari.amount as amount
+                    ROUND(ari.amount, 5) as amount,
+                    ROUND(ari.amount * (ii2.percentage /100), 5) as amount_2
                  ";
         }
 
         $query .= "
             FROM `invoice_items` ii
-                    LEFT JOIN artist a ON a.id = ii.artist_id
-                    LEFT JOIN invoice_items ii2 ON ii2.payment_invoice_id = ii.invoice_id
-                    INNER JOIN track t ON t.isrc = ii2.isrc and ii.artist_id = t.artist_id
-                    INNER JOIN invoice i ON i.invoice_id = ii2.invoice_id
-                    LEFT JOIN currency c ON c.currency_id= i.currency_id
-                    LEFT JOIN aggregator_report ar ON ar.id = i.aggregator_report_id
-                    LEFT JOIN `aggregator_report_item` ari ON ari.report_id = ar.id and ii2.isrc = ari.isrc
-                    LEFT JOIN aggregator agg ON agg.aggregator_id = ar.aggregator_id
-                    LEFT JOIN aggregator_type_use atu ON atu.type_id = agg.type_use_id
-                    LEFT JOIN aggregator_service a_s ON a_s.service_id = agg.service_id
-                    LEFT JOIN (
-                        SELECT aggregator_id, ownership_type_id , GROUP_CONCAT(ot_.name) as name
-                        FROM aggregator_to_ownership_type 
-                            LEFT JOIN ownership_type ot_ ON ot_.id = ownership_type_id 
-                        GROUP BY aggregator_id
-                    ) as a2ow ON a2ow.aggregator_id = agg.aggregator_id 
-                    LEFT JOIN ownership o ON o.id = agg.ownership_type
-                WHERE ii.artist_id = ii2.artist_id
-                  AND ii.invoice_id =:invoice_id
-                  AND t.artist_id =:artist_id";
+				INNER JOIN invoice_items ii2 ON ii2.payment_invoice_id = ii.invoice_id
+				INNER JOIN invoice i ON i.invoice_id = ii2.invoice_id
+				INNER JOIN aggregator_report ar ON ar.id = i.aggregator_report_id
+				INNER JOIN aggregator_report_item ari ON ari.report_id = ar.id
+					and ii2.track_id = ari.track_id
+				LEFT JOIN artist a ON a.id = ii.artist_id
+				LEFT JOIN track t ON t.id = ii2.track_id
+				LEFT JOIN currency c ON c.currency_id= i.currency_id
+				LEFT JOIN aggregator agg ON agg.aggregator_id = ar.aggregator_id
+				LEFT JOIN aggregator_type_use atu ON atu.type_id = agg.type_use_id
+				LEFT JOIN aggregator_service a_s ON a_s.service_id = agg.service_id
+				LEFT JOIN (
+					SELECT aggregator_id, ownership_type_id , GROUP_CONCAT(ot_.name) as name
+					FROM aggregator_to_ownership_type
+						LEFT JOIN ownership_type ot_ ON ot_.id = ownership_type_id
+					GROUP BY aggregator_id
+				) as a2ow ON a2ow.aggregator_id = agg.aggregator_id
+				LEFT JOIN ownership o ON o.id = agg.ownership_type
+			WHERE ii.artist_id = ii2.artist_id
+			  AND ii.invoice_id =:invoice_id
+			  AND t.artist_id =:artist_id";
 
         if (!empty($groupBy)) {
             $query .= "
-                GROUP BY ii.artist_id, t.id
-                ORDER BY t.id ASC";
+                GROUP BY {$groupBy}
+                ORDER BY ari.track_id ASC";
         } else {
             $query .= "
-                ORDER BY t.id ASC, ari.`date_report` ASC";
+                ORDER BY ari.track_id ASC, ari.`date_report` ASC";
         }
 
         return Yii::$app->db->createCommand($query)
