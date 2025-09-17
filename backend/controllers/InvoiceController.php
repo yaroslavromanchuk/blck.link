@@ -322,24 +322,26 @@ class InvoiceController extends Controller
         ) { // Виплата
 			
 			$artist = [];
-			foreach ($model->getInvoiceItems()->all() as $item) {
-				$artist[] = $item->artist_id;
-			}
-			
-			if (count($artist) > 0) {
-				$artist = implode(',', $artist);
-				
+			//foreach ($model->getInvoiceItems()->all() as $item) {
+				//$artist[] = $item->artist_id;
 				Yii::$app->db->createCommand(
 					"UPDATE `invoice_items` ii
                             INNER JOIN invoice i ON i.invoice_id = ii.invoice_id
-								and i.invoice_type = 1
+								and i.invoice_type in (1, 3, 4, 5)
 								and i.invoice_status_id = 2
                          SET ii.`payment_invoice_id`= {$model->invoice_id}
-                         WHERE ii.artist_id IN ($artist)
+                         WHERE ii.artist_id in (SELECT distinct(artist_id) FROM `invoice_items` ii WHERE ii.invoice_id = {$model->invoice_id})
                             AND ii.payment_invoice_id is null
                             AND i.currency_id = {$model->currency_id}"
 				)->execute();
-			}
+		//	}
+			
+			/*if (count($artist) > 0) {
+				foreach (array_chunk($artist, 10) as $chunk) {
+					$ids = implode(',', $chunk);
+				}
+				
+			}*/
                /*  Yii::$app->db->createCommand()
                     ->update('artist',
                         [
@@ -363,7 +365,7 @@ class InvoiceController extends Controller
                             	and ii.payment_invoice_id = {$model->invoice_id}
                         SET ari.payment_invoice_id = {$model->invoice_id} 
                         WHERE ari.payment_invoice_id is null 
-                            AND ari.isrc = ii.isrc
+                            AND ari.track_id = ii.track_id
                    ")->execute();
         }
 
@@ -377,7 +379,9 @@ class InvoiceController extends Controller
             return $this->redirect(['view', 'id' => $id]);
         }
 
-        if ($model->invoice_type == InvoiceType::$credit && $model->invoice_status_id == InvoiceStatus::Generated) { // Виплата
+        if ($model->invoice_type == InvoiceType::$credit
+			&& $model->invoice_status_id == InvoiceStatus::Generated
+		) { // Виплата
             $model->invoice_status_id = InvoiceStatus::InProgress;
         } else {
             $model->invoice_status_id = InvoiceStatus::Calculated; // Розрахований

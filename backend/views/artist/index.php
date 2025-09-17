@@ -62,6 +62,12 @@ $this->params['breadcrumbs'][] = $this->title;
         'dataProvider' => $dataProvider,
         'filterModel' => $searchModel,
         'showFooter' => true,
+		'rowOptions' => function ($model, $key, $index, $grid)
+		{
+			if ($model->notify && (empty($model->email) || !filter_var($model->email, FILTER_VALIDATE_EMAIL))) {
+                return ['class' => 'danger'];
+			}
+		},
         'columns' => [
             ['class' => 'yii\grid\SerialColumn'],
             [
@@ -134,6 +140,12 @@ $this->params['breadcrumbs'][] = $this->title;
                 'value' => function($data) { return $data->deposit_3; },
                 'footer' => $total_amount_usd
             ],
+            [
+                    'attribute' => 'country_id',
+                    'value' => function($data) { return $data->country_id ? $data->country->country_name : ''; },
+                    'filter' => ArrayHelper::map(\backend\models\Country::find()->asArray()->all(), 'id', 'country_name')
+            ],
+            'notify:boolean',
             [
                 'class' => 'yii\grid\ActionColumn',
                 'template' => Yii::$app->user->can('admin') ? '{view} {update} {delete} {export-act}': '{view} {update} {export-act}',

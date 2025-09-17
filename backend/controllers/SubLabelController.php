@@ -235,8 +235,19 @@ class SubLabelController extends Controller
 		) { // Виплата
 			
 			// записати останній інвойс і дату випалит в память акртисту
-			
-			$artist = [];
+            
+            Yii::$app->db->createCommand(
+                "UPDATE `invoice_items` ii
+                            INNER JOIN invoice i ON i.invoice_id = ii.invoice_id
+								and i.invoice_type in (1, 3, 4, 5)
+								and i.invoice_status_id = 2
+                         SET ii.`payment_invoice_id`= {$model->invoice_id}
+                         WHERE ii.artist_id in (SELECT distinct(artist_id) FROM `invoice_items` ii WHERE ii.invoice_id = {$model->invoice_id})
+                            AND ii.payment_invoice_id is null
+                            AND i.currency_id = {$model->currency_id}"
+            )->execute();
+            
+			/*$artist = [];
 			foreach ($model->getInvoiceItems()->all() as $item) {
 				$artist[] = $item->artist_id;
 			}
@@ -253,7 +264,7 @@ class SubLabelController extends Controller
                             AND ii.payment_invoice_id is null
                             AND i.currency_id = {$model->currency_id}"
 				)->execute();
-			}
+			}*/
 			
 			Yii::$app->db->createCommand(
 				"UPDATE aggregator_report_item ari
@@ -268,14 +279,23 @@ class SubLabelController extends Controller
                         WHERE ari.payment_invoice_id is null
                             AND ari.isrc = ii.isrc
                    ")->execute();
-			
-			$model->calculate();
-			$model->invoice_status_id = InvoiceStatus::InProgress;
-			
-			$model->save();
-			
-			Artist::calculationDeposit();
 		}
+        
+        $model->calculate();
+        
+        if ($model->invoice_type == InvoiceType::$credit
+            && $model->invoice_status_id == InvoiceStatus::Generated
+        ) { // Виплата
+            $model->invoice_status_id = InvoiceStatus::InProgress;
+        } else {
+            $model->invoice_status_id = InvoiceStatus::Calculated; // Розрахований
+        }
+        
+        $model->save();
+        
+        if(in_array($model->invoice_status_id, [InvoiceStatus::InProgress, InvoiceStatus::Calculated])) {
+            Artist::calculationDeposit();
+        }
 		
 		return $this->redirect(['invoice-view', 'label_id'=> $label_id, 'id' => $id]);
 	}
@@ -411,7 +431,7 @@ class SubLabelController extends Controller
 
         $this->layout = 'pdf';
         $tracks = [];
-		$groupBy = 'ii.artist_id, ari.track_id';
+		$groupBy = 'ii.artist_id, ii2.track_id';
 		$artistCount = $model->getInvoiceItems()->count();
 		$templateName = 'invoice/act';
 		
@@ -499,7 +519,7 @@ class SubLabelController extends Controller
 
        // $filename = $date->format('Y_m_d') . "_{$name}_report_invoice_{$model->invoice_id}.xlsx";
 
-        $invoiceIds = $this->getAllInvoiceInProgress($model, InvoiceStatus::InProgress, 1);
+        $invoiceIds = $this->getAllInvoiceInProgress($model, InvoiceStatus::InProgress);
 		sort($invoiceIds);
         $name = Str::transliterate($model->label->name) . "_" . implode('_', $invoiceIds);
         $filename = "report_{$name}_q{$model->quarter}_y{$model->year}.xlsx";
@@ -508,7 +528,6 @@ class SubLabelController extends Controller
             if ($redirect === false) {
                 return;
             }
-			
 			$this->redirect("/xls/".$filename);
         }
 
@@ -557,8 +576,10 @@ class SubLabelController extends Controller
         ];
 
         $i = 1;
-        $sum = ['USD'=>0, 'EUR'=>0, 'UAH'=>0];
-        $sum2 = ['USD'=>0, 'EUR'=>0, 'UAH'=>0];
+		
+		
+        $sum = [];
+        //$sum2 = ['USD'=>0, 'EUR'=>0, 'UAH'=>0];
 
         $tempData2 = [];
         $tempData2[] = [
@@ -566,46 +587,54 @@ class SubLabelController extends Controller
             'Сума Роялті',
             'Валюта',
         ];
+		
+		$temp3 = [];
 
         foreach ($invoiceIds as $invoiceId) {
-            $_model = $invoiceId== $model->invoice_id ? $model : $this->findModelInvoice($invoiceId);
-
-            foreach ($_model->invoiceItems as $it) {
-                $tracks = $this->getReportData($_model->invoice_id, $it->artist_id);
-
+            $_model = $invoiceId == $model->invoice_id ? $model : $this->findModelInvoice($invoiceId);
+          
+                $tracks = $this->getReportDataXls($_model->invoice_id);
                 if (!empty($tracks)) {
-                    foreach ($tracks as $item) {
-                        if ($item['amount'] > 0) {
-                           $tempData[] = [
-                                $i,
-                                $item['artist_name'],
-                                rtrim($item['track_name'], '1'),
-                                $item['count'],
-                                $item['percentage'],
-                                $item['amount'],
-                                $item['percentage_label'],
+					$sum[$_model->currency->currency_name] = array_sum(array_column($tracks, 'amount_2'));
+					
+					foreach ($tracks as $item) {
+						if ($item['amount_2'] != 0) {
+							$tempData[] = [
+								$i,
+								$item['artist_name'],
+								rtrim($item['track_name'], '1'),
+								$item['count'],
+								$item['percentage'],
+								$item['amount'],
+								$item['percentage_label'],
 								$item['amount_2'],
-                                $item['currency_name'],
-                                $item['prav1'],
-                                $item['prav2'],
-                                $item['platform'],
-                                $item['country'],
-                                DateFormat::datumUah2($item['date_report']),
-                            ];
-                            $i++;
-                            $sum[$item['currency_name']] += $item['amount_2'];
-                        }
-                    }
+								$item['currency_name'],
+								$item['prav1'],
+								$item['prav2'],
+								$item['platform'],
+								$item['country'],
+								DateFormat::datumUah2($item['date_report']),
+							];
+							$i++;
+							
+							if (!isset($temp3[$item['artist_id']])) {
+								$temp3[$item['artist_id']] = [
+									'artist_name' => $item['artist_name'],
+									'amount' => 0,
+									'currency_name' => $item['currency_name'],
+								];
+							}
+							
+							$temp3[$item['artist_id']]['amount'] += abs($item['amount_2']);
+						}
+					}
                 }
-
-                $tempData2[] = [
-                    $it->artist->name,
-                    abs($it->amount),
-                    $it->invoice->currency->currency_name
-                ];
-
-                $sum2[$it->invoice->currency->currency_name] += abs($it->amount);
+				
+			 foreach ($temp3 as $it) {
+				 $tempData2[] = $it;
             }
+			
+			$temp3 = [];
         }
 
         $workSheet->fromArray($tempData);
@@ -615,7 +644,6 @@ class SubLabelController extends Controller
         $workSheet->getStyle('A'. $j)->getFont()->setBold(true);
 
         foreach ($sum as $key => $item) {
-			
 			if (empty($item)) {
 				continue;
 			}
@@ -635,33 +663,18 @@ class SubLabelController extends Controller
         $workSheet->getColumnDimension('B')->setWidth(15);
         $workSheet->getColumnDimension('C')->setWidth(10);
         $workSheet->getStyle('A1:C1')->getFont()->setBold(true);
-
-       /* $sum2 = 0;
-
-        foreach ($model->invoiceItems as $it) {
-            $tempData2[] = [
-                $it->artist->name,
-                abs($it->amount),
-                $it->invoice->currency->currency_name
-            ];
-
-            $sum2 += abs($it->amount);
-        }*/
+		
 
         // зберегти в файл дані артистів
         $workSheet->fromArray($tempData2);
 
         $i = count($tempData2);
-     //   $j = ++$i;
-
-       // $workSheet->setCellValue('B' . $j, round($sum2, 4));
-       // $workSheet->getStyle('B'. ($i+1))->getFont()->setBold(true);
 
         $j = $i+1;
         $workSheet->setCellValue('A' . $j, 'Всього:');
         $workSheet->getStyle('A'. $j)->getFont()->setBold(true);
 		
-        foreach ($sum2 as $key => $item) {
+        foreach ($sum as $key => $item) {
 			if (empty($item)) {
 				continue;
 			}
@@ -861,21 +874,21 @@ class SubLabelController extends Controller
 
         return true;
     }
-    private function getAllInvoiceInProgress(Invoice $invoice, int $statusId, int $logTypeId): array
+    private function getAllInvoiceInProgress(Invoice $invoice, int $statusId, ?int $logTypeId = null): array
     {
         $result = [$invoice->invoice_id];
 
         $temp = Yii::$app->db->createCommand("
             SELECT i.invoice_id
             FROM `invoice` as i
-            	LEFT JOIN invoice_log il ON il.invoice_id = i.invoice_id and il.log_type_id = {$logTypeId}
+            	#LEFT JOIN invoice_log il ON il.invoice_id = i.invoice_id and il.log_type_id = {$logTypeId}
             WHERE i.invoice_status_id = {$statusId}
                AND i.invoice_type = 2 
                AND i.label_id = {$invoice->label_id}
                AND i.quarter = {$invoice->quarter}
                AND i.`year` = {$invoice->year}
                AND i.invoice_id !={$invoice->invoice_id}
-               AND il.log_type_id is null
+               #AND il.log_type_id is null
             ORDER BY i.currency_id ASC")
             ->queryAll();
 
@@ -892,35 +905,24 @@ class SubLabelController extends Controller
 					t.artist_name,
 					t.name as track_name,
 					100 as percentage,
-					ii2.percentage as percentage_label,
+					IFNULL(ii2.percentage, IF(ar.aggregator_id != 1, sl.percentage, sl.percentage_distribution)) as percentage_label,
 					o.name as prav1,
 					IFNULL(atu.name, a2ow.name) as prav2,
 					IFNULL(a_s.name, ari.platform) as platform,
 					ari.date_report,
 					ari.country,
-					c.currency_name";
-
-        if (!empty($groupBy)) {
-            $query .= ",  
+					c.currency_name,
                     sum(ari.count) as count,
-                     ROUND(sum(ari.amount), 5) as amount,
-                     ROUND(sum(ari.amount * (ii2.percentage /100)), 5) as amount_2
-                     ";
-        } else {
-            $query .= ",  ari.count,
-                    ROUND(ari.amount, 5) as amount,
-                    ROUND(ari.amount * (ii2.percentage /100), 5) as amount_2
-                 ";
-        }
-
-        $query .= "
-            FROM `invoice_items` ii
+                    ROUND(sum(ari.amount), 5) as amount,
+                    ROUND(sum(ari.amount * IFNULL(ii2.percentage, IF(ar.aggregator_id != 1, sl.percentage, sl.percentage_distribution)) /100), 5) as amount_2
+        FROM `invoice_items` ii
 				INNER JOIN invoice_items ii2 ON ii2.payment_invoice_id = ii.invoice_id
 				INNER JOIN invoice i ON i.invoice_id = ii2.invoice_id
 				INNER JOIN aggregator_report ar ON ar.id = i.aggregator_report_id
 				INNER JOIN aggregator_report_item ari ON ari.report_id = ar.id
 					and ii2.track_id = ari.track_id
 				LEFT JOIN artist a ON a.id = ii.artist_id
+            	LEFT JOIN sub_label sl ON sl.id = a.label_id
 				LEFT JOIN track t ON t.id = ii2.track_id
 				LEFT JOIN currency c ON c.currency_id= i.currency_id
 				LEFT JOIN aggregator agg ON agg.aggregator_id = ar.aggregator_id
@@ -935,22 +937,70 @@ class SubLabelController extends Controller
 				LEFT JOIN ownership o ON o.id = agg.ownership_type
 			WHERE ii.artist_id = ii2.artist_id
 			  AND ii.invoice_id =:invoice_id
-			  AND t.artist_id =:artist_id";
-
-        if (!empty($groupBy)) {
-            $query .= "
-                GROUP BY {$groupBy}
-                ORDER BY ari.track_id ASC";
-        } else {
-            $query .= "
-                ORDER BY ari.track_id ASC, ari.`date_report` ASC";
-        }
+			  AND t.artist_id =:artist_id
+				AND IFNULL(ii2.percentage, IF(ar.aggregator_id != 1, sl.percentage, sl.percentage_distribution)) > 0
+		GROUP BY {$groupBy}
+		HAVING amount_2 != 0
+		ORDER BY ari.track_id ASC
+		";
+        
 
         return Yii::$app->db->createCommand($query)
             ->bindValue(':invoice_id', $invoice_id)
             ->bindValue(':artist_id', $artist_id)
             ->queryAll();
     }
+	
+	private function getReportDataXls(int $invoice_id): \yii\db\DataReader|array
+	{
+		$query = "SELECT
+					ii.artist_id,
+					t.artist_name,
+					t.name as track_name,
+					100 as percentage,
+					IFNULL(ii2.percentage, IF(ar.aggregator_id != 1, sl.percentage, sl.percentage_distribution)) as percentage_label,
+					o.name as prav1,
+					IFNULL(atu.name, a2ow.name) as prav2,
+					IFNULL(a_s.name, ari.platform) as platform,
+					ari.date_report,
+					ari.country,
+					c.currency_name,
+                    sum(ari.count) as count,
+                    ROUND(sum(ari.amount), 5) as amount,
+                    ROUND(sum(ari.amount * (IFNULL(ii2.percentage, IF(ar.aggregator_id != 1, sl.percentage, sl.percentage_distribution)) /100)), 5) as amount_2
+             FROM `invoice_items` ii
+				INNER JOIN invoice_items ii2 ON ii2.payment_invoice_id = ii.invoice_id
+				INNER JOIN invoice i ON i.invoice_id = ii2.invoice_id
+				INNER JOIN aggregator_report ar ON ar.id = i.aggregator_report_id
+				INNER JOIN aggregator_report_item ari ON ari.report_id = ar.id
+					and ii2.track_id = ari.track_id
+				LEFT JOIN artist a ON a.id = ii.artist_id
+				LEFT JOIN sub_label sl ON sl.id = a.label_id
+				LEFT JOIN track t ON t.id = ii2.track_id
+				LEFT JOIN currency c ON c.currency_id= i.currency_id
+				LEFT JOIN aggregator agg ON agg.aggregator_id = ar.aggregator_id
+				LEFT JOIN aggregator_type_use atu ON atu.type_id = agg.type_use_id
+				LEFT JOIN aggregator_service a_s ON a_s.service_id = agg.service_id
+				LEFT JOIN (
+					SELECT aggregator_id, ownership_type_id , GROUP_CONCAT(ot_.name) as name
+					FROM aggregator_to_ownership_type
+						LEFT JOIN ownership_type ot_ ON ot_.id = ownership_type_id
+					GROUP BY aggregator_id
+				) as a2ow ON a2ow.aggregator_id = agg.aggregator_id
+				LEFT JOIN ownership o ON o.id = agg.ownership_type
+			WHERE ii.artist_id = ii2.artist_id
+			  AND ii.invoice_id =:invoice_id
+			  AND t.artist_id = ii.artist_id
+			AND IFNULL(ii2.percentage, IF(ar.aggregator_id != 1, sl.percentage, sl.percentage_distribution)) > 0
+		GROUP BY t.artist_id, ari.track_id, ari.platform, ari.country, ari.date_report
+                HAVING amount_2 != 0
+                ORDER BY ari.track_id ASC, ari.`date_report` ASC
+        ";
+		
+		return Yii::$app->db->createCommand($query)
+			->bindValue(':invoice_id', $invoice_id)
+			->queryAll();
+	}
     #endregion invoice
 
     /**

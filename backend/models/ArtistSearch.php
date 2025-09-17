@@ -18,7 +18,7 @@ class ArtistSearch extends Artist
     public function rules(): array
 	{
         return [
-            [['id', 'label_id', 'active', 'deposit', 'deposit_1', 'deposit_3', 'reliz', 'percentage', 'last_payment_invoice', 'label_id'], 'integer'],
+            [['id', 'label_id', 'active', 'deposit', 'deposit_1', 'deposit_3', 'reliz', 'percentage', 'last_payment_invoice', 'label_id', 'country_id', 'notify'], 'integer'],
             [['name',  'phone', 'email', 'date_last_payment'], 'safe'],
         ];
     }
@@ -71,6 +71,8 @@ class ArtistSearch extends Artist
             'id' => $this->id,
             'active' => $this->active,
             'label_id' => $this->label_id,
+            'country_id' => $this->country_id,
+            'notify' => $this->notify,
             //'reliz' => $this->reliz,
         ]);
 

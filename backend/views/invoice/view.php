@@ -1,6 +1,7 @@
 <?php
 
 use backend\models\Artist;
+use backend\models\Currency;
 use backend\models\InvoiceItems;
 use backend\models\InvoiceStatus;
 use backend\models\InvoiceType;
@@ -297,30 +298,19 @@ $this->params['breadcrumbs'][] = $this->title;
                 'value' => function ($data) use ($model) {
                         return number_format(abs($data->amount), 2, ',', '');
                     },
-                'footer' => number_format(round(abs($total['total']), 4), 2, ',', ''),
+                'footer' => number_format(round(abs($total['total']), 4), 4, ',', ''),
             ],
         ]);
 
-    if ($model->currency_id == 1) {
+    if (in_array($model->currency_id, [Currency::EUR, Currency::USD])) {
         $column = array_merge($column, [
             [
                 'attribute' => 'amount_uah',
                 'label' => 'UAH',
                 'value' => function($data) use ($model) {
-                    return ($model->currency_id == 1) ? number_format(round(abs($data->amount), 2) * $model->exchange, 2, ',', '') : null; /*number_format(abs($data->amount) * $model->exchange, 2, ',', '')*/
+                    return number_format(round(round(abs($data->amount), 2) * $model->exchange, 2), 2,',', '');
                 },
-                'footer' => number_format(round(abs($total['total']), 2) * $model->exchange, 2, ',', '')
-            ],
-        ]);
-    } else if ($model->currency_id == 3) {
-        $column = array_merge($column, [
-            [
-                'attribute' => 'amount_uah',
-                'label' => 'UAH',
-                'value' => function($data) use ($model) {
-                    return ($model->currency_id == 3) ? number_format(round(abs($data->amount), 2) * $model->exchange, 2, ',', '') : null; /*number_format(abs($data->amount) * $model->exchange, 2, ',', '')*/
-                },
-                'footer' => number_format(round(abs($total['total']), 3) * $model->exchange, 4, ',', '')
+                'footer' => number_format(round(round(abs($total['total']), 2) * $model->exchange, 3), 3, ',', '')
             ],
         ]);
     }
@@ -464,7 +454,7 @@ $this->params['breadcrumbs'][] = $this->title;
                     'class' => 'yii\grid\ActionColumn', //'{pdf-act} {export-act} {pdf-balance} {export-balance}', /*
                     'template'=> $model->invoice_type == 2
                     && in_array($model->invoice_status_id, [InvoiceStatus::InProgress, InvoiceStatus::Calculated])
-                        ? '{pdf-act} {export-act} {pdf-balance} {export-balance} {delete}'
+                        ? '{pdf-act} {export-act} {delete}'
                         : (in_array($model->invoice_type, [2,3,4,5]) && $model->invoice_status_id == InvoiceStatus::Generated
                             ? '{delete}' : ''
                         ),
@@ -472,7 +462,7 @@ $this->params['breadcrumbs'][] = $this->title;
                             'delete' => function ($url, $item, $key) {
                                 return Html::a('<span class="glyphicon glyphicon-trash" style=""></span>', $url, [
                                     'title' => Yii::t('yii', 'Видалити'),
-                                    'class' => in_array(yii::$app->user->id, [1, 16]) && !$item->payed ? "pjax-delete-link" : "hidden",
+                                    'class' => (in_array(yii::$app->user->id, [1, 16]) && !$item->payed) ? "pjax-delete-link" : "hidden",
                                     'data-confirm' => Yii::t('yii', 'Ви впевнені що бажаєти видалити цей запис з інвойсу?'),
                                     'data-method' => 'post',
                                     'data-toggle'=>'tooltip',
@@ -490,7 +480,7 @@ $this->params['breadcrumbs'][] = $this->title;
                         },
                         'export-act' => function ($url, $item, $key) {
                             return Html::a('<span class="glyphicon glyphicon-paste" style="font-size: x-large;margin-left: 20px"></span>', $url, [
-                                'title' => Yii::t('yii', 'Акт-xlsx'),
+                                'title' => Yii::t('yii', 'Звіт-xlsx'),
                                 'target' => '_blank',
                                 'data-toggle'=>'tooltip',
                                 'data-placement'=>'top',

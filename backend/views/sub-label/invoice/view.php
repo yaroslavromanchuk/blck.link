@@ -32,7 +32,11 @@ $this->params['breadcrumbs'][] = $this->title;
         <?php Html::a(Yii::t('app', 'Редагувати'), ['invoice-update', 'label_id' => $sub_label->id, 'id' => $model->invoice_id], ['class' => 'btn btn-primary']) ?>
         <?= Html::a(Yii::t('app', 'Перерахувати суму'), ['invoice-fix-total', 'label_id' => $sub_label->id, 'id' => $model->invoice_id], ['class' => 'btn btn-success']) ?>
 
-        <?php if ($model->invoice_status_id == InvoiceStatus::Generated) {
+        <?php if ($model->invoice_type == InvoiceType::$credit
+            && $model->invoice_status_id == InvoiceStatus::InProgress
+        ) {
+            echo Html::a(Yii::t('app', 'Закрити виплату'), ['invoice-calculate', 'label_id' => $sub_label->id, 'id' => $model->invoice_id], ['class' => 'btn btn-info']);
+        } else if ($model->invoice_status_id == InvoiceStatus::Generated) {
             echo Html::a(Yii::t('app', 'Розрахувати'), ['invoice-calculate', 'label_id' => $sub_label->id, 'id' => $model->invoice_id], ['class' => 'btn btn-info']);
         }
         ?>

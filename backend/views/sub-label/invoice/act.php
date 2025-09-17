@@ -1,5 +1,6 @@
 <?php
 
+use backend\models\Currency;
 use backend\widgets\DateFormat;
 use backend\widgets\Number;
 
@@ -8,12 +9,10 @@ use backend\widgets\Number;
  * @var $quarterDate
  */
 
-
 $amount = $model->currency_id != 2 ? round(round(abs($model->total), 2) * $model->exchange, 2) : round(abs($model->total), 2);
 $pdv = number_format(round($amount * 0.18, 2), 2, '.', '');
 $v_zbir = number_format(round($amount * 0.05, 2), 2, '.', '');
 $total = number_format($amount - $pdv - $v_zbir,2, '.', '');
-
 $totalAmount = number_format($amount, 2, '.', '');
 //$quarterDate = DateFormat::getQuarterDate($model->quarter, $model->year);
 ?>
@@ -39,6 +38,7 @@ $totalAmount = number_format($amount, 2, '.', '');
    <?php }?>
     <p>уклали цей <b>Акт-Звіт №<?=$model->label_id . '/' . $model->invoice_id?></b> про нарахувння Роялті за період з <?= DateFormat::datumUah($quarterDate['start'])?> по <?= DateFormat::datumUah($quarterDate['end']) ?></p>
 </div>
+<?php if (count($tracks)) { ?>
 <div class="body-page">
     <table class="table table-striped table-bordered" style="font-size: 8px">
         <thead>
@@ -87,10 +87,12 @@ $totalAmount = number_format($amount, 2, '.', '');
 </div>
 
 <?php
+}
+
 if ($model->label->label_type_id == 1) {
     ?>
     <div class="footer">
-        <p>Всього сума Роялті Правовласника за період з <?= DateFormat::datumUah($quarterDate['start'])?> по <?=DateFormat::datumUah($quarterDate['end'])?> склала <?=$totalAmount?> грн. <span>(<?=Number::num2str($totalAmount)?>)</span>, без ПДВ, згідно ст.196 п.196.1.6. ПКУ <?php if ($model->currency_id != 2) { echo 'що є еквівалентом ' . round(abs($model->total), 2) .' '. $model->currency->currency_symbol . ' за курсом ' . $model->exchange . ', на дату підписання Акту про розподіл винагороди'; } ?>.</p>
+        <p>Всього сума Роялті Правовласника за період з <?= DateFormat::datumUah($quarterDate['start'])?> по <?=DateFormat::datumUah($quarterDate['end'])?> склала <?=$totalAmount?> грн. <span>(<?=Number::num2str($totalAmount)?>)</span>, без ПДВ, згідно ст.196 п.196.1.6. ПКУ <?php if ($model->currency_id == Currency::EUR) { echo 'що є еквівалентом ' . round(abs($model->total), 2) .' '. $model->currency->currency_symbol . ' за курсом ' . $model->exchange . ', на дату підписання Акту про розподіл винагороди'; } ?>.</p>
         <p>На день виплати Роялті Правовласнику Видавець зобов'язаний утримати та перерахувати в Державний Бюджет ПДФО у розмірі 18%, який складає <?=$pdv?> <span>(<?=Number::num2str($pdv)?>)</span></p>
         <p>На день виплати Роялті Правовласнику Видавець зобов'язаний утримати та перерахувати в Державний Бюджет Військовий Збір у розмірі 5%, який складає <?=$v_zbir?> <span>(<?=Number::num2str($v_zbir)?>)</span></p>
         <p>Сума, яка підлягає виплаті Правовласнику складає <b><?=$total?> грн. <span>(<?=Number::num2str($total)?>)</span></b>, без ПДВ, згідно ст.196 п.196.1.6. ПКУ.</p>
@@ -124,7 +126,7 @@ $s3 = !empty($s[2]) ? $s[2] : '';
 
 ?>
 <div class="footer">
-    <p>Всього сума Роялті Правовласника за період з <?= DateFormat::datumUah($quarterDate['start'])?> по <?= DateFormat::datumUah($quarterDate['end']) ?> склала <?=$totalAmount?> грн. <span style="">(<?=ucfirst(Number::num2str($totalAmount))?>)</span>, без ПДВ, згідно ст.196 п.196.1.6. ПКУ, <?php if ($model->currency_id != 2) { echo 'що є еквівалентом ' . round(abs($model->total), 2) . ' '. $model->currency->currency_symbol . ' за курсом ' . $model->exchange . ' на дату підписання Акту про розподіл винагороди.'; } ?></p>
+    <p>Всього сума Роялті Правовласника за період з <?= DateFormat::datumUah($quarterDate['start'])?> по <?= DateFormat::datumUah($quarterDate['end']) ?> склала <?=$totalAmount?> грн. <span style="">(<?=ucfirst(Number::num2str($totalAmount))?>)</span>, без ПДВ, згідно ст.196 п.196.1.6. ПКУ, <?php if ($model->currency_id == Currency::EUR) { echo 'що є еквівалентом ' . round(abs($model->total), 2) . ' '. $model->currency->currency_symbol . ' за курсом ' . $model->exchange . ' на дату підписання Акту про розподіл винагороди.'; } ?></p>
     <p>Сума, яка підлягає виплаті Правовласнику складає <b><?=$totalAmount?> грн. <span>(<?=ucfirst(Number::num2str($totalAmount))?>)</span></b>, без ПДВ, згідно ст.196 п.196.1.6. ПКУ.</p>
     <p>Сторони претензій одна до одної не мають.</p>
     <p>Даний Акт-Звіт № <?=$model->label_id . '/' . $model->invoice_id?> є невід'ємною частиною Договору № <?=$model->label->contract?> р., має рівнозначну з ним юридичну силу, укладений в двох екземплярах, по одному для кожної із Сторін.</p>

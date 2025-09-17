@@ -1,5 +1,6 @@
 <?php
 
+use backend\models\Currency;
 use backend\widgets\DateFormat;
 use backend\widgets\Number;
 
@@ -18,7 +19,6 @@ $total = number_format($amount - $pdv - $v_zbir,2, '.', '');
 $totalAmount = number_format($amount, 2, '.', '');
 
 $name = explode(' ', $model->artist->full_name);
-
 ?>
 
 <div class="header-page">
@@ -65,23 +65,17 @@ $name = explode(' ', $model->artist->full_name);
         <tbody>
         <?php
         $i = 1;
-        $t = $t2 = 0;
         foreach ($tracks as $item) {
-            $t += round($item['amount'], 4);
-            $_amount = round($item['amount'] * ($item['percentage_label'] / 100), 4);
-            $t2 +=$_amount;
-
-            if ($_amount > 0) {
-            ?>
+           if ($item['amount_2'] > 0) { ?>
             <tr>
                 <td><?=$i?></td>
                 <td><?=$item['artist_name']?></td>
                 <td><?=rtrim($item['track_name'], '12')?></td>
                 <td><?=$item['count']?></td>
                 <td><?=$item['percentage']?></td>
-                <td><?=round($item['amount'], 4)?></td>
+                <td><?=$item['amount']?></td>
                 <td><?=$item['percentage_label']?></td>
-                <td><?=$_amount?></td>
+                <td><?=$item['amount_2']?></td>
                 <!--<td><?=$item['prav1']?></td>
                 <td><?=$item['prav2']?></td>
                 <td><?=$item['platform']?></td>
@@ -94,21 +88,16 @@ $name = explode(' ', $model->artist->full_name);
         }
 
         foreach ($feats as $item) {
-            $t += round($item['amount'], 4);
-            $_amount = round($item['amount'] * ($item['percentage_label'] / 100), 4);
-            $t2 +=$_amount;
-
-            if ($_amount > 0) {
-            ?>
+            if ($item['amount_2'] > 0) { ?>
             <tr>
                 <td><?=$i?></td>
                 <td><?=$item['artist_name']?> (<?=$item['feat_name']?>)</td>
                 <td><?=rtrim($item['track_name'], '12')?></td>
                 <td><?=$item['count']?></td>
                 <td><?=$item['percentage']?></td>
-                <td><?=round($item['amount'], 4)?></td>
+                <td><?=$item['amount']?></td>
                 <td><?=$item['percentage_label']?></td>
-                <td><?=$_amount?></td>
+                <td><?=$item['amount']?></td>
                 <!--<td><?=$item['prav1']?></td>
                 <td><?=$item['prav2']?></td>
                 <td><?=$item['platform']?></td>
@@ -129,7 +118,7 @@ $name = explode(' ', $model->artist->full_name);
     $last_name = $name[2] ?? '';
     ?>
 <div class="footer">
-    <p>Всього сума Роялті Правовласника за період з <?= DateFormat::datumUah($quarterDate['start'])?> по <?=DateFormat::datumUah($quarterDate['end'])?> склала <?=$totalAmount?> грн. <span>(<?=Number::num2str($totalAmount)?>)</span>, без ПДВ, згідно ст.196 п.196.1.6. ПКУ, <?php if ($model->invoice->currency_id != 2) { echo 'що є еквівалентом ' . round(abs($model->amount), 2) .' '. $model->invoice->currency->currency_symbol . ' за курсом ' . $model->invoice->exchange . ' на дату підписання Акту про розподіл винагороди.'; } ?></p>
+    <p>Всього сума Роялті Правовласника за період з <?=DateFormat::datumUah($quarterDate['start'])?> по <?=DateFormat::datumUah($quarterDate['end'])?> склала <?=$totalAmount?> грн. <span>(<?=Number::num2str($totalAmount)?>)</span>, без ПДВ, згідно ст.196 п.196.1.6. ПКУ, <?php if ($model->invoice->currency_id == Currency::EUR) { echo 'що є еквівалентом ' . round(abs($model->amount), 2) .' '. $model->invoice->currency->currency_symbol . ' за курсом ' . $model->invoice->exchange . ' на дату підписання Акту про розподіл винагороди.'; } ?></p>
     <p>На день виплати Роялті Правовласнику Видавець зобов'язаний утримати та перерахувати в Державний Бюджет ПДФО у розмірі 18%, який складає <?=$pdv?> <span>(<?=Number::num2str($pdv)?>)</span></p>
     <p>На день виплати Роялті Правовласнику Видавець зобов'язаний утримати та перерахувати в Державний Бюджет Військовий Збір у розмірі 5%, який складає <?=$v_zbir?> <span>(<?=Number::num2str($v_zbir)?>)</span></p>
     <p>Сума, яка підлягає виплаті Правовласнику складає <b><?=$total?> грн. <span>(<?=Number::num2str($total)?>)</span></b>, без ПДВ, згідно ст.196 п.196.1.6. ПКУ.</p>
@@ -156,17 +145,16 @@ $name = explode(' ', $model->artist->full_name);
     </table>
 </div>
 <?php } else {
-
     $s = explode(' ', $model->artist->full_name);
     $s1 = !empty($s[0]) ? $s[0] : '';
     $s2 = !empty($s[1]) ? $s[1] : '';
     $s3 = !empty($s[2]) ? $s[2] : '';
     ?>
     <div class="footer">
-        <p>Всього сума Роялті Правовласника за період з <?= DateFormat::datumUah($quarterDate['start'])?> по <?= DateFormat::datumUah($quarterDate['end']) ?> склала <?=$totalAmount?> грн. <span style="">(<?=Number::num2str($totalAmount)?>)</span>, без ПДВ, згідно ст.196 п.196.1.6. ПКУ, <?php if ($model->invoice->currency_id != 2) { echo 'що є еквівалентом ' . abs(round($model->amount, 2)) . ' '. $model->invoice->currency->currency_symbol . ' за курсом ' . $model->invoice->exchange . ' на дату підписання Акту про розподіл винагороди.'; } ?></p>
-            <br><p>Сума, яка підлягає виплаті Правовласнику складає <b><?=round($amount, 2)?> грн. <span>(<?=Number::num2str($amount)?>)</span></b>, без ПДВ, згідно ст.196 п.196.1.6. ПКУ.</p>
-            <p>Сторони претензій одна до одної не мають.</p>
-            <p>Даний Акт-Звіт № <?=$model->artist->id . '/' . $model->invoice_id?> є невід'ємною частиною Договору № <?=$model->artist->contract?> р., має рівнозначну з ним юридичну силу, укладений в двох екземплярах, по одному для кожної із Сторін.</p>
+        <p>Всього сума Роялті Правовласника за період з <?=DateFormat::datumUah($quarterDate['start'])?> по <?=DateFormat::datumUah($quarterDate['end']) ?> склала <?=$totalAmount?> грн. <span style="">(<?=Number::num2str($totalAmount)?>)</span>, без ПДВ, згідно ст.196 п.196.1.6. ПКУ, <?php if ($model->invoice->currency_id == Currency::EUR) { echo 'що є еквівалентом ' . abs(round($model->amount, 2)) . ' '. $model->invoice->currency->currency_symbol . ' за курсом ' . $model->invoice->exchange . ' на дату підписання Акту про розподіл винагороди.'; } ?></p>
+        <br><p>Сума, яка підлягає виплаті Правовласнику складає <b><?=round($amount, 2)?> грн. <span>(<?=Number::num2str($amount)?>)</span></b>, без ПДВ, згідно ст.196 п.196.1.6. ПКУ.</p>
+        <p>Сторони претензій одна до одної не мають.</p>
+        <p>Даний Акт-Звіт № <?=$model->artist->id . '/' . $model->invoice_id?> є невід'ємною частиною Договору № <?=$model->artist->contract?> р., має рівнозначну з ним юридичну силу, укладений в двох екземплярах, по одному для кожної із Сторін.</p>
             <br>
             <table style="width: 100%">
                 <thead>

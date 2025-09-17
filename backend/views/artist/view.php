@@ -25,7 +25,7 @@ $invoice = new ActiveDataProvider([
         ->leftJoin('track', 'track.id = invoice_items.track_id')
         ->leftJoin('currency', 'currency.currency_id = invoice.currency_id')
         ->leftJoin('aggregator', 'aggregator.aggregator_id = invoice.aggregator_id')
-        ->where(['invoice_items.artist_id' => $model->id, 'invoice.invoice_status_id' => 2])
+        ->where(['invoice_items.artist_id' => $model->id, 'invoice.invoice_status_id' => [2, 4]])
         ->orderBy('invoice.invoice_id DESC')
         ->groupBy(['invoice.invoice_id']),
         'pagination' => [

@@ -72,7 +72,7 @@ $this->params['breadcrumbs'][] = $this->title;
             ],
             [
                 'attribute' => 'invoice_status_id',
-                'filter'=> [1 => 'Новий', 2 =>"Проведений", 3=>"Помилка"],
+                'filter'=> [1 => 'Новий', 2 =>"Проведений", 3=>"Помилка", 4=>'В процесі виплати'],
                 'value' => function($data) {
                     return $data->invoiceStatus->invoice_status_name;
                 },
