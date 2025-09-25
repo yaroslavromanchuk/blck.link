@@ -56,7 +56,7 @@ return [
         ],
         'session' => [
             // this is the name of the session cookie used for login on the backend
-            'name' => '_crms',
+            'name' => 'crms',
         ],
         'log' => [
             'traceLevel' => YII_DEBUG ? 3 : 0,

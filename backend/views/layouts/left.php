@@ -67,7 +67,7 @@ use yii\helpers\Html;
                             ];
                         }
 
-                        if(Yii::$app->user->can('manager')) {
+                        if(Yii::$app->user->can('moder')) {
                             $items[] = [
                                  'label' => Yii::t('app', 'Аналітика'),
                                 'url' => "#",

@@ -19,7 +19,7 @@ class ArtistSearch extends Artist
 	{
         return [
             [['id', 'label_id', 'active', 'deposit', 'deposit_1', 'deposit_3', 'reliz', 'percentage', 'last_payment_invoice', 'label_id', 'country_id', 'notify'], 'integer'],
-            [['name',  'phone', 'email', 'date_last_payment'], 'safe'],
+            [['name', 'full_name', 'phone', 'email', 'date_last_payment'], 'safe'],
         ];
     }
 
@@ -83,6 +83,7 @@ class ArtistSearch extends Artist
       //  }
 
         $query->andFilterWhere(['like', 'name', '%'.$this->name.'%', false])
+            ->andFilterWhere(['like', 'full_name', '%'.$this->full_name.'%', false])
             ->andFilterWhere(['like', 'phone', $this->phone])
             ->andFilterWhere(['like', 'email', $this->email])
             ->andFilterWhere(['like', 'date_last_payment', $this->date_last_payment])

@@ -27,7 +27,7 @@ class LogController extends Controller
                     [
                         'actions' => ['index', 'view', 'create', 'update', 'delete', 'view-track', 'finance'],
                         'allow' => true,
-                        'roles' => ['manager'],
+                        'roles' => ['manager', 'moder'],
 
                     ],
                 ],

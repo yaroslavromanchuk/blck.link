@@ -9,6 +9,7 @@ use backend\models\Artist;
 use backend\models\InvoiceReport;
 use backend\models\InvoiceStatus;
 use backend\models\InvoiceType;
+use backend\models\PayInvoiceReport;
 use backend\models\Track;
 use backend\models\UserBalance;
 use backend\widgets\DateFormat;
@@ -728,10 +729,114 @@ class InvoiceController extends Controller
                 ->column(),
             'model' => $model,
             'report' => $resultReport,
+            'payInvoiceReport' => new PayInvoiceReport(),
         ]);
     }
-
+    
     /**
+     * Звіт по виплатам
+     * @return \yii\web\Response
+     * @throws Exception
+     */
+    public function actionReportPay()
+    {
+        $model = new PayInvoiceReport();
+        $model->load(Yii::$app->request->post());
+        Yii::$app->response->format = Response::FORMAT_JSON;
+        
+        if (Yii::$app->request->isAjax) {
+           $valid = ActiveForm::validate($model);
+          //  if (!empty($valid)) {
+                return $valid;
+           // }
+            
+           // return [];
+        }
+        
+        if (!empty($model->invoiceId)) {
+            $invoice = Invoice::findOne($model->invoiceId);
+            
+            $model->quarter = $invoice->quarter;
+            $model->year = $invoice->year;
+        }
+        
+        $sql = "SELECT i.invoice_id,
+                   sl.name as label_name,
+                   a.name as artist,
+                   a.full_name as full_name,
+                   GROUP_CONCAT(distinct(ag.name)) as aggregator,
+                    i2.year as year_pay,
+                    i2.quarter as quarter_pay,
+                    IFNULL(ar.year, i.year) as year_in,
+                    IFNULL(ar.quarter, i.quarter) as quarter_in,
+                    sum(ii.amount) as sum_pay,
+                    c.currency_name
+               FROM `invoice_items` ii
+                    inner join invoice i ON i.invoice_id = ii.invoice_id and i.invoice_status_id = 2 and i.invoice_type != 2
+                    inner join artist a ON a.id = ii.artist_id #and a.label_id = 0
+                     left join aggregator_report ar ON ar.id = i.aggregator_report_id
+                    left join `invoice_items` ii2 ON ii2.invoice_id = ii.payment_invoice_id and ii.artist_id = ii2.artist_id
+                    inner join invoice i2 ON i2.invoice_id = ii2.invoice_id and i2.invoice_type =2 and i2.invoice_status_id = 2
+                    left join aggregator ag ON ag.aggregator_id = i.aggregator_id
+                    left join currency c ON c.currency_id = i.currency_id
+                    LEFT JOIN sub_label sl ON sl.id = i.label_id
+               WHERE i.currency_id = i2.currency_id";
+        
+        if ($model->invoiceId) {
+            $sql .= " and i2.invoice_id = {$model->invoiceId} ";
+        } else {
+            $sql .= " and i2.quarter = {$model->quarter}  and i2.year = {$model->year} ";
+        }
+        
+        $sql .="  GROUP BY ii.artist_id, ag.internal_type, ar.year, ar.quarter
+         ORDER BY i2.invoice_id desc, ii.artist_id asc,  IFNULL(ar.year, i.year) asc, IFNULL(ar.quarter, i.quarter) asc, i.aggregator_id asc;
+         ";
+        
+        $data = Yii::$app->db->createCommand($sql)
+            ->queryAll();
+        
+        if (empty($data)) {
+            Yii::$app->session->setFlash('error', 'Дані не знайдені');
+            $this->redirect(['invoice/report']);
+        }
+        
+        $tempData[] = [
+            '№ інвойсу',
+            'Лейбл',
+            'Акртист',
+            'ПІБ',
+            'Агрегатор',
+            'Рік виплати',
+            'Квартал виплати',
+            'Рік надходження',
+            'Квартал надходження',
+            'Сума виплати',
+            'Валюта',
+        ];
+        
+        $tempData = array_merge($tempData, $data);
+        
+        $spreadSheet = new Spreadsheet();
+        // баланси
+        $workSheet = $spreadSheet->getActiveSheet();
+        $workSheet->setTitle('Звіт по виплатім');
+        $workSheet->getStyle('A1:J1')->getAlignment()
+            ->setWrapText(true)
+            ->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $workSheet->getStyle('A1:J1')->getFont()->setBold(true);
+        
+       // $workSheet->getColumnDimension('A1:J1')->setWidth(15);
+        
+        // зберегти баланс на першому аркуші
+        $workSheet->fromArray($tempData);
+        $filename = "report_pay_invoice.xlsx";
+        $writer = new Xlsx($spreadSheet);
+        $writer->save(self::$homePage . 'xls/' . $filename);
+        
+        $this->redirect("/xls/".$filename);
+    }
+        
+        /**
      * Finds the Invoice model based on its primary key value.
      * If the model is not found, a 404 HTTP exception will be thrown.
      * @param integer $id

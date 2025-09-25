@@ -89,7 +89,8 @@ $this->params['breadcrumbs'][] = $this->title;
                     return !empty($data->getLogo()) ? '<div class="trumb_foto"> ' . Html::img($data->getLogo(),['alt' => 'logo', 'style' => 'border-radius: 50%;width:50px; padding:1px;']) .'</div>' : '';
                 },
             ],
-            'name',
+            'name:ntext',
+            'full_name:ntext',
             [
                 'attribute' => 'label_id',
                 'format' => 'raw',
