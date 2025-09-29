@@ -774,7 +774,7 @@ class InvoiceController extends Controller
                FROM `invoice_items` ii
                     inner join invoice i ON i.invoice_id = ii.invoice_id and i.invoice_status_id = 2 and i.invoice_type != 2
                     inner join artist a ON a.id = ii.artist_id #and a.label_id = 0
-                     left join aggregator_report ar ON ar.id = i.aggregator_report_id
+                    left join aggregator_report ar ON ar.id = i.aggregator_report_id
                     left join `invoice_items` ii2 ON ii2.invoice_id = ii.payment_invoice_id and ii.artist_id = ii2.artist_id
                     inner join invoice i2 ON i2.invoice_id = ii2.invoice_id and i2.invoice_type =2 and i2.invoice_status_id = 2
                     left join aggregator ag ON ag.aggregator_id = i.aggregator_id
@@ -788,7 +788,7 @@ class InvoiceController extends Controller
             $sql .= " and i2.quarter = {$model->quarter}  and i2.year = {$model->year} ";
         }
         
-        $sql .="  GROUP BY ii.artist_id, ag.internal_type, ar.year, ar.quarter
+        $sql .="  GROUP BY ii.artist_id, ag.internal_type, ar.year, ar.quarter, i.currency_id
          ORDER BY i2.invoice_id desc, ii.artist_id asc,  IFNULL(ar.year, i.year) asc, IFNULL(ar.quarter, i.quarter) asc, i.aggregator_id asc;
          ";
         
