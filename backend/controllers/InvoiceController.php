@@ -745,12 +745,7 @@ class InvoiceController extends Controller
         Yii::$app->response->format = Response::FORMAT_JSON;
         
         if (Yii::$app->request->isAjax) {
-           $valid = ActiveForm::validate($model);
-          //  if (!empty($valid)) {
-                return $valid;
-           // }
-            
-           // return [];
+          return ActiveForm::validate($model);
         }
         
         if (!empty($model->invoiceId)) {

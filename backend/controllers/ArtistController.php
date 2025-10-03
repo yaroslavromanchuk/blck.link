@@ -951,6 +951,44 @@ class ArtistController extends Controller
 
         $this->redirect("/xls/" . $filename);
     }
+    
+    public function actionExportArtist()
+    {
+        $sql = "SELECT `id`, `name`, `full_name`, `email` FROM `artist` a WHERE a.country_id = 1 ORDER BY `a`.`id` ASC";
+        
+        $data = Yii::$app->db->createCommand($sql)
+            ->queryAll();
+        
+        if (empty($data)) {
+            Yii::$app->session->setFlash('error', 'Дані не знайдені');
+            $this->redirect(['artist/index']);
+        }
+        
+        $tempData[] = [
+            'Артист ID',
+            'Нікнейм',
+            'ПІБ',
+            'email',
+        ];
+        
+        $tempData = array_merge($tempData, $data);
+        
+        $spreadSheet = new Spreadsheet();
+        // баланси
+        $workSheet = $spreadSheet->getActiveSheet();
+        $workSheet->setTitle('Список артистів');
+        $workSheet->getStyle('A1:J1')->getAlignment()
+            ->setWrapText(true)
+            ->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $workSheet->getStyle('A1:J1')->getFont()->setBold(true);
+        // зберегти баланс на першому аркуші
+        $workSheet->fromArray($tempData);
+        $filename = "all_artist_list.xlsx";
+        $writer = new Xlsx($spreadSheet);
+        $writer->save(self::$homePage . 'xls/' . $filename);
+        
+        $this->redirect("/xls/".$filename);
+    }
 
     /**
      * Finds the Artist model based on its primary key value.
