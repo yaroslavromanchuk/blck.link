@@ -17,7 +17,7 @@ $this->params['breadcrumbs'][] = $this->title;
      <?php if(Yii::$app->user->can('label')){ ?>
     <p class="text-right">
         <?= Html::a(Yii::t('app', 'Додати трек'), ['create'], ['class' => 'btn btn-danger']) ?>
-        <a href="<?=Url::to(['artist/export-track'])?>" class="btn btn-warning" title="Скачати список треків укр. артистів"><span class="glyphicon glyphicon-download-alt"></span></a>
+        <a href="<?=Url::to(['track/export-track'])?>" class="btn btn-warning" title="Скачати список треків укр. артистів"><span class="glyphicon glyphicon-download-alt"></span></a>
     </p>
      <?php } ?>
 
