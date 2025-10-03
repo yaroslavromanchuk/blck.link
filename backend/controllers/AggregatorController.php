@@ -281,7 +281,9 @@ class AggregatorController extends Controller
             }
 
             foreach ($file_data as $row) {
-                $isr = str_replace("-", "", trim($row[$isrc]));
+                
+                $isr = preg_replace('/[^a-zA-Z0-9]/u', '', $row[$isrc]);
+                //$isr = str_replace("-", "", trim($row[$isrc]));
 
                 if ($cache['aggregator_id'] == 2) {
                    $isr = $foundBroma[$isr] ?? $isr;
