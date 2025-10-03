@@ -10,6 +10,8 @@ use backend\models\SubLabel;
 use backend\models\UploadReport;
 use common\models\t;
 use PhpOffice\PhpSpreadsheet\Reader\Xlsx;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use Throwable;
 use Yii;
 use backend\models\Track;
@@ -33,6 +35,7 @@ use yii\base\Model;
  */
 class TrackController extends Controller
 {
+    private static string $homePage = '/home/atpjwxlx/domains/blck.link/public_html/backend/web/';
     /**
      * {@inheritdoc}
      */
@@ -306,6 +309,48 @@ class TrackController extends Controller
         $this->findModel($id)->delete();
 
         return $this->redirect(Yii::$app->request->referrer ?: Yii::$app->homeUrl);
+    }
+    
+    public function actionExportTrack()
+    {
+        $sql = "SELECT t.`id` as track_id, t.`isrc`, a.name as artist_name, t.name as track_name
+                FROM `track` t
+                    inner join artist a ON a.id = t.artist_id
+                WHERE a.country_id = 1 and t.is_album = 0
+                ORDER BY a.id asc";
+        
+        $data = Yii::$app->db->createCommand($sql)
+            ->queryAll();
+        
+        if (empty($data)) {
+            Yii::$app->session->setFlash('error', 'Дані не знайдені');
+            $this->redirect(['track/index']);
+        }
+        
+        $tempData[] = [
+            'Трек ID',
+            'ISRC',
+            'Виконавець',
+            'Трек',
+        ];
+        
+        $tempData = array_merge($tempData, $data);
+        
+        $spreadSheet = new Spreadsheet();
+        // баланси
+        $workSheet = $spreadSheet->getActiveSheet();
+        $workSheet->setTitle('Список треків');
+        $workSheet->getStyle('A1:J1')->getAlignment()
+            ->setWrapText(true)
+            ->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $workSheet->getStyle('A1:J1')->getFont()->setBold(true);
+        // зберегти баланс на першому аркуші
+        $workSheet->fromArray($tempData);
+        $filename = "track_list.xlsx";
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadSheet);
+        $writer->save(self::$homePage . 'xls/' . $filename);
+        
+        $this->redirect("/xls/".$filename);
     }
 
     #region Percentage

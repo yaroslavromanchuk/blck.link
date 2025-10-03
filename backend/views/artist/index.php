@@ -28,7 +28,7 @@ $this->params['breadcrumbs'][] = $this->title;
     <p>
         <?= Html::a(Yii::t('app', 'Додати артиста'), ['create'], ['class' => 'btn btn-success']) ?>
         <?= Html::button('Створити інвойс на виплату', ['class' => 'btn btn-info', 'id' => 'generate', 'data-toggle' => 'modal', 'data-target' => '#invoice-add-modal']) ?>
-        <a href="<?=Url::to(['artist/export-artist'])?>" class="btn btn-warning">Скачати список артистів</a>
+        <a href="<?=Url::to(['artist/export-artist'])?>" class="btn btn-warning">Скачати список укр. артистів</a>
     </p>
 
     <?php //Pjax::begin(); ?>

@@ -5,6 +5,7 @@ use yii\helpers\Html;
 use yii\grid\GridView;
 use yii\widgets\Pjax;
 use yii\widgets\ListView;
+use yii\helpers\Url;
 /* @var $this yii\web\View */
 /* @var $searchModel backend\models\TrackSearch */
 /* @var $dataProvider yii\data\ActiveDataProvider */
@@ -16,6 +17,7 @@ $this->params['breadcrumbs'][] = $this->title;
      <?php if(Yii::$app->user->can('label')){ ?>
     <p class="text-right">
         <?= Html::a(Yii::t('app', 'Додати трек'), ['create'], ['class' => 'btn btn-danger']) ?>
+        <a href="<?=Url::to(['artist/export-track'])?>" class="btn btn-warning" title="Скачати список треків укр. артистів"><span class="glyphicon glyphicon-download-alt"></span></a>
     </p>
      <?php } ?>
 
