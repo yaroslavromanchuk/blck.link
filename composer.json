@@ -27,7 +27,9 @@
         "phpoffice/phpspreadsheet": "4.2.*",
         "kartik-v/yii2-mpdf": "*",
         "yiisoft/yii2-debug": "2.1.25",
-        "yiisoft/yii2-gii": "2.2.6"
+        "yiisoft/yii2-gii": "2.2.6",
+        "bower-asset/bootstrap": "^3.3",
+        "npm-asset/jquery": "^2.2"
     },
     "require-dev": {
         "yiisoft/yii2-faker": "~2.0.0",
