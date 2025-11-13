@@ -107,7 +107,19 @@ $currency = Currency::find()
     <?php } ?>
 
     <?= $form->field($model, 'total')->hiddenInput(['value'=> !empty($model->total) ? $model->total : 0])->label(false)?>
-    <?= $form->field($model, 'aggregator_id')->hiddenInput(['value'=> !empty($model->aggregator_id) ?: 10])->label(false)?>
+
+    <div class="col-sm-12 col-md-6 col-lg-2">
+        <?= $form->field($model, 'aggregator_id')
+        ->widget(Select2::class, [
+        'model' => $model,
+        'data' => \backend\models\Aggregator::find()
+            ->select(['name', 'aggregator_id'])
+            ->indexBy('aggregator_id')
+            ->column(),
+        'language' => 'uk',
+        'options' => ['placeholder' => Yii::t('app', 'Вкажіть агрегатор'),]
+    ])?>
+    </div>
 <br>
     <div class="form-group col-sm-12">
         <?= Html::submitButton(Yii::t('app', 'Зберегти'), ['class' => 'btn btn-success']) ?>

@@ -347,6 +347,17 @@ class AggregatorReportController extends Controller
 
                         return $this->redirect(['/aggregator-report/view', 'id' => $id]);
                     }
+                
+                /*try {
+                    Yii::$app->db->createCommand(
+                        "UPDATE aggregator_report_item a
+					            SET a.`track_id` = {$track->id}
+				            WHERE a.track_id is null
+				                and a.isrc = '{$track->isrc}'
+				                and a.report_id = {$report->id}"
+                    )->execute();
+                } catch (Throwable) {}*/
+                
                 //}
             }
 
@@ -398,9 +409,11 @@ class AggregatorReportController extends Controller
 		
 		Yii::$app->db->createCommand(
 			"UPDATE aggregator_report_item a
-					INNER JOIN track t ON t.isrc = a.isrc and t.isrc is not null
+					JOIN track t ON t.isrc = a.isrc
 				SET a.`track_id` = t.id
-				WHERE a.track_id is null and a.report_id = {$report->id}"
+				WHERE a.track_id is null
+				  and t.isrc is not null
+				  and a.report_id = {$report->id}"
 		)->execute();
 
         if (count($emptyTrack) > 0) {

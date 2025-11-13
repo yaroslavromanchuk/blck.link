@@ -67,7 +67,7 @@ $this->params['breadcrumbs'][] = $this->title;
             'date_added',
             [
                 'attribute' => 'date_added',
-                'label' => 'Квартал',
+                'label' => 'Квартал нарахування',
                 'value' => function($data) {
                     return $data->quarter . ' кв. ' . $data->year; //DateFormat::getQuarterText($data->date_added);
                 }

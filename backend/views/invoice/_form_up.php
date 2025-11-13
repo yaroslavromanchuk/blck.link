@@ -48,6 +48,18 @@ $currency = Currency::find()
         <?= $form->field($model, 'description')
             ->textInput() ?>
     </div>
+    <div class="col-sm-12 col-md-6 col-lg-2">
+        <?= $form->field($model, 'aggregator_id')
+            ->widget(Select2::class, [
+                'model' => $model,
+                'data' => \backend\models\Aggregator::find()
+                    ->select(['name', 'aggregator_id'])
+                    ->indexBy('aggregator_id')
+                    ->column(),
+                'language' => 'uk',
+                'options' => ['placeholder' => Yii::t('app', 'Вкажіть агрегатор'),]
+            ])?>
+    </div>
 
     <?php if ($model->invoice_type == 2) { ?>
         <div class="col-sm-12 col-md-6 col-lg-2">

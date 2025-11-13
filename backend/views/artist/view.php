@@ -19,7 +19,7 @@ $invoice = new ActiveDataProvider([
         ->select(['invoice.invoice_id, CONCAT(invoice.quarter, " кв. ", invoice.year) as quarter, invoice.date_added,
           currency.currency_name, invoice_items.artist_id,
          invoice.invoice_type, track.name as track_name, invoice_items.platform, CONCAT(invoice_type.invoice_type_name, " (", aggregator.name, ")") as invoice_type_name,
-          SUM(invoice_items.count) as count, SUM(invoice_items.amount) as total'])
+          SUM(invoice_items.count) as count, SUM(invoice_items.amount) as total, invoice.description'])
         ->leftJoin('invoice_items', 'invoice_items.invoice_id = invoice.invoice_id')
         ->leftJoin('invoice_type', 'invoice_type.invoice_type_id = invoice.invoice_type')
         ->leftJoin('track', 'track.id = invoice_items.track_id')
@@ -192,6 +192,7 @@ $tracks = new ActiveDataProvider([
                                 'label' => 'Дата',
                                 'format' => 'date'
                             ],
+                            'description:text',
                             [
                                 'class' => 'yii\grid\ActionColumn',
                                 'template' => '{view} ',

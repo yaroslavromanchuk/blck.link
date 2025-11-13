@@ -440,7 +440,7 @@ class InvoiceItemsController extends Controller
     {
         $model = $this->findModel($id);
 
-        $invoiceItemsIds = !empty($invoiceItemsIds) ? $invoiceItemsIds : $this->getAllInvoiceItemsInProgressForArtist($model);
+        $invoiceItemsIds = !empty($invoiceItemsIds) ? $invoiceItemsIds : $this->getAllInvoiceItemsForArtist($model, $model->invoice->invoice_status_id);
 		$invoiceIds = $invoiceItemsIds['invoice'];
 		sort($invoiceIds);
         //$date = new \DateTime($model->invoice->date_pay);
@@ -748,7 +748,7 @@ class InvoiceItemsController extends Controller
         }
 
         $attach = [];
-        $invoiceItemsIds = $this->getAllInvoiceItemsInProgressForArtist($model, InvoiceStatus::InProgress, 1);
+        $invoiceItemsIds = $this->getAllInvoiceItemsForArtist($model, InvoiceStatus::InProgress, 1);
 		
 		$invoiceIds = $invoiceItemsIds['invoice'];
 		sort($invoiceIds);
@@ -1156,7 +1156,7 @@ class InvoiceItemsController extends Controller
         return true;
     }
 
-    private function getAllInvoiceItemsInProgressForArtist(InvoiceItems $invoiceItem, ?int $statusId = null, ?int $logTypeId = null): array
+    private function getAllInvoiceItemsForArtist(InvoiceItems $invoiceItem, ?int $statusId = null, ?int $logTypeId = null): array
     {
         $result = [
             'invoice' => [$invoiceItem->invoice_id],

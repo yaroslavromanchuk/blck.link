@@ -376,7 +376,7 @@ $this->params['breadcrumbs'][] = 'Фінанси';
                                         where ii.artist_id != 0
                                         and i.currency_id = 2
                                         group by ag.internal_type, ar.year, ar.quarter, i.currency_id
-                                        ORDER BY i.year asc, i.quarter asc, i.aggregator_id asc',
+                                        ORDER BY  i.year asc, i.quarter asc,  i.aggregator_id asc',
                                 //'params' => [':status' => 1],
                                 'totalCount' => 1,
                                 'pagination' => [

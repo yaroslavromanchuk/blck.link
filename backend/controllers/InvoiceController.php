@@ -245,7 +245,18 @@ class InvoiceController extends Controller
             InvoiceItems::deleteAll(['invoice_id' => $model->invoice_id]);
 
             foreach ($reportItems as $item) {
+                if (empty($item['track_id'])) {
+                    Yii::$app->session->setFlash('error', $item['track_id']);
+                    
+                    continue;
+                }
+                
                 $track = Track::findOne($item['track_id']);
+                
+                if (is_null($track)) {
+                    continue;
+                }
+                
                 $calculation = $track->getCalculation($model->aggregator_id, $item['amount']);
 
                     foreach ($calculation as $value) {

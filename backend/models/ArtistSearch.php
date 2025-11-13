@@ -83,7 +83,7 @@ class ArtistSearch extends Artist
       //  }
 
         $query->andFilterWhere(['like', 'name', '%'.$this->name.'%', false])
-            ->andFilterWhere(['like', 'full_name', '%'.$this->full_name.'%', false])
+           // ->andFilterWhere(['like', 'full_name', '%'.$this->full_name.'%', false])
             ->andFilterWhere(['like', 'phone', $this->phone])
             ->andFilterWhere(['like', 'email', $this->email])
             ->andFilterWhere(['like', 'date_last_payment', $this->date_last_payment])
@@ -92,6 +92,11 @@ class ArtistSearch extends Artist
             ->andFilterWhere(['>', 'deposit', $this->deposit])
             ->andFilterWhere(['>', 'deposit_1', $this->deposit_1])
             ->andFilterWhere(['>', 'deposit_3', $this->deposit_3]);
+        
+        
+        if (!empty($this->full_name)) {
+           $query->andFilterWhere(['like', 'full_name', '%'.$this->full_name.'%']);
+       }
 
         return $dataProvider;
     }

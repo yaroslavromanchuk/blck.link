@@ -62,7 +62,7 @@ class AggregatorReport extends \yii\db\ActiveRecord
             'total' => Yii::t('app', 'Сума'),
             'description' => Yii::t('app', 'Нотатка'),
             'user_id' => Yii::t('app', 'Завантажив'),
-            'quarter' => Yii::t('app', 'Квартал'),
+            'quarter' => Yii::t('app', 'Квартал нарахування'),
             'year' => Yii::t('app', 'Рік'),
             'date_added' => Yii::t('app', 'Завантажено'),
             'last_update' => Yii::t('app', 'Оновлено'),

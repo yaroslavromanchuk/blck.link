@@ -519,7 +519,7 @@ class SubLabelController extends Controller
 
        // $filename = $date->format('Y_m_d') . "_{$name}_report_invoice_{$model->invoice_id}.xlsx";
 
-        $invoiceIds = $this->getAllInvoiceInProgress($model, InvoiceStatus::InProgress);
+        $invoiceIds = $this->getAllInvoiceInProgress($model, $model->invoice_status_id);
 		sort($invoiceIds);
         $name = Str::transliterate($model->label->name) . "_" . implode('_', $invoiceIds);
         $filename = "report_{$name}_q{$model->quarter}_y{$model->year}.xlsx";

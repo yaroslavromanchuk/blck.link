@@ -315,7 +315,7 @@ class TrackController extends Controller
     {
         $sql = "SELECT t.`id` as track_id, t.`isrc`, a.name as artist_name, t.name as track_name
                 FROM `track` t
-                    inner join artist a ON a.id = t.artist_id
+                    inner join artist a ON a.id = t.artist_id and a.label_id = 0
                 WHERE a.country_id = 1 and t.is_album = 0
                 ORDER BY a.id asc";
         
@@ -554,7 +554,7 @@ class TrackController extends Controller
             $addedArtist = 0;
 
             foreach ($importResults as $item) {
-                $isrc = trim($item[0]);
+                $isrc = str_replace("-", "", trim($item[0]));
                 $track = Track::getTrackByIsrc($isrc);
 
                 if (!is_null($track)) {

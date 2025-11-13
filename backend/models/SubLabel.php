@@ -49,6 +49,7 @@ class SubLabel extends \yii\db\ActiveRecord
     public function rules()
     {
         return [
+            [['name', 'percentage', 'percentage_distribution', 'label_type_id'], 'required'],
             [['date_added', 'last_update'], 'safe'],
             [['name'], 'string', 'max' => 100],
             [['url'], 'string', 'max' => 50],
