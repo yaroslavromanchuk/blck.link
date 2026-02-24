@@ -10,15 +10,22 @@ use Yii;
  * @property int $balance_id
  * @property int $invoice_id
  * @property int $user_id
+ * @property int $label_id
+ * @property int $artist_id
  * @property int $track_id
  * @property int $currency_id
+ * @property float $all_sum
+ * @property float $percentage
  * @property float $amount
+ * @property bool $is_pay
  * @property string $date_added
  * @property string $last_update
  *
  * @property Currency $currency
  * @property Invoice $invoice
  * @property Track $track
+ * @property Artist $artist
+ * @property SubLabel $label
  * @property User $user
  */
 class UserBalance extends \yii\db\ActiveRecord
@@ -37,14 +44,15 @@ class UserBalance extends \yii\db\ActiveRecord
     public function rules()
     {
         return [
-            [['invoice_id', 'user_id', 'track_id', 'currency_id', 'amount'], 'required'],
-            [['invoice_id', 'user_id', 'track_id', 'currency_id'], 'integer'],
-            [['amount'], 'number'],
+            [['invoice_id', 'user_id', 'currency_id', 'all_sum', 'percentage', 'amount'], 'required'],
+            [['invoice_id', 'user_id', 'label_id', 'artist_id', 'track_id', 'currency_id', 'is_pay'], 'integer'],
+            [['all_sum', 'percentage', 'amount'], 'number'],
             [['date_added', 'last_update'], 'safe'],
             [['currency_id'], 'exist', 'skipOnError' => true, 'targetClass' => Currency::class, 'targetAttribute' => ['currency_id' => 'currency_id']],
             [['user_id'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['user_id' => 'id']],
             [['track_id'], 'exist', 'skipOnError' => true, 'targetClass' => Track::class, 'targetAttribute' => ['track_id' => 'id']],
             [['invoice_id'], 'exist', 'skipOnError' => true, 'targetClass' => Invoice::class, 'targetAttribute' => ['invoice_id' => 'invoice_id']],
+            [['artist_id'], 'exist', 'skipOnError' => true, 'targetClass' => Artist::class, 'targetAttribute' => ['artist_id' => 'id']],
         ];
     }
 
@@ -54,13 +62,18 @@ class UserBalance extends \yii\db\ActiveRecord
     public function attributeLabels()
     {
         return [
-            'balance_id' => 'Balance ID',
-            'invoice_id' => 'Invoice ID',
+            'balance_id' => '#',
+            'invoice_id' => 'Інвойс',
             'user_id' => 'User ID',
-            'track_id' => 'Track ID',
-            'currency_id' => 'Currency ID',
-            'amount' => 'Amount',
-            'date_added' => 'Date Added',
+            'label_id' => 'Лейбл',
+            'artist_id' => 'Артист',
+            'track_id' => 'Трек',
+            'currency_id' => 'Валюта',
+            'all_sum' => 'Доля лейбла',
+            'percentage' => 'Відсоток',
+            'amount' => 'Сума бонусу',
+            'is_pay' => 'Виплачено',
+            'date_added' => 'Нараховано',
             'last_update' => 'Last Update',
         ];
     }
@@ -94,6 +107,21 @@ class UserBalance extends \yii\db\ActiveRecord
     {
         return $this->hasOne(Track::class, ['id' => 'track_id']);
     }
+    
+    /**
+     * Gets query for [[Artist]].
+     *
+     * @return \yii\db\ActiveQuery
+     */
+    public function getArtist()
+    {
+        return $this->hasOne(Artist::class, ['id' => 'artist_id']);
+    }
+    
+    public function getLabel()
+    {
+        return $this->hasOne(SubLabel::class, ['id' => 'label_id']);
+    }
 
     /**
      * Gets query for [[User]].
@@ -103,5 +131,35 @@ class UserBalance extends \yii\db\ActiveRecord
     public function getUser()
     {
         return $this->hasOne(User::class, ['id' => 'user_id']);
+    }
+    
+    public static function add(array $data): bool
+    {
+        $userBalance = new self();
+        $userBalance->invoice_id = $data['invoice_id'];
+        $userBalance->currency_id = $data['currency_id'];
+        $userBalance->all_sum = $data['all_sum'];
+        $userBalance->percentage = $data['percentage'];
+        $userBalance->user_id = $data['user_id'];
+        $userBalance->amount = $data['amount'];//round($sumLabel * ($user->percentage / 100), 3);
+        
+        if (!empty($data['label_id'])) {
+            $userBalance->label_id = $data['label_id'];
+        }
+        
+        if (!empty($data['artist_id'])) {
+            $userBalance->artist_id = $data['artist_id'];
+        }
+        
+        if (!empty($data['track_id'])) {
+            $userBalance->track_id = $data['track_id'];
+        }
+        
+        if (!$userBalance->save()) {
+            var_dump($userBalance->getErrors());
+            return false;
+        }
+        
+        return true;
     }
 }

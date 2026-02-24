@@ -10,11 +10,24 @@ use kartik\select2\Select2;
 /* @var $model backend\models\TrackSearch */
 /* @var $form yii\widgets\ActiveForm */
 
-$traks = Track::find()->select(['name', 'id'])->indexBy('name')->column();
+
+$artists = Artist::getDb()->cache(function () {
+    // Запит, результат якого буде кешовано
+    return Artist::find()
+        ->leftJoin('sub_label', 'sub_label.id = artist.label_id')
+        ->select(['CONCAT(artist.name, " (", sub_label.name, ")")', 'artist.id'])->indexBy('artist.id')->column();
+}, 1800); // Кешування на 1800 секунд (30 хвилин)
+
+$traks = Track::getDb()->cache(function () {
+    // Запит, результат якого буде кешовано
+    return Track::find()
+        ->select(['name', 'id'])
+        ->indexBy('name')
+        ->column();
+}, 1800); // Кешування на 1800 секунд (30 хвилин)
 ?>
 
 <div class="card">
-
     <?php $form = ActiveForm::begin([
         'action' => ['index'],
         'method' => 'get',
@@ -29,9 +42,7 @@ $traks = Track::find()->select(['name', 'id'])->indexBy('name')->column();
               <?= $form->field($model, 'artist_id')
                   ->widget(Select2::class, [
                         'model' => $model,
-                        'data' => Artist::find()
-                            ->leftJoin('sub_label', 'sub_label.id = artist.label_id')
-                            ->select(['CONCAT(artist.name, " (", sub_label.name, ")")', 'artist.id'])->indexBy('artist.id')->column(),
+                        'data' => $artists,
                         'language' => 'uk',
                         'options' => ['placeholder' =>  Yii::t('app', 'Виберіть артиста'),],
                         'pluginOptions' => [

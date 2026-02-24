@@ -36,7 +36,7 @@ class InvoiceLog extends \yii\db\ActiveRecord
     {
         return [
             [[ 'invoice_id', 'user_id', 'log_type_id'], 'required'],
-            [[ 'invoice_id', 'user_id', 'artist_id', 'track_id'], 'integer'],
+            [[ 'invoice_id', 'user_id', 'artist_id', 'track_id', 'log_type_id'], 'integer'],
             //['action', 'string', 'max' => 100],
             [['date_added', 'last_update'], 'safe'],
             [['invoice_id'], 'exist', 'skipOnError' => true, 'targetClass' => Invoice::class, 'targetAttribute' => ['invoice_id' => 'invoice_id']],

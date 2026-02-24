@@ -46,6 +46,9 @@ class AlbumSearch extends Albums
 
         $dataProvider = new ActiveDataProvider([
             'query' => $query,
+            'sort'=> [
+                'defaultOrder' => ['id'=> SORT_DESC],
+            ],
         ]);
 
         $this->load($params);

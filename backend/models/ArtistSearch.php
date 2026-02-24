@@ -18,7 +18,7 @@ class ArtistSearch extends Artist
     public function rules(): array
 	{
         return [
-            [['id', 'label_id', 'active', 'deposit', 'deposit_1', 'deposit_3', 'reliz', 'percentage', 'last_payment_invoice', 'label_id', 'country_id', 'notify'], 'integer'],
+            [['id','type_id', 'label_id', 'active', 'deposit', 'deposit_1', 'deposit_3', 'reliz', 'percentage', 'last_payment_invoice', 'label_id', 'country_id', 'notify'], 'integer'],
             [['name', 'full_name', 'phone', 'email', 'date_last_payment'], 'safe'],
         ];
     }
@@ -69,7 +69,8 @@ class ArtistSearch extends Artist
         // grid filtering conditions
         $query->andFilterWhere([
             'id' => $this->id,
-            'active' => $this->active,
+            'active' => 1,//$this->active,
+            'type_id' => $this->type_id,
             'label_id' => $this->label_id,
             'country_id' => $this->country_id,
             'notify' => $this->notify,
@@ -97,6 +98,17 @@ class ArtistSearch extends Artist
         if (!empty($this->full_name)) {
            $query->andFilterWhere(['like', 'full_name', '%'.$this->full_name.'%']);
        }
+        
+        if ($this->notify == 1) {
+            
+            $query->andFilterWhere([
+                'or',
+                ['!=', 'deposit', 0],
+                ['!=', 'deposit_1', 0],
+                ['!=', 'deposit_3', 0]
+            ]);
+            
+        }
 
         return $dataProvider;
     }

@@ -15,6 +15,7 @@ use Yii;
  * @property int $from_artist_id
  * @property string|null $isrc
  * @property int|null $percentage
+ * @property float|null $artist_percentage
  * @property double $amount
  * @property string $description
  * @property string $date_item
@@ -48,7 +49,7 @@ class InvoiceItems extends \yii\db\ActiveRecord
         return [
             [['invoice_id', 'artist_id', 'amount', 'date_item'], 'required'],
             [['invoice_id', 'track_id', 'artist_id', 'from_artist_id', 'percentage'], 'integer'],
-            [['amount'], 'number'],
+            [['amount', 'artist_percentage'], 'number'],
             [['date_item', 'last_update'], 'safe'],
             [['isrc'], 'string', 'max' => 100],
             [['description'], 'string', 'max' => 255],
@@ -75,6 +76,7 @@ class InvoiceItems extends \yii\db\ActiveRecord
             'amount' => Yii::t('app', 'Сума'),
             'date_item' => Yii::t('app', 'Додано'),
             'last_update' => Yii::t('app', 'Оновлено'),
+            'artist_percentage' => Yii::t('app', 'Відсоток з фітами'),
             'percentage' => Yii::t('app', 'Відсоток %'),
         ];
     }
@@ -196,5 +198,37 @@ class InvoiceItems extends \yii\db\ActiveRecord
     public function getArtist()
     {
         return $this->hasOne(Artist::class, ['id' => 'artist_id']);
+    }
+    
+    public function getLabelSumFromArtist(): float
+    {
+        $sum = 0.0;
+        
+        if ($this->invoice->invoice_type != InvoiceType::$debit) {
+            return $sum;
+        }
+       /*
+        $invoicesIds = (new \yii\db\Query())
+            ->from(InvoiceItems::tableName())
+            ->select('distinct(invoice_items.invoice_id)')
+            ->innerJoin(Invoice::tableName(), 'invoice.invoice_id = invoice_items.invoice_id')
+            ->andFilterWhere([
+                'invoice.invoice_status_id' => InvoiceStatus::Calculated,
+                'invoice.invoice_type' => InvoiceType::$debit,
+                'invoice.currency_id ' => $this->invoice->currency_id,
+                ])
+            ->where([
+                'invoice_items.payment_invoice_id' => $this->invoice_id,
+                'invoice_items.artist_id' => $this->artist_id,
+            ])->all();*/
+        
+        $sum = (new \yii\db\Query())
+                ->from(InvoiceItems::tableName())
+                ->select('sum(amount) as sum_amount')
+                ->where(['invoice_id' => $this->invoice_id])
+                ->andWhere(['from_artist_id' => $this->artist_id, 'artist_id' => Artist::LABEL])
+                ->one()['sum_amount'] ?? 0.0;
+
+        return round($sum, 2);
     }
 }

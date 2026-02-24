@@ -5,10 +5,10 @@ use yii\helpers\Html;
 /** @var yii\web\View $this */
 /** @var backend\models\Albums $model */
 
-$this->title = 'Update Albums: ' . $model->name;
-$this->params['breadcrumbs'][] = ['label' => 'Albums', 'url' => ['index']];
+$this->title = 'Оновлення альбому: ' . $model->name;
+$this->params['breadcrumbs'][] = ['label' => 'Альбоми', 'url' => ['index']];
 $this->params['breadcrumbs'][] = ['label' => $model->name, 'url' => ['view', 'id' => $model->id]];
-$this->params['breadcrumbs'][] = 'Update';
+$this->params['breadcrumbs'][] = 'Оновилення';
 ?>
 <div class="albums-update">
 

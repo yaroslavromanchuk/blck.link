@@ -8,7 +8,7 @@ use  yii\helpers\Url;
 /* @var $model backend\models\Artist */
 
 $this->title = $model->name;
-$this->params['breadcrumbs'][] = ['label' => Yii::t('app', 'Артисти'), 'url' => ['index']];
+$this->params['breadcrumbs'][] = ['label' => Yii::t('app', 'Контрагенти'), 'url' => ['index']];
 $this->params['breadcrumbs'][] = $this->title;
 use yii\grid\GridView;
 use yii\data\ActiveDataProvider;
@@ -44,7 +44,7 @@ $tracks = new ActiveDataProvider([
 ]);
 ?>
 <div class="page-header">
-    <h1>Артист: <?= Html::encode($this->title) ?></h1>
+    <h1><?= Html::encode($this->title) ?></h1>
 </div>
 <div class="artist-view">
     <p class="text-left">
@@ -96,6 +96,20 @@ $tracks = new ActiveDataProvider([
                                     return "<p id='deposit_3' style='display: inline'>" . $data->deposit_3 . "</p><button id='deposit_3_refresh' style='margin-left: 15px' type='button' class='ml-2 btn btn-danger btn-xs' title='Перерахувати'><span class='glyphicon glyphicon-refresh' aria-hidden='true'></span></button>";
                                 },
                             ],
+                            [
+                                'attribute' => 'label_id',
+                                'value' => function($data) {
+                                    return $data->label->name;
+                                }
+                            ],
+                            [
+                                    'attribute' => 'type_id',
+                                'value' => function($data) {
+                                return $data->clientType->name;
+                                }
+                            ],
+                            'percentage',
+                            'percentage_distribution',
                             'full_name',
                             'contract',
                             'iban',

@@ -1,6 +1,8 @@
 <?php
 namespace frontend\controllers;
 
+use aki\telegram\Telegram;
+use backend\models\User;
 use frontend\models\ResendVerificationEmailForm;
 use frontend\models\VerifyEmailForm;
 use Yii;
@@ -20,6 +22,7 @@ use frontend\models\Artist;
 use aki\telegram\base\Response;
 use aki\telegram\base\TelegramBase;
 use aki\telegram\base\Command;
+use aki\telegram\base\Input;
 
 use frontend\models\Sitemap;
 
@@ -387,6 +390,183 @@ class SiteController extends Controller
     public function actionTelegram()
     {
         if (Yii::$app->request->isPost) {
+            $data = Yii::$app->request->getRawBody();
+            $update = json_decode($data, true);
+            
+            
+            if (isset($update['callback_query'])) {
+                $chatId = $update['callback_query']['message']['chat']['id'];
+                $callbackData = $update['callback_query']['data'];
+                
+                switch ($callbackData) {
+                    case 'is_manager':
+                        $admin = User::findOne(['telegram_id' => $chatId]);
+                        
+                        if ($admin) {
+                            Yii::$app->cache->delete('await_manager_code_' . $chatId);
+                            $text = "<b>Привіт {$admin->getFullName()}!</b>\n\n"
+                            . "<i>Функціонал для менеджерів покищо в розробці</i>\n\n"
+                            . "Але не переживай, я продовжу надсилати тобі повідомлення як і раніше";
+                            
+                            
+                            $this->sendMessage($chatId, $text, null, 'HTML');
+                            exit();
+                        }
+                        
+                        Yii::$app->cache->set('await_manager_code_' . $chatId, true);
+                        $this->sendMessage($chatId, "Введи свій персональний код:");
+                        break;
+                    case 'is_artist':
+                        $artist = Artist::findOne(['telegram_id' => $chatId]);
+                        
+                        if ($artist) {
+                            $text = "<b>Привіт {$artist->name}!</b>\n"
+                                . "Чим можу допомогти?";
+                            
+                            $keyboard = [
+                                'inline_keyboard' => [
+                                    [
+                                        ['text' => 'Звіт по трекам', 'callback_data' => 'get_track_info'],
+                                        ['text' => 'Звіт по балансу', 'callback_data' => 'get_balance_info']
+                                    ],
+                                ]
+                            ];
+                            
+                            $this->sendMessage($chatId, $text, $keyboard, 'HTML');
+                            exit();
+                        }
+                        
+                        Yii::$app->cache->set('await_artist_code_' . $chatId, true);
+                        $this->sendMessage($chatId, "Введи КОД:");
+
+                        break;
+                    case 'get_track_info':
+                        $artist = Artist::findOne(['telegram_id' => $chatId]);
+                        
+                        if ($artist) {
+                            $text = $artist->getTrackReport();
+                            $keyboard = [
+                                'inline_keyboard' => [
+                                    [
+                                        ['text' => 'Звіт по трекам', 'callback_data' => 'get_track_info'],
+                                        ['text' => 'Звіт по балансу', 'callback_data' => 'get_balance_info']
+                                    ],
+                                    /* [
+                                         ['text' => 'Ввести email', 'callback_data' => 'enter_email']
+                                     ],
+                                     [
+                                         ['text' => 'Налаштування', 'callback_data' => 'settings']
+                                     ]*/
+                                ]
+                            ];
+                            $this->sendMessage($chatId, $text, $keyboard, 'HTML');
+                        } else {
+                            $keyboard = [
+                                'inline_keyboard' => [
+                                    [
+                                        ['text' => 'Ввести код', 'callback_data' => 'is_artist'],
+                                    ],
+                                ]
+                            ];
+                            $this->sendMessage($chatId, "Артист не знайдений.\n Будь ласка, пройди ідентифікацію ще раз.", $keyboard, 'HTML');
+                        }
+                        
+                        break;
+                    case 'get_balance_info':
+                        $artist = Artist::findOne(['telegram_id' => $chatId]);
+                        if ($artist) {
+                            $text = $artist->getBalanceReport();
+                            $keyboard = [
+                                'inline_keyboard' => [
+                                    [
+                                        ['text' => 'Звіт по трекам', 'callback_data' => 'get_track_info'],
+                                        ['text' => 'Звіт по балансу', 'callback_data' => 'get_balance_info']
+                                    ],
+                                ]
+                            ];
+                            $this->sendMessage($chatId, $text, $keyboard, 'HTML');
+                        } else {
+                            $keyboard = [
+                                'inline_keyboard' => [
+                                    [
+                                        ['text' => 'Ввести код', 'callback_data' => 'is_artist'],
+                                    ],
+                                ]
+                            ];
+                            $this->sendMessage($chatId, "Артист не знайдений.\n Будь ласка, пройди ідентифікацію ще раз.", $keyboard, 'HTML');
+                        }
+                        
+                        break;
+                }
+            }
+            
+            // Обробка текстових повідомлень
+            if (isset($update['message'])) {
+                $chatId = $update['message']['chat']['id'];
+                $text = trim($update['message']['text']);
+                
+                // Якщо бот чекає email
+                if (Yii::$app->cache->get('await_artist_code_' . $chatId)) {
+                    if (filter_var($text, FILTER_SANITIZE_ADD_SLASHES) && strlen($text) == 10) {
+                       // Yii::$app->cache->set('email_' . $chatId, $text);
+                        $artist = Artist::findOne(['telegram_code' => $text]);
+                        
+                        if ($artist) {
+                            if ($artist->telegram_id && $artist->telegram_id != $chatId) {
+                                $this->sendMessage($chatId, "Не вірний код!");
+                                Yii::$app->cache->delete('await_artist_code_' . $chatId);
+                                exit;
+                                
+                            }
+                            
+                            $artist->telegram_id = $chatId;
+                            $artist->save(false);
+                            
+                            Yii::$app->cache->delete('await_artist_code_' . $chatId);
+                            $keyboard = [
+                                'inline_keyboard' => [
+                                    [
+                                        ['text' => 'Звіт по трекам', 'callback_data' => 'get_track_info'],
+                                        ['text' => 'Звіт по балансу', 'callback_data' => 'get_balance_info']
+                                    ],
+                                   /* [
+                                        ['text' => 'Ввести email', 'callback_data' => 'enter_email']
+                                    ],
+                                    [
+                                        ['text' => 'Налаштування', 'callback_data' => 'settings']
+                                    ]*/
+                                ]
+                            ];
+                            
+                            
+                            $text = "<b>Привіт {$artist->name}!</b>\n"
+                                . "От ми і познайомились, дуже приємно.\n\n"
+                                . "<b>Я можу надати тобі таку інформацію:</b>\n"
+                                . "• <code>Звіт по трекам</code>\n"
+                                . "• <code>Звіт по балансу</code>\n";
+                            
+                            $this->sendMessage($chatId, $text, $keyboard, 'HTML');
+                        } else {
+                            $this->sendMessage($chatId, "Артист не знайдений.\n Будь ласка, введи корректний код",);
+                        }
+                    } else {
+                        Yii::$app->cache->delete('await_artist_email_' . $chatId);
+                        $this->sendMessage($chatId, "Невірний код. Спробуй спочатку.");
+                    }
+                    exit;
+                } else if (Yii::$app->cache->get('await_manager_code_' . $chatId)) {
+                    if (filter_var($text, FILTER_SANITIZE_ADD_SLASHES)) {
+                        // Yii::$app->cache->set('email_' . $chatId, $text);
+                        $this->sendMessage($chatId, "Цей функціонал ще в розробці.");
+                        Yii::$app->cache->delete('await_manager_code_' . $chatId);
+                    } else {
+                        $this->sendMessage($chatId, "Невірний формат коду. Спробуй ще раз.");
+                    }
+                    Yii::$app->cache->delete('await_manager_code_' . $chatId);
+                    exit;
+                }
+            }
+            
             Command::run("/start", function($telegram) {
 
                 $data = [
@@ -399,20 +579,74 @@ class SiteController extends Controller
                     print_r($data, 1),
                     FILE_APPEND
                 );
+                
+                $artist = Artist::findOne(['telegram_id' => $telegram->input->message->chat->id]);
+                
+                if ($artist) {
+                    $data = [
+                        'chat_id' => $telegram->input->message->chat->id,
+                        "text" => "<b>Привіт {$artist->name}!</b>\n"
+                        . "Чим можу допомогти?",
+                        'parse_mode' => 'HTML',
+                        'reply_markup' => json_encode([
+                            'inline_keyboard' => [
+                                [
+                                    ['text' => 'Звіт по трекам', 'callback_data' => 'get_track_info'],
+                                    ['text' => 'Звіт по балансу', 'callback_data' => 'get_balance_info']
+                                ],
+                            ]
+                        ]),
+                    ];
+                } else {
+                    $data = [
+                        'chat_id' => $telegram->input->message->chat->id,
+                        "text" => "<b>Привіт {$telegram->input->message->from->first_name}!</b>\n"
+                            . "Щоб продовжити спілування, давай познайомимось.\n"
+                        . "Введи будь ласка свій персональний код.",
+                        'parse_mode' => 'HTML',
+                        'reply_markup' => json_encode([
+                            'inline_keyboard'=>[
+                                [
+                                    ['text' => 'Ввести код', 'callback_data' => 'is_artist'],
+                                    //['text' => 'Я менеджер', 'callback_data' => 'is_manager'],
+                                    //['text' => 'Відправити email', 'callback_data' => 'enter_email'],
+                                ]
+                            ]
+                        ]),
+                    ];
+                }
 
-                $telegram->sendMessage([
-                    'chat_id' => $telegram->input->message->chat->id,
-                    "text" => 'Привіт ' . $telegram->input->message->from->first_name . ', Твій ID:' . $telegram->input->message->chat->id,
-                ]);
+                $telegram->sendMessage($data);
             });
 
             exit();
-
-           // $telegram = Yii::$app->telegram;
-
-           // exit;
         }
 
         return $this->redirect(['index']);
     }
+    
+    
+    private function sendMessage($chatId, $text, $keyboard = null, $parse_mode = null): void
+    {
+        $data = [
+            'chat_id' => $chatId,
+            'text' => $text
+        ];
+        
+        if ($keyboard) {
+            $data['reply_markup'] = json_encode($keyboard);
+        }
+        
+        if ($parse_mode) {
+            $data['parse_mode'] = $parse_mode; // HTML або MarkdownV2
+            
+        }
+        /* @var $client Telegram */
+        $client = Yii::$app->telegram;
+        
+        $client->sendMessage($data);
+    }
+    
+    
+    
 }

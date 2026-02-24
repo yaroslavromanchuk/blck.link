@@ -8,6 +8,7 @@ use Yii;
  * This is the model class for table "aggregators".
  *
  * @property int $aggregator_id
+ * @property int $service_type_id
  * @property string $name
  * @property string|null $description
  * @property int $ownership_type
@@ -22,6 +23,7 @@ use Yii;
  * @property Currency $currency
  * @property AggregatorTypeUse $type
  * @property AggregatorService $service
+ * @property AggregatorServiceType $serviceType
  */
 class Aggregator extends \yii\db\ActiveRecord
 {
@@ -40,7 +42,7 @@ class Aggregator extends \yii\db\ActiveRecord
     {
         return [
             [['name'], 'required'],
-            [['ownership_type', 'currency_id', 'type_use_id', 'service_id'], 'integer'],
+            [['ownership_type', 'service_type_id', 'currency_id', 'type_use_id', 'service_id'], 'integer'],
             [['date_add', 'last_update'], 'safe'],
             [['name', 'description'], 'string', 'max' => 255],
             [['ownership_type'], 'exist', 'skipOnError' => true, 'targetClass' => Ownership::className(), 'targetAttribute' => ['ownership_type' => 'id']],
@@ -55,6 +57,7 @@ class Aggregator extends \yii\db\ActiveRecord
     {
         return [
             'aggregator_id' => Yii::t('app', 'Aggregator ID'),
+            'service_type_id' => Yii::t('app', 'Тип діяльності'),
             'name' => Yii::t('app', 'Назва'),
             'description' => Yii::t('app', 'Деталі'),
             'ownership_type' => Yii::t('app', 'Тип Ввласності'),
@@ -93,6 +96,10 @@ class Aggregator extends \yii\db\ActiveRecord
     public function getService()
     {
         return $this->hasOne(AggregatorService::class, ['service_id' => 'service_id']);
+    }
+    public function getServiceType()
+    {
+        return $this->hasOne(AggregatorServiceType::class, ['service_type_id' => 'service_type_id']);
     }
 
     /**

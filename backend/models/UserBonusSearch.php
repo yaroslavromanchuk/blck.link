@@ -6,9 +6,9 @@ use yii\base\Model;
 use yii\data\ActiveDataProvider;
 
 /**
- * SubLabelSearch represents the model behind the search form of `backend\models\SubLabel`.
+ * UserSearch represents the model behind the search form of `frontend\models\UserBonus`.
  */
-class SubLabelSearch extends SubLabel
+class UserBonusSearch extends UserBonus
 {
     /**
      * {@inheritdoc}
@@ -16,8 +16,7 @@ class SubLabelSearch extends SubLabel
     public function rules()
     {
         return [
-            [['id', 'active'], 'integer'],
-            [['name', 'url', 'description', 'logo', 'date_added', 'last_update'], 'safe'],
+            [['user_id', 'label_id', 'artist_id', 'track_id'], 'integer'],
         ];
     }
 
@@ -39,7 +38,7 @@ class SubLabelSearch extends SubLabel
      */
     public function search($params)
     {
-        $query = SubLabel::find();
+        $query = UserBonusSearch::find();
 
         // add conditions that should always apply here
 
@@ -57,14 +56,11 @@ class SubLabelSearch extends SubLabel
 
         // grid filtering conditions
         $query->andFilterWhere([
-            'id' => $this->id,
-            'active' => $this->active,
-            //'date_added' => $this->date_added,
-            //'last_update' => $this->last_update,
+            'user_id' => $this->user_id,
+            'label_id' => $this->label_id,
+            'artist_id' => $this->artist_id,
+            'track_id' => $this->track_id,
         ]);
-
-        $query->andFilterWhere(['like', 'name', $this->name])
-            ->andFilterWhere(['like', 'url', $this->url]);
 
         return $dataProvider;
     }

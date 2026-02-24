@@ -211,6 +211,10 @@ class SubLabelController extends Controller
 				)->execute();
 				
 				Artist::calculationDeposit();
+                
+                if ($model->invoice_type == InvoiceType::$debit) {
+                    UserBalance::deleteAll(['invoice_id' => $model->invoice_id]);
+                }
 			}
 		} else {
 			Yii::$app->session->setFlash('error', "Неможа видалити цей інвойст");
@@ -375,6 +379,10 @@ class SubLabelController extends Controller
                     $invoiceItem->artist_id = $value['artist_id'];
                     $invoiceItem->date_item = date('Y-m-d');
                     $invoiceItem->percentage = $value['percentage'];
+                    
+                    if (isset($value['artist_percentage'])) {
+                        $invoiceItem->artist_percentage = $value['artist_percentage'];
+                    }
 
                     if (!empty($value['from_artist_id'])) {
                         $invoiceItem->from_artist_id = $value['from_artist_id'];
@@ -430,23 +438,16 @@ class SubLabelController extends Controller
         }
 
         $this->layout = 'pdf';
-        $tracks = [];
-		$groupBy = 'ii.artist_id, ii2.track_id';
-		$artistCount = $model->getInvoiceItems()->count();
-		$templateName = 'invoice/act';
+       // $tracks = [];
+		//$groupBy = 'ii.artist_id, ii2.track_id';
 		
-		if ($artistCount > 200) {
-			$groupBy = 'ii.artist_id';
-			$templateName = 'invoice/act_artist';
-		}
-		
-        foreach ($model->invoiceItems as $it) {
+      /*  foreach ($model->invoiceItems as $it) {
             $_tracks = $this->getReportData($model->invoice_id, $it->artist_id, $groupBy);
 
             if (!empty($_tracks) && is_array($_tracks)) {
                 $tracks = array_merge($tracks, $_tracks);
             }
-        }
+        }*/
 
         $quarterDate = DateFormat::getQuarterDate($model->quarter, $model->year);
 
@@ -454,10 +455,10 @@ class SubLabelController extends Controller
         //$quarterDate['end'] = date('d.m.Y', strtotime($model->period_to));
 
         $content = $this->render(
-			$templateName,
+			'invoice/act',
             [
                 'model' => $model,
-                'tracks' => $tracks,
+               // 'tracks' => $tracks,
                 'quarterDate' => $quarterDate,
             ]
         );
@@ -708,11 +709,11 @@ class SubLabelController extends Controller
             Yii::$app->session->setFlash('error', 'У сублейбу відстуній email');
 
             return $this->redirect(['sub-label/invoice']);
-        } else if ($model->getNotified()) {
+        } /*else if ($model->getNotified()) {
             Yii::$app->session->setFlash('error', 'Цьому сублейбу вже відпавлено повідомлення');
 
             return $this->redirect(['sub-label/invoice']);
-        }
+        }*/
 
         // перевірка чи всі дані заповнені
       //  if($this->checkBeforeExport($model->label) !== true) {
@@ -771,8 +772,18 @@ class SubLabelController extends Controller
         } else {
             Yii::$app->session->setFlash('error', "Сублейбу {$model->label->name} не вдалось відправлено акт і звіт! Зверніться до адміністратора.");
         }
+        
+        $logs = $model->getInvoiceLogs(InvoiceLogType::EMAIL)->all();
+        $titleLog = "Відправлено на email: {$model->label->email} в такі дати:\n";
+        
+        /* @var $log InvoiceLog */
+        foreach ($logs as $log) {
+            $titleLog .= date('d.m.Y H:i:s', strtotime($log->date_added)) . "\n";
+        }
+        
+        return '<span class="glyphicon glyphicon-ok text-success" data-toggle="tooltip" data-placement="top" data-title=" ' . $titleLog. '"></span>';
 
-        return $this->redirect(['sub-label/invoice']);
+       // return $this->redirect(['sub-label/invoice']);
     }
 
     public function actionInvoiceApprove($id)
@@ -780,7 +791,8 @@ class SubLabelController extends Controller
         $model = $this->findModelInvoice($id);
 
         if ($model->getApproved()) {
-            return $this->redirect(['sub-label/invoice']);
+            return '<span class="glyphicon glyphicon-ok text-success"></span>';
+          //  return $this->redirect(['sub-label/invoice']);
         } /*else if (!$model->getNotified()) {
             Yii::$app->session->setFlash('error', 'Цьому артисту ще не відпавлено повідомлення');
 
@@ -800,8 +812,10 @@ class SubLabelController extends Controller
                 t::log($message, $tId);
             }
         }
+        
+        return '<span class="glyphicon glyphicon-ok text-success"></span>';
 
-        return $this->redirect(['sub-label/invoice']);
+       // return $this->redirect(['sub-label/invoice']);
     }
 
     public function actionInvoicePay($id)
@@ -809,7 +823,8 @@ class SubLabelController extends Controller
         $model = $this->findModelInvoice($id);
 
         if ($model->getPayed()) {
-            return $this->redirect(['sub-label/invoice']);
+            return '<span class="glyphicon glyphicon-ok text-success"></span>';
+            //return $this->redirect(['sub-label/invoice']);
         } else if (!$model->getApproved()) {
             Yii::$app->session->setFlash('error', "Сублейб {$model->label->name} не підтвердив виплату");
 
@@ -817,8 +832,10 @@ class SubLabelController extends Controller
         }
 
         InvoiceLog::add($model->invoice_id, InvoiceLogType::PAYED);
+        
+        return '<span class="glyphicon glyphicon-ok text-success"></span>';
 
-        return $this->redirect(['sub-label/invoice']);
+       // return $this->redirect(['sub-label/invoice']);
     }
 
     protected function findModelInvoice($id)
@@ -902,7 +919,7 @@ class SubLabelController extends Controller
     private function getReportData(int $invoice_id, int $artist_id, string $groupBy = ''): \yii\db\DataReader|array
     {
         $query = "SELECT
-					t.artist_name,
+					a.name as artist_name,
 					t.name as track_name,
 					100 as percentage,
 					IFNULL(ii2.percentage, IF(ar.aggregator_id != 1, sl.percentage, sl.percentage_distribution)) as percentage_label,
@@ -955,7 +972,7 @@ class SubLabelController extends Controller
 	{
 		$query = "SELECT
 					ii.artist_id,
-					t.artist_name,
+					a.name as artist_name,
 					t.name as track_name,
 					100 as percentage,
 					IFNULL(ii2.percentage, IF(ar.aggregator_id != 1, sl.percentage, sl.percentage_distribution)) as percentage_label,

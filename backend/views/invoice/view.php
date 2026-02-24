@@ -13,6 +13,7 @@ use yii\helpers\Url;
 use yii\widgets\DetailView;
 use yii\grid\GridView;
 use yii\widgets\Pjax;
+use backend\models\InvoiceLogType;
 
 /* @var $this yii\web\View */
 /* @var $model backend\models\Invoice */
@@ -142,7 +143,9 @@ $this->params['breadcrumbs'][] = $this->title;
 
     <?php
 
-    if ($model->invoice_type != 1 && $model->invoice_status_id == InvoiceStatus::Generated) {
+    if ($model->invoice_type != 1
+        && in_array($model->invoice_status_id, [InvoiceStatus::InProgress, InvoiceStatus::Generated])
+    ) {
         echo $this->render('_formItems', [
             'model' => $modelItems,
             'invoice' => $model,
@@ -188,12 +191,12 @@ $this->params['breadcrumbs'][] = $this->title;
                 ]),
                 'value' => function($data) {
                     $artist = $data->artist_id >= 0 ? Html::a($data->artist->name . ' (' . $data->artist->label->name . ')' , ['artist/view', 'id' => $data->artist->id], ['target'=>'_blank', 'class' => 'linksWithTarget']) : null;
+                    $artistData = [];
                     if ($data->invoice->invoice_type == InvoiceType::$credit) {
                         switch ($data->invoice->currency_id)
                         {
                             case 1: // EUR
                                 if ($data->artist->deposit != 0 || $data->artist->deposit_3 != 0) {
-                                    $artist .= ' Баланс:';
                                     $inv = InvoiceItems::find()
                                         ->select(['invoice.invoice_id', 'invoice.currency_id'])
                                         ->innerJoin(\backend\models\Invoice::tableName(), 'invoice.invoice_id = invoice_items.invoice_id 
@@ -204,17 +207,24 @@ $this->params['breadcrumbs'][] = $this->title;
                                         ->indexBy('currency_id')
                                         ->column();
                                     if ($data->artist->deposit != 0 && !isset($inv[2])) {
-                                        $artist .= ' <span class="text-danger">UAH: '.$data->artist->deposit.'</span>';
+                                        if ($data->artist->deposit > 0) {
+                                            $artistData[] = Html::a('<span class="text-success">UAH: '.$data->artist->deposit.'</span>', ['add-to-pay-invoice', 'currentInvoiceId' => $data->invoice->invoice_id, 'artistId' => $data->artist_id, 'currencyId' => 2, 'sum' => $data->artist->deposit], [ 'title' => 'Додати в інвойс на виплату', 'aria-label' => 'Додати в інвойс на виплату', 'data-pjax' => '1', 'data-toggle'=>'tooltip', 'data-placement'=>'top']);
+                                        } else {
+                                            $artistData[] = '<span class="text-danger" title ="Мінусовий баланс" data-toggle="tooltip" data-placement="top">UAH: '.$data->artist->deposit.'</span>';
+                                        }
                                     }
 
                                     if ($data->artist->deposit_3 != 0 && !isset($inv[3])) {
-                                        $artist .= ' <span class="text-danger">USD: '.$data->artist->deposit_3.'</span>';
+                                        if ($data->artist->deposit_3 > 0) {
+                                            $artistData[] = Html::a('<span class="text-success">USD: '.$data->artist->deposit_3.'</span>', ['add-to-pay-invoice', 'currentInvoiceId' => $data->invoice->invoice_id, 'artistId' => $data->artist_id, 'currencyId' => 3, 'sum' => $data->artist->deposit_3], [ 'title' => 'Додати в інвойс на виплату', 'aria-label' => 'Додати в інвойс на виплату', 'data-pjax' => '1', 'data-toggle'=>'tooltip', 'data-placement'=>'top']);
+                                        } else {
+                                            $artistData[] = '<span class="text-danger" title ="Мінусовий баланс" data-toggle="tooltip" data-placement="top">USD: '.$data->artist->deposit_3.'</span>';
+                                        }
                                     }
                                 }
                                 break;
                             case 2: // UAH
                                 if ($data->artist->deposit_1 != 0 || $data->artist->deposit_3 != 0) {
-                                    $artist .= ' Баланс:';
                                     $inv = InvoiceItems::find()
                                         ->select(['invoice.invoice_id', 'invoice.currency_id'])
                                         ->innerJoin(\backend\models\Invoice::tableName(), 'invoice.invoice_id = invoice_items.invoice_id 
@@ -225,17 +235,24 @@ $this->params['breadcrumbs'][] = $this->title;
                                         ->indexBy('currency_id')
                                         ->column();
                                     if ($data->artist->deposit_1 != 0 && !isset($inv[1])) {
-                                        $artist .= ' <span class="text-danger">EUR: '.$data->artist->deposit_1.'</span>';
+                                        if ($data->artist->deposit_1 > 0) {
+                                            $artistData[] =  Html::a('<span class="text-success">EUR: '.$data->artist->deposit_1.'</span>', ['add-to-pay-invoice', 'currentInvoiceId' => $data->invoice->invoice_id, 'artistId' => $data->artist_id, 'currencyId' => 1, 'sum' => $data->artist->deposit_1], [ 'title' => 'Додати в інвойс на виплату', 'aria-label' => 'Додати в інвойс на виплату', 'data-pjax' => '1', 'data-toggle'=>'tooltip', 'data-placement'=>'top']);
+                                        } else {
+                                            $artistData[] = '<span class="text-danger" title ="Мінусовий баланс" data-toggle="tooltip" data-placement="top">EUR: '.$data->artist->deposit_1.'</span>';
+                                        }
                                     }
 
                                     if ($data->artist->deposit_3 != 0 && !isset($inv[3])) {
-                                        $artist .= ' <span class="text-danger">USD: '.$data->artist->deposit_3.'</span>';
+                                        if ($data->artist->deposit_3 > 0) {
+                                            $artistData[] =  Html::a('<span class="text-success">USD: '.$data->artist->deposit_3.'</span>', ['add-to-pay-invoice', 'currentInvoiceId' => $data->invoice->invoice_id, 'artistId' => $data->artist_id, 'currencyId' => 3, 'sum' => $data->artist->deposit_3], [ 'title' => 'Додати в інвойс на виплату', 'aria-label' => 'Додати в інвойс на виплату', 'data-pjax' => '1', 'data-toggle'=>'tooltip', 'data-placement'=>'top']);
+                                        } else {
+                                            $artistData[] =  '<span class="text-danger" title ="Мінусовий баланс" data-toggle="tooltip" data-placement="top">USD: '.$data->artist->deposit_3.'</span>';
+                                        }
                                     }
                                 }
                                 break;
                             case 3: // USD
                                 if ($data->artist->deposit != 0 || $data->artist->deposit_1 != 0) {
-                                    $artist .= ' Баланс:';
                                     $inv = InvoiceItems::find()
                                         ->select(['invoice.invoice_id', 'invoice.currency_id'])
                                         ->innerJoin(\backend\models\Invoice::tableName(), 'invoice.invoice_id = invoice_items.invoice_id 
@@ -246,16 +263,26 @@ $this->params['breadcrumbs'][] = $this->title;
                                         ->indexBy('currency_id')
                                         ->column();
                                     if ($data->artist->deposit_1 != 0 && !isset($inv[1])) {
-                                        $artist .= ' <span class="text-danger">EUR: '.$data->artist->deposit_1.'</span>';
+                                        if ($data->artist->deposit_1 > 0) {
+                                            $artistData[] =  Html::a('<span class="text-success">EUR: '.$data->artist->deposit_1.'</span>', ['add-to-pay-invoice', 'currentInvoiceId' => $data->invoice->invoice_id, 'artistId' => $data->artist_id, 'currencyId' => 1, 'sum' => $data->artist->deposit_1], [ 'title' => 'Додати в інвойс на виплату', 'aria-label' => 'Додати в інвойс на виплату', 'data-pjax' => '1', 'data-toggle'=>'tooltip', 'data-placement'=>'top']);
+                                        } else {
+                                            $artistData[] = '<span class="text-danger" title ="Мінусовий баланс" data-toggle="tooltip" data-placement="top">EUR: '.$data->artist->deposit_1.'</span>';
+                                        }
                                     }
 
                                     if ($data->artist->deposit != 0 && !isset($inv[2])) {
-                                        $artist .= ' <span class="text-danger">UAH: '.$data->artist->deposit.'</span>';
+                                        if ($data->artist->deposit > 0) {
+                                            $artistData[] =  Html::a('<span class="text-success">UAH: '.$data->artist->deposit.'</span>', ['add-to-pay-invoice', 'currentInvoiceId' => $data->invoice->invoice_id, 'artistId' => $data->artist_id, 'currencyId' => 2, 'sum' => $data->artist->deposit], ['title' => 'Додати в інвойс на виплату', 'aria-label' => 'Додати в інвойс на виплату', 'data-pjax' => '1', 'data-toggle'=>'tooltip', 'data-placement'=>'top']);
+                                        } else {
+                                            $artistData[] = '<span class="text-danger" title ="Мінусовий баланс" data-toggle="tooltip" data-placement="top">UAH: '.$data->artist->deposit.'</span>';
+                                        }
                                     }
                                }
                                 break;
                         }
                     }
+                    
+                    $artist .= !empty($artistData) ? ' Баланс: ' . implode(', ', $artistData) : '';
 
                     return $artist;
                 },
@@ -334,30 +361,62 @@ $this->params['breadcrumbs'][] = $this->title;
                 'label' => 'Повідомлено',
                 'attribute' => 'note',
                 'format' => 'raw',
-                'filter' => [1 => 'Так'],
+                'filter' => [-1 => 'Ні', 1 => 'Так'],
+                
+                'contentOptions' => function ($model, $key, $index, $column) {
+                    return [
+                        'id' => "td-notified-$key",    // довільний id, якщо потрібно
+                    ];
+                },
+                
                 'value' => function ($data) {
                     if ($data->invoice->invoice_status_id == InvoiceStatus::Calculated) {
                         return $data->notified ? '<span class="glyphicon glyphicon-ok text-success"></span>' : '<span class="glyphicon glyphicon-remove text-danger"></span>';
                     }
-
-                    return $data->notified
-                        ? '<span class="glyphicon glyphicon-ok text-success"></span>'
-                        :  (in_array(yii::$app->user->id, [1, 16, 4]) && !empty($data->artist->email)
-                            ? Html::a('<span class="glyphicon glyphicon-envelope"></span>', Url::to(['invoice-items/mail', 'id' => $data->id]), [
+                    
+                    if ($data->notified) {
+                        $logs = $data->invoice->getInvoiceLogs(InvoiceLogType::EMAIL)->all();
+                        $logs = array_filter($logs, function($log) use ($data) {
+                            return $log->artist_id == $data->artist_id;
+                        });
+                        $titleLog = "Відправлено на email: {$data->artist->email} в такі дати:\n";
+                        
+                        foreach ($logs as $log) {
+                            $titleLog .= date('d.m.Y H:i:s', strtotime($log->date_added)) . "\n";
+                        }
+                        return '<span class="glyphicon glyphicon-ok text-success" data-toggle="tooltip" data-placement="top" data-title=" ' . $titleLog. '"></span>' . (in_array(yii::$app->user->id, [1, 16]) ? ' ' . Html::a('<span class="glyphicon glyphicon-repeat"></span>',
+                                    Url::to(['invoice-items/mail', 'id' => $data->id]), [
+                                        'title' => Yii::t('yii', 'Відправити повторне повідомлення'),
+                                        'class' => 'btn btn-warning btn-xs',
+                                        'data-toggle'=>'tooltip',
+                                        'data-placement'=>'right',
+                                        'data-id' => $data->id,
+                                    ]) : '');
+                    }
+                    
+                    return (in_array(yii::$app->user->id, [1, 16, 4]) && !empty($data->artist->email)
+                        ? Html::a('<span class="glyphicon glyphicon-envelope"></span>',
+                            Url::to(['invoice-items/mail', 'id' => $data->id]), [
                                 'title' => Yii::t('yii', 'Відправити повідомлення'),
-                                'class' => 'btn btn-success btn-xs',
+                                'class' => 'btn btn-success btn-xs btn-notify',
                                 //'target' => '_blank',
                                 'data-toggle'=>'tooltip',
                                 'data-placement'=>'right',
+                                'data-id' => $data->id,
                             ])
-                            : '<span class="glyphicon glyphicon-remove text-danger"></span>');
+                        : '<span class="glyphicon glyphicon-remove text-danger"></span>');
                 },
             ],
             [
                 'label' => 'Підтверджено',
                 'attribute' => 'apr',
+                'contentOptions' => function ($model, $key, $index, $column) {
+                    return [
+                        'id' => "td-approved-$key",    // довільний id, якщо потрібно
+                    ];
+                },
                 'format' => 'raw',
-                'filter' => [1 => 'Так'],
+                'filter' => [-1 => 'Ні', 1 => 'Так'],
                 'value' => function ($data) {
                     if ($data->invoice->invoice_status_id == InvoiceStatus::Calculated) {
                         return $data->approved ? '<span class="glyphicon glyphicon-ok text-success"></span>' : '<span class="glyphicon glyphicon-remove text-danger"></span>';
@@ -365,10 +424,11 @@ $this->params['breadcrumbs'][] = $this->title;
 
                     return $data->approved ? '<span class="glyphicon glyphicon-ok text-success"></span>' : (in_array(yii::$app->user->id, [1, 14, 16, 4]) ? Html::a('<span class="glyphicon glyphicon-ok"></span>', Url::to(['invoice-items/approve', 'id' => $data->id]), [
                         'title' => Yii::t('yii', 'Підтвердити виплату'),
-                        'class' => 'btn btn-success btn-xs',
+                        'class' => 'btn btn-success btn-xs btn-approved',
                         //'target' => '_blank',
                         'data-toggle'=>'tooltip',
                         'data-placement'=>'right',
+                        'data-id' => $data->id,
                     ])  : '<span class="glyphicon glyphicon-remove text-danger"></span>');
                 },
                 //'contentOptions' => ['class' => $data->approved ? 'success' : ''],
@@ -376,8 +436,16 @@ $this->params['breadcrumbs'][] = $this->title;
             [
                 'label' => 'Сплачено',
                 'attribute' => 'pay',
+                'contentOptions' => function ($model, $key, $index, $column) {
+                    return [
+                        'data' => [
+                            'id' => $model->id,
+                        ],
+                        'id' => "td-payed-$key",    // довільний id, якщо потрібно
+                    ];
+                },
                 'format' => 'raw',
-                'filter' => [1 => 'Так'],
+                'filter' => [-1 => 'Ні', 1 => 'Так'],
                 'value' => function ($data) {
                     if ($data->invoice->invoice_status_id == InvoiceStatus::Calculated) {
                         return $data->payed ? '<span class="glyphicon glyphicon-ok text-success"></span>' : '<span class="glyphicon glyphicon-remove text-danger"></span>';
@@ -385,10 +453,11 @@ $this->params['breadcrumbs'][] = $this->title;
 
                     return $data->payed ? '<span class="glyphicon glyphicon-ok text-success"></span>' : (in_array(yii::$app->user->id, [1, 14, 4, 16]) && $data->approved ? Html::a('<span class="glyphicon glyphicon-ok"></span>', Url::to(['invoice-items/pay', 'id' => $data->id]), [
                         'title' => Yii::t('yii', 'Підтвердити виплату'),
-                        'class' => 'btn btn-warning btn-xs',
+                        'class' => 'btn btn-warning btn-xs btn-payed',
                         //'target' => '_blank',
                         'data-toggle'=>'tooltip',
                         'data-placement'=>'right',
+                        'data-id' => $data->id,
                     ]) : '<span class="glyphicon glyphicon-remove text-danger"></span>');
                 },
             ]
@@ -421,7 +490,7 @@ $this->params['breadcrumbs'][] = $this->title;
  ");
     ?>
 
-    <?php //Pjax::begin(['id' => 'invoice_items']) ?>
+    <?php //Pjax::begin(['id' => 'grid-pjax']) ?>
     <?= GridView::widget([
         'dataProvider' => $dataProvider,
         'filterModel' => $searchModel,
@@ -521,3 +590,90 @@ $this->params['breadcrumbs'][] = $this->title;
     <?php //Pjax::end() ?>
 
 </div>
+
+
+<?php
+/*
+ * $(document).on('click', '.btn-notify', function (e) {
+e.preventDefault();
+let id = $(this).data('id');
+let key = 'td' + id;
+
+    $.ajax({
+        url: '/invoice-items/mail/?id='+id, // ваш екшн
+        type: 'GET',
+        //data: {id: id},
+        success: function (response) {
+            // Оновлюємо лише потрібний рядок у GridView
+            $('#td-name-' + id).html(response);
+        },
+        error: function () {
+            alert('Помилка при оновленні!');
+        }
+    });
+    
+    return false;
+});
+*/
+
+$this->registerJs("
+$(document).on('click', '.btn-notify', function (e) {
+e.preventDefault();
+let id = $(this).data('id');
+let key = 'td' + id;
+
+    $.ajax({
+        url: '/invoice-items/mail/?id='+id, // ваш екшн
+        type: 'GET',
+        //data: {id: id},
+        success: function (response) {
+            // Оновлюємо лише потрібний рядок у GridView
+            $('#td-notified-' + id).html(response);
+        },
+        error: function () {
+            alert('Помилка при відправці повідомлення!');
+        }
+    });
+    
+    return false;
+});
+$(document).on('click', '.btn-approved', function (e) {
+e.preventDefault();
+let id = $(this).data('id');
+let key = 'td' + id;
+
+    $.ajax({
+        url: '/invoice-items/approve/?id='+id,
+        type: 'GET',
+        success: function (response) {
+            // Оновлюємо лише потрібний рядок у GridView
+            $('#td-approved-' + id).html(response);
+        },
+        error: function () {
+            alert('Помилка при підтвердженні!');
+        }
+    });
+    
+    return false;
+});
+$(document).on('click', '.btn-payed', function (e) {
+e.preventDefault();
+let id = $(this).data('id');
+let key = 'td' + id;
+
+    $.ajax({
+        url: '/invoice-items/pay/?id='+id,
+        type: 'GET',
+        success: function (response) {
+            // Оновлюємо лише потрібний рядок у GridView
+            $('#td-payed-' + id).html(response);
+        },
+        error: function () {
+            alert('Помилка при підтвердженні!');
+        }
+    });
+    
+    return false;
+});
+");
+    ?>

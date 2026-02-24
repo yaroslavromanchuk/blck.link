@@ -30,6 +30,9 @@ use yii\web\Response;
 use yii\bootstrap\ActiveForm;
 use yii\base\Model;
 
+use yii\filters\AccessControl;
+
+
 /**
  * TrackController implements the CRUD actions for Track model.
  */
@@ -47,6 +50,36 @@ class TrackController extends Controller
                 'actions' => [
                     'delete' => ['POST'],
                    // 'percentage-update' => ['POST', 'GET'],
+                ],
+            ],
+
+            // Фільтр доступу
+            'access' => [
+                'class' => AccessControl::class,
+               // 'only' => ['index', 'view', 'create', 'update', 'delete'], // перелік екшенів
+              //  'denyCallback' => function ($rule, $action) {
+                    // Кастомна реакція на заборону
+                  //  throw new \yii\web\ForbiddenHttpException('Немає прав для цієї дії.');
+               // },
+                'rules' => [
+                    // Гості можуть переглядати список та один запис
+                    [
+                        'allow' => true,
+                        'actions' => ['index', ],
+                        'roles' => ['@'], // '?' – гість, '@' – автентифікований
+                    ],
+                    // Створення/оновлення тільки для залогінених
+                    [
+                        'allow' => true,
+                        'actions' => ['view', 'create', 'update', 'copy', 'import', 'analytics', 'percentage', 'percentage-create', 'percentage-update', 'load-modal', 'percentage-delete', 'export-track'],
+                        'roles' => ['moder'],
+                    ],
+                    // Видалення лише для ролі 'admin'
+                    [
+                        'allow' => true,
+                        'actions' => ['delete'],
+                        'roles' => ['admin'], // RBAC роль/дозвіл
+                    ],
                 ],
             ],
         ];
@@ -268,8 +301,12 @@ class TrackController extends Controller
                    $model->img = Upload::updateImage($model, $model->img, 'track', [500, 500]);
                 }
             }
-         
-           $model->servise = serialize($model->servise);
+            
+            if (is_array($model->servise)) {
+                $model->servise = serialize($model->servise);
+            } else {
+                $model->servise = serialize([]);
+            }
              
 			if ($model->validate() && $model->save()) {
 
@@ -549,45 +586,74 @@ class TrackController extends Controller
 
             $errorTrack = [];
             $errorArtist = [];
-            $foundTrack = [];
+            $foundTrack = 0;
             $addedTrack = 0;
             $addedArtist = 0;
+            
+            $result = [];
 
             foreach ($importResults as $item) {
                 $isrc = str_replace("-", "", trim($item[0]));
+                $temp = [
+                    'isrc' => $isrc,
+                    'track_name' => trim($item[1]),
+                    'artist_name' => $item[2],
+                    'artist_alias' => trim($item[3]),
+                    'sub_label' => $item[4],
+                    'import_status' => [],
+                ];
+                
                 $track = Track::getTrackByIsrc($isrc);
 
                 if (!is_null($track)) {
-                    $foundTrack[] = $item;
+                    $temp['track_name'] = $track->name;
+                    $temp['artist_name'] = $track->artist->full_name;
+                    $temp['artist_alias'] = $track->artist->name;
+                    $temp['sub_label'] = $track->artist->label->name;
+                    
+                    $foundTrack++;
                     continue;
                 }
-
-                $artist = Artist::getArtistByName(trim($item[3]), $item[4]);
-
-                if (is_null($artist)) {
-                    $label = SubLabel::findOne($item[4]);
+                
+                if ($item[4] > 0) {
+                    $artist = Artist::findOne(['label_id' => (int)$item[4], 'active'=> 1]);
+                } else {
+                    $artist = Artist::getArtistByName(trim($item[3]), $item[4]);
+                }
+                
+                if (is_null($artist) && $item[4] == 0) {
                     $artist = new Artist();
                     $artist->name = mb_strlen(trim($item[3])) > 150 ? substr(trim($item[3]), 0, 150) : trim($item[3]);
-                    $artist->percentage = $label->percentage;
-                    $artist->label_id = $label->id;
+                    $artist->percentage = 70;
+                    $artist->label_id = 0;
+                    $artist->type_id = 1;
                     $artist->artist_type_id = 1;
                     $artist->admin_id = 16;
                     $artist->full_name = mb_strlen(trim($item[2])) > 150 ? substr(trim($item[2]), 0, 150) : trim($item[2]);
 
                     if (!$artist->save()) {
-                        $errorArtist[] = $item;
+                        $temp['import_status'][] = 'error add artist';
+                        $result[] = $temp;
+                        //$errorArtist[] = $item;
                         continue;
                     }
 
-                    $addedArtist++;
+                   // $addedArtist++;
+                }
+                if (is_null($artist)) {
+                    $temp['import_status'][] = 'error add artist';
+                    $result[] = $temp;
+                    continue;
                 }
 
                 $track = new Track();
                 $track->isrc = $isrc;
                 $track->admin_id = 16;
                 $track->artist_id = $artist->id;
-                $track->artist_name = $artist->name;
+                $track->artist_name = $temp['artist_alias'];
                 $track->name = trim($item[1]);
+                    $temp['artist_name'] = $artist->full_name;
+                    $temp['sub_label'] = $artist->label->name;
                 $track->img = '2565_XZEVWO7R.jpg';
                 $track->is_album = 0;
                 $url = trim(Yii::$app->translit->t($track->name));
@@ -595,23 +661,21 @@ class TrackController extends Controller
                 $track->url = substr($url, 0, 48) . bin2hex($bytes);
                 $track->servise = serialize([]);
 
-                if(!$track->validate()) {
-                    print_r($track->getErrors());
-                }
-
                 if(!$track->save()) {
-                    $errorTrack[] = $item;
+                    $temp['import_status'] =  $track->getFirstErrors();
+                    $result[] = $temp;
+                   // $errorTrack[] = $item;
                     continue;
                 }
 
-                $addedTrack++;
+               $addedTrack++;
 
-                if (!$track->isSubLabel()) {
+                if ($track->artist->type_id == 1) {
                     $track->addArtistPercentage();
                 }
             }
 
-            echo '<pre>';
+          /*  echo '<pre>';
             echo 'Added artist:' . $addedArtist. PHP_EOL;
             echo 'Added track:' . $addedTrack . PHP_EOL;
 
@@ -622,10 +686,19 @@ class TrackController extends Controller
             echo 'Found Track:' . PHP_EOL;
             print_r($foundTrack);
             echo '</pre>';
-            exit;
+            exit;*/
         }
 
-        return $this->render('import', ['model' => $model]);
+        return $this->render(
+            'import',
+            [
+                'model' => $model,
+                'foundTrack' => $foundTrack ?? 0,
+                'addedTrack' => $addedTrack ?? 0,
+                'result' => $result ?? [],
+                //'addedArtist' => $addedArtist ?? 0,
+            ]
+        );
 
     }
     #endregion load track

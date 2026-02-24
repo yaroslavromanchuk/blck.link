@@ -1,11 +1,14 @@
 <?php
-$servise = isset($services) ? unserialize($services->servise) : [];
 
-if (count($servise)) { ?>
+if (!empty($services)) { ?>
 <div class="card-body content p-0">
     <div class="order-block links-wrapper order-1">
-   <?php  foreach ($servise as $s){
-        if(strpos($s, 'apple')){ ?>
+   <?php  foreach ($services as $s) {
+       if (empty($s)) {
+           continue;
+           
+       }
+        if(strpos($s, 'apple')) { ?>
             <div rel="nofollow" class="order-block servise">
               <div>
                   <a href="<?=$s?>" target="_blank" class="link apple" data-id="<?=$services->id?>"  data-name="apple">

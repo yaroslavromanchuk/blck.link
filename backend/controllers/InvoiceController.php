@@ -6,6 +6,7 @@ use backend\models\AggregatorReport;
 use backend\models\AggregatorReportItem;
 use backend\models\AggregatorReportStatus;
 use backend\models\Artist;
+use backend\models\Currency;
 use backend\models\InvoiceReport;
 use backend\models\InvoiceStatus;
 use backend\models\InvoiceType;
@@ -63,11 +64,6 @@ class InvoiceController extends Controller
     {
         $searchModel = new InvoiceSearch();
         $queryParams = Yii::$app->request->queryParams;
-
-        if (empty($queryParams['InvoiceSearch']['label_id'])) {
-            $queryParams['InvoiceSearch']['label_id'] = 0;
-        }
-
         $dataProvider = $searchModel->search($queryParams);
 
         return $this->render('index', [
@@ -96,6 +92,7 @@ class InvoiceController extends Controller
         $query->from('invoice_items')
             ->select('SUM(IF(artist_id != 0, `amount`, 0)) AS `total_artist`, SUM(amount) AS `total`')
             ->where(['invoice_id' => $id]);
+        
         if (isset($queryParams['InvoiceItemsSearch']['artist_id']) && $queryParams['InvoiceItemsSearch']['artist_id'] >= 0) {
             $query->andWhere(['artist_id' => $queryParams['InvoiceItemsSearch']['artist_id']]);
         }
@@ -267,6 +264,10 @@ class InvoiceController extends Controller
                         $invoiceItem->artist_id = $value['artist_id'];
                         $invoiceItem->date_item = date('Y-m-d');
                         $invoiceItem->percentage = $value['percentage'];
+                        
+                        if (isset($value['artist_percentage'])) {
+                            $invoiceItem->artist_percentage = $value['artist_percentage'];
+                        }
 
                         if (!empty($value['from_artist_id'])) {
                             $invoiceItem->from_artist_id = $value['from_artist_id'];
@@ -328,6 +329,8 @@ class InvoiceController extends Controller
 
             return $this->redirect(['view', 'id' => $id]);
         }
+        
+        $currentStatus = $model->invoice_status_id;
 
         if ($model->invoice_type == InvoiceType::$credit
             && $model->invoice_status_id == InvoiceStatus::Generated
@@ -400,6 +403,14 @@ class InvoiceController extends Controller
         }
 
         $model->save();
+        
+        if ($model->invoice_type == InvoiceType::$debit
+            && $currentStatus == InvoiceStatus::Generated
+            && $model->invoice_status_id == InvoiceStatus::Calculated
+        ) {
+            // Додаємо баланс користувачів
+            $model->calculateUser();
+        }
 
         if(in_array($model->invoice_status_id, [InvoiceStatus::InProgress, InvoiceStatus::Calculated])) {
             Artist::calculationDeposit();
@@ -558,50 +569,86 @@ class InvoiceController extends Controller
     public function actionExportToExcel($id): void
     {
         $model = $this->findModel($id);
+        if (!in_array($model->invoice_type, [1, 2])) {
+            Yii::$app->session->setFlash('error', 'Експорт доступний лише для інвойсів Надходження і Виплата');
 
-        $filename = "report_aggregator_{$model->aggregator_id}_q{$model->quarter}_{$model->invoice_id}.xlsx";
+            return;
+        }
+        switch ($model->invoice_type) {
+            case 1:
+                $filename = "report_aggregator_{$model->aggregator_id}_q{$model->quarter}_{$model->invoice_id}.xlsx";
+                break;
+            case 2:
+                $filename = "report_invoice_q{$model->quarter}_{$model->invoice_id}.xlsx";
+                break;
+        }
+        
 
         if (file_exists(self::$homePage . 'xls/' .$filename)) {
             $this->redirect("/xls/".$filename);
         }
-
-        $spreadSheet = new Spreadsheet();
-        $workSheet = $spreadSheet->getActiveSheet();
-        $workSheet->setTitle('Дохід артистів по звіту');
-        $workSheet->getStyle('A1:F1')->getAlignment()
-            ->setWrapText(true)
-            ->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        $workSheet->getColumnDimension('A')->setWidth(17);
-        $workSheet->getColumnDimension('B')->setWidth(17);
-        $workSheet->getColumnDimension('C')->setWidth(13);
-        $workSheet->getColumnDimension('D')->setWidth(15);
-        $workSheet->getColumnDimension('E')->setWidth(13);
-        $workSheet->getColumnDimension('F')->setWidth(10);
-        $workSheet->getStyle('A1:F1')->getFont()->setBold(true);
-
-        $header = [
-            [
-                'Лейбл',
-                'Артист',
-                'Сума доходу',
-                'Частка акртиста',
-                'Частка лейбу',
-                'Валюта'
-            ]
-        ];
-
-        $data = $model->getInvoiceReportDataGroupArtist();
-
-        $workSheet->fromArray(array_merge($header, $data), null, 'A1');
-
-        if (count($data)) {
-            $i = (count($data) +2);
-            $workSheet->setCellValue('C' . $i, round(array_sum(array_column($data, 'all_sum')), 4));
-            $workSheet->setCellValue('D' . $i, round(array_sum(array_column($data, 'artist_sum')), 4));
-            $workSheet->setCellValue('E' . $i, round(array_sum(array_column($data, 'label_sum')), 4));
-            $workSheet->getStyle('C'. $i . ':E' . $i)->getFont()->setBold(true);
-            //$workSheet->getStyle('D'. (count($tempData)))->getFont()->setBold(true);
-            //$workSheet->getStyle('E'. (count($tempData)))->getFont()->setBold(true);
+        if ($model->invoice_type == 1) {
+            $spreadSheet = new Spreadsheet();
+            $workSheet = $spreadSheet->getActiveSheet();
+            $workSheet->setTitle('Дохід артистів по звіту');
+            $workSheet->getStyle('A1:F1')->getAlignment()
+                ->setWrapText(true)
+                ->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $workSheet->getColumnDimension('A')->setWidth(17);
+            $workSheet->getColumnDimension('B')->setWidth(17);
+            $workSheet->getColumnDimension('C')->setWidth(13);
+            $workSheet->getColumnDimension('D')->setWidth(15);
+            $workSheet->getColumnDimension('E')->setWidth(13);
+            $workSheet->getColumnDimension('F')->setWidth(10);
+            $workSheet->getStyle('A1:F1')->getFont()->setBold(true);
+            
+            $header = [
+                [
+                    'Лейбл',
+                    'Артист',
+                    'Сума доходу',
+                    'Частка акртиста',
+                    'Частка лейбу',
+                    'Валюта'
+                ]
+            ];
+            
+            $data = $model->getInvoiceReportDataGroupArtist();
+            
+            $workSheet->fromArray(array_merge($header, $data), null, 'A1');
+            
+            if (count($data)) {
+                $i = (count($data) +2);
+                $workSheet->setCellValue('C' . $i, round(array_sum(array_column($data, 'all_sum')), 4));
+                $workSheet->setCellValue('D' . $i, round(array_sum(array_column($data, 'artist_sum')), 4));
+                $workSheet->setCellValue('E' . $i, round(array_sum(array_column($data, 'label_sum')), 4));
+                $workSheet->getStyle('C'. $i . ':E' . $i)->getFont()->setBold(true);
+                //$workSheet->getStyle('D'. (count($tempData)))->getFont()->setBold(true);
+                //$workSheet->getStyle('E'. (count($tempData)))->getFont()->setBold(true);
+            }
+        } else {
+            $spreadSheet = new Spreadsheet();
+            $workSheet = $spreadSheet->getActiveSheet();
+            $workSheet->setTitle('Виплата артистів по інвойсу');
+            $workSheet->getStyle('A1:C1')->getAlignment()
+                ->setWrapText(true)
+                ->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $workSheet->getColumnDimension('A')->setWidth(17);
+            $workSheet->getColumnDimension('B')->setWidth(17);
+            $workSheet->getColumnDimension('C')->setWidth(15);
+            $workSheet->getStyle('A1:C1')->getFont()->setBold(true);
+            
+            $header = [
+                [
+                    'Артист',
+                    'Сума Виплати',
+                    'Валюта'
+                ]
+            ];
+            
+            $data = $model->getPayInvoiceData();
+            
+            $workSheet->fromArray(array_merge($header, $data), null, 'A1');
         }
 
         $writer = new Xlsx($spreadSheet);
@@ -685,7 +732,7 @@ class InvoiceController extends Controller
             'a.name as artist' => 'Артист',
             't.name as track' => 'Трек',
             'sum(ari2.amount) as amount' => 'Дохід',
-            'sum(ari2.`count`) as `count`' => 'Перегляди',
+            //'sum(ii.amount) as amount_pay' => 'Виплата',
             'sum(ari2.`count`) as `count`' => 'Перегляди',
         ];
 
@@ -709,12 +756,12 @@ class InvoiceController extends Controller
 
             $query = "
                     SELECT {$data}
-                    FROM (SELECT REPLACE(isrc, '-', '') as isrc, sum(amount) as amount, sum(`count`) as `count`
+                    FROM (SELECT isrc, track_id, sum(amount) as amount, sum(`count`) as `count`
                           FROM aggregator_report_item ari
                           INNER JOIN invoice i ON i.aggregator_report_id = ari.report_id and i.invoice_id in ({$invoice})
                           GROUP BY isrc, report_id
                          ) as ari2
-                    LEFT JOIN track t ON REPLACE(t.isrc, '-', '') = ari2.isrc
+                    LEFT JOIN track t ON t.id = ari2.track_id
                     LEFT JOIN artist a ON a.id = t.artist_id
                     WHERE a.label_id = 0
                     GROUP BY {$model->groupBy}
@@ -733,7 +780,7 @@ class InvoiceController extends Controller
                 ->select(["CONCAT(invoice.invoice_id, ' - ', aggregator.name, ' ', invoice.quarter, 'кв. ', invoice.year, 'р. (', invoice.description, ')')",
                     'invoice.invoice_id'
                 ])->leftJoin('aggregator', 'aggregator.aggregator_id = invoice.aggregator_id')
-                ->andFilterWhere(['invoice.invoice_type' => 1, 'invoice.invoice_status_id' => 2])
+                ->andFilterWhere(['invoice.invoice_type' => 1, 'invoice.invoice_status_id' => [2, 4]])
                 ->orderBy('invoice.invoice_id DESC')
                // ->limit(10)
                ->indexBy('invoice.invoice_id')
@@ -778,11 +825,11 @@ class InvoiceController extends Controller
                     sum(ii.amount) as sum_pay,
                     c.currency_name
                FROM `invoice_items` ii
-                    inner join invoice i ON i.invoice_id = ii.invoice_id and i.invoice_status_id = 2 and i.invoice_type != 2
+                    inner join invoice i ON i.invoice_id = ii.invoice_id and i.invoice_status_id IN (2, 4) and i.invoice_type != 2
                     inner join artist a ON a.id = ii.artist_id #and a.label_id = 0
                     left join aggregator_report ar ON ar.id = i.aggregator_report_id
                     left join `invoice_items` ii2 ON ii2.invoice_id = ii.payment_invoice_id and ii.artist_id = ii2.artist_id
-                    inner join invoice i2 ON i2.invoice_id = ii2.invoice_id and i2.invoice_type =2 and i2.invoice_status_id = 2
+                    inner join invoice i2 ON i2.invoice_id = ii2.invoice_id and i2.invoice_type =2 and i2.invoice_status_id IN (2, 4)
                     left join aggregator ag ON ag.aggregator_id = i.aggregator_id
                     left join currency c ON c.currency_id = i.currency_id
                     LEFT JOIN sub_label sl ON sl.id = i.label_id
@@ -840,6 +887,106 @@ class InvoiceController extends Controller
         $writer->save(self::$homePage . 'xls/' . $filename);
         
         $this->redirect("/xls/".$filename);
+    }
+    
+    /**
+     * @param int $currentInvoiceId
+     * @param int $artistId
+     * @param int $currencyId
+     * @return Response
+     * @throws Exception
+     * @throws NotFoundHttpException
+     */
+    public function actionAddToPayInvoice(int $currentInvoiceId, int $artistId, int $currencyId, float $sum): Response
+    {
+        $currentInvoice = $this->findModel($currentInvoiceId);
+        $payInvoice = Invoice::find()
+            ->where([
+                'invoice_type' => InvoiceType::$credit,
+                'invoice_status_id' => InvoiceStatus::Generated,
+                'currency_id' => $currencyId,
+                'label_id' => $currentInvoice->label_id,
+                'quarter' => $currentInvoice->quarter,
+                'year' => $currentInvoice->year,
+            ])
+            ->andWhere(['<>', 'invoice_id', $currentInvoiceId])
+            ->orderBy(['invoice_id' => SORT_DESC])
+            ->one();
+        
+        if ($payInvoice) {
+            $payInvoiceItems = new InvoiceItems();
+            $payInvoiceItems->invoice_id = $payInvoice->invoice_id;
+            $payInvoiceItems->artist_id = $artistId;
+            $payInvoiceItems->amount = $sum * -1;
+            $payInvoiceItems->date_item = date('Y-m-d');
+            
+            if (!$payInvoiceItems->save()) {
+                $errors = $payInvoiceItems->getErrors();
+                Yii::$app->session->setFlash('error', current($errors));
+                
+                return $this->redirect(['invoice/view', 'id' => $currentInvoiceId]);
+            }
+            
+            $payInvoice->calculate();
+            
+            Yii::$app->session->setFlash('success', 'Записи артиста додано до інвойсу виплат №' . $payInvoice->invoice_id);
+            
+            return $this->redirect(['invoice/view', 'id' => $currentInvoiceId]);
+           
+           /* $artist = Artist::findOne($artistId);
+            
+            if (!is_null($artist)) {
+                switch ($payInvoice->currency_id) {
+                    case Currency::EUR:
+                        if ($artist->deposit_1 > 0) {
+                            $payInvoiceItems->amount = $artist->deposit_1 * -1;
+                        } else {
+                            Yii::$app->session->setFlash('error', 'Артист з мінуосвим депозитом EUR, не можна додати в інвойс на виплату.');
+                            
+                            return $this->redirect(['invoice/view', 'id' => $currentInvoiceId]);
+                        }
+                        break;
+                    case Currency::UAH:
+                        if ($artist->deposit > 0) {
+                            $payInvoiceItems->amount = $artist->deposit * -1;
+                        } else {
+                            Yii::$app->session->setFlash('error', 'Артист з мінуосвим депозитом UAH, не можна додати в інвойс на виплату.');
+                            
+                            return $this->redirect(['invoice/view', 'id' => $currentInvoiceId]);
+                        }
+                        break;
+                    case Currency::USD:
+                        if ($artist->deposit_3 > 0) {
+                            $payInvoiceItems->amount = $artist->deposit_3 * -1;
+                        } else {
+                            Yii::$app->session->setFlash('error', 'Артист з мінуосвим депозитом USD, не можна додати в інвойс на виплату.');
+                            
+                            return $this->redirect(['invoice/view', 'id' => $currentInvoiceId]);
+                        }
+                        break;
+                }
+                
+                if (!$payInvoiceItems->save()) {
+                    $errors = $payInvoiceItems->getErrors();
+                    Yii::$app->session->setFlash('error', current($errors));
+                    
+                    return $this->redirect(['invoice/view', 'id' => $currentInvoiceId]);
+                }
+                
+                $payInvoice->calculate();
+                
+                Yii::$app->session->setFlash('success', 'Записи артиста додано до інвойсу виплат №' . $payInvoice->invoice_id);
+                
+                return $this->redirect(['invoice/view', 'id' => $currentInvoiceId]);
+            } else {
+                Yii::$app->session->setFlash('error', 'Артиста не знайдений.');
+                return $this->redirect(['invoice/view', 'id' => $currentInvoiceId]);
+            }*/
+        } else {
+            Yii::$app->session->setFlash('error', 'Інвойс виплат не знайдено для валюти '. Currency::findOne($currencyId)->currency_name);
+        }
+        
+        return $this->redirect(['invoice/view', 'id' => $currentInvoiceId]);
     }
         
         /**

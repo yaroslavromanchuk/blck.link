@@ -28,14 +28,14 @@ $this->params['breadcrumbs'][] = $this->title;
                 ['class' => 'yii\grid\SerialColumn'],
             'id',
             'name',
-            'percentage',
-            'percentage_distribution',
+           // 'percentage',
+            //'percentage_distribution',
             //'url:url',
             //'description',
             //'logo',
             'active:boolean',
-            'date_added',
-            //'last_update',
+            'date_added:date',
+            'last_update:date',
 
             [
                 'class' => 'yii\grid\ActionColumn',

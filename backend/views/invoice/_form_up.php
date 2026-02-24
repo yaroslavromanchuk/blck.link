@@ -21,6 +21,8 @@ $currency = Currency::find()
     ->select(['currency_name', 'currency_id'])
     ->indexBy('currency_id')
     ->column();
+$years = range(2024, (int) date('Y'), 1);
+$years = array_combine($years, $years);
 ?>
 
 <div class="invoice-form row">
@@ -32,7 +34,7 @@ $currency = Currency::find()
         'validationUrl' => Url::to('create'),
     ]); ?>
     <?= $form->field($model, 'user_id')
-        ->hiddenInput(['value'=>Yii::$app->user->identity->id])
+        ->hiddenInput(['value'=>$model->user_id])
         ->label(false)?>
     <div class="col-sm-12 col-md-6 col-lg-2">
         <?= $form->field($model, 'exchange')
@@ -42,7 +44,7 @@ $currency = Currency::find()
         <?= $form->field($model, 'quarter')->dropDownList([1 => 1, 2 => 2, 3 => 3, 4 => 4]) ?>
     </div>
     <div class="col-sm-12 col-md-6 col-lg-2">
-        <?= $form->field($model, 'year')->dropDownList([2024 => 2024, 2025 => 2025, 2026 => 2026]) ?>
+        <?= $form->field($model, 'year')->dropDownList($years) ?>
     </div>
     <div class="col-sm-12 col-md-6 col-lg-2">
         <?= $form->field($model, 'description')
@@ -73,28 +75,7 @@ $currency = Currency::find()
                ]
            ])?>
         </div>
-        <div class="col-sm-12 col-md-6 col-lg-2">
-            <?= $form->field($model, 'period_from')->widget(DatePicker::class, [
-                'language' => 'uk',
-                'dateFormat' => 'yyyy-MM-dd',
-                'options' => [
-                    // 'placeholder' => Yii::$app->formatter->asDate($model->created_at),
-                    'class'=> 'form-control',
-                    // 'autocomplete'=>'off'
-                ]
-            ])?>
-        </div>
-        <div class="col-sm-12 col-md-6 col-lg-2">
-            <?= $form->field($model, 'period_to')->widget(DatePicker::class, [
-                'language' => 'uk',
-                'dateFormat' => 'yyyy-MM-dd',
-                'options' => [
-                    // 'placeholder' => Yii::$app->formatter->asDate($model->created_at),
-                    'class'=> 'form-control',
-                    // 'autocomplete'=>'off'
-                ]
-            ])?>
-        </div>
+        
     <?php } ?>
 <br>
     <div class="form-group col-sm-12">

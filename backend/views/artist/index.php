@@ -14,19 +14,19 @@ use yii\helpers\Url;
 /* @var $sumDepositUAH float */
 /* @var $sumDepositEURO float */
 
-$this->title = Yii::t('app', 'Артисты');
+$this->title = Yii::t('app', 'Контрагенти');
 $this->params['breadcrumbs'][] = $this->title;
 ?>
 <div class="page-header">
     <h1><?= Html::encode($this->title) ?></h1>
-    <a href="<?=Url::to(['artist/calculate-deposit', 'id' => null, 'url' => '/artist/index'])?>" class="btn btn-danger" style="position: absolute;right: 0px; margin-top: -40px;">Перерахувати допозити артистам
+    <a href="<?=Url::to(['artist/calculate-deposit', 'id' => null, 'url' => '/artist/index'])?>" class="btn btn-danger" style="position: absolute;right: 0px; margin-top: -40px;">Перерахувати допозити
         <!--<span class="badge">UAH: <?php //$sumDepositUAH ?></span>
         <span class="badge">EURO: <?php //$sumDepositEURO ?></span>-->
     </a>
 </div>
 <div class="artist-index">
     <p>
-        <?= Html::a(Yii::t('app', 'Додати артиста'), ['create'], ['class' => 'btn btn-success']) ?>
+        <?= Html::a(Yii::t('app', 'Додати контрагента'), ['create'], ['class' => 'btn btn-success']) ?>
         <?= Html::button('Створити інвойс на виплату', ['class' => 'btn btn-info', 'id' => 'generate', 'data-toggle' => 'modal', 'data-target' => '#invoice-add-modal']) ?>
         <a href="<?=Url::to(['artist/export-artist'])?>" class="btn btn-warning">Скачати список укр. артистів</a>
     </p>
@@ -36,11 +36,6 @@ $this->params['breadcrumbs'][] = $this->title;
 
     <?php
     $selected = [];
-
-  // if(isset($_GET['ArtistSearch']['label_id'])) {
-    //   $selected[$_GET['ArtistSearch']['label_id']] = ['selected' => true];
-  // }
-
     $total_amount = $total_amount_uah = $total_amount_usd = 0;
 
     foreach($dataProvider->models as $m)
@@ -51,12 +46,19 @@ $this->params['breadcrumbs'][] = $this->title;
             $total_amount_usd += $m->deposit_3;
         }
     }
-
-    $labelList = SubLabel::find()
-            ->select(['name', 'id'])
+    
+    $labelList = SubLabel::getDb()->cache(function ($db) {
+        // Запит, результат якого буде кешовано
+        return SubLabel::find()->select(['name', 'id'])
             ->where(['active' => 1])
-        ->indexBy('id')
-        ->column();
+            ->indexBy('id')
+            ->column();
+    }, 3600); // Кешування на 1 годину (3600 секунд)
+    
+    $countries = \backend\models\Country::getDb()->cache(function ($db) {
+        // Запит, результат якого буде кешовано
+        return \backend\models\Country::find()->asArray()->all();
+    }, 3600); // Кешування на 1 годину (3600 секунд)
     ?>
 
     <?= GridView::widget([
@@ -65,7 +67,7 @@ $this->params['breadcrumbs'][] = $this->title;
         'showFooter' => true,
 		'rowOptions' => function ($model, $key, $index, $grid)
 		{
-			if ($model->notify && (empty($model->email) || !filter_var($model->email, FILTER_VALIDATE_EMAIL))) {
+			if ($model->label_id == 0 && $model->notify && (empty($model->email) || !filter_var($model->email, FILTER_VALIDATE_EMAIL))) {
                 return ['class' => 'danger'];
 			}
 		},
@@ -87,11 +89,13 @@ $this->params['breadcrumbs'][] = $this->title;
                 'attribute' => 'logo',
                 'format' => 'raw',
                 'value' => function($data) {
-                    return !empty($data->getLogo()) ? '<div class="trumb_foto"> ' . Html::img($data->getLogo(),['alt' => 'logo', 'style' => 'border-radius: 50%;width:50px; padding:1px;']) .'</div>' : '';
+                    return !empty($data->logo)
+                        ? '<div class="trumb_foto"> ' . Html::img($data->getLogo(),['alt' => 'logo', 'style' => 'border-radius: 50%;width:50px; padding:1px;']) .'</div>'
+                        : '';
                 },
             ],
             'name:ntext',
-            'full_name:ntext',
+            //'full_name:ntext',
             [
                 'attribute' => 'label_id',
                 'format' => 'raw',
@@ -115,15 +119,22 @@ $this->params['breadcrumbs'][] = $this->title;
                     return $data->label->name;
                 }
             ],
+            [
+                'attribute' => 'type_id',
+                'filter' => [1 => 'Артист', 2 => 'Партнер'],
+                'value' => function($data) {
+                    return $data->clientType->name;
+                }
+            ],
             [ // name свойство зависимой модели owner
                 'attribute' => 'reliz',
                 'label' => Yii::t('app', 'Треків'),
                 'value' => function($data) { return $data->getTracks()->count(); },
             ],
-            [
+           /* [
                 'attribute' => 'percentage',
                 'value' => function($data) { return $data->isSubLabel() ? 'N/A' : $data->percentage; },
-            ],
+            ],*/
             [
                 'attribute' => 'deposit',
                 'label' => 'Депозит UAH >=',
@@ -145,15 +156,15 @@ $this->params['breadcrumbs'][] = $this->title;
             [
                     'attribute' => 'country_id',
                     'value' => function($data) { return $data->country_id ? $data->country->country_name : ''; },
-                    'filter' => ArrayHelper::map(\backend\models\Country::find()->asArray()->all(), 'id', 'country_name')
+                    'filter' => ArrayHelper::map($countries, 'country_id', 'country_name')
             ],
             'notify:boolean',
             [
                 'class' => 'yii\grid\ActionColumn',
-                'template' => Yii::$app->user->can('admin') ? '{view} {update} {delete} {export-act}': '{view} {update} {export-act}',
+                'template' => Yii::$app->user->can('admin') ? '{view} {update} {delete} {export-act} {mail}': '{view} {update} {export-act} {mail}',
                 'buttons' => [
                     'export-balance' => function ($url, $model, $key) {
-                        return Html::a('<span class="glyphicon glyphicon-paste" style="margin-left: 20px"></span>', $url, [
+                        return Html::a('<span class="glyphicon glyphicon-paste"></span>', $url, [
 
                             'title' => Yii::t('yii', 'Export Balance'),
                             'target' => '_blank'
@@ -164,6 +175,39 @@ $this->params['breadcrumbs'][] = $this->title;
 
                             'title' => Yii::t('yii', 'Export Report'),
                             'target' => '_blank'
+                        ]);
+                    },
+                    'delete' => function ($url, $model, $key) {
+                        return Html::a('<span class="glyphicon glyphicon-trash"></span>', $url, [
+                            'title' => Yii::t('yii', 'Delete'),
+                            'data' => [
+                                'confirm' => 'Видалити артиста разом з усіма релізами та треками? Дію скасувати буде неможливо!',
+                                'method' => 'post',
+                            ],
+                        ]);
+                    },
+                    'mail' => function ($url, $model, $key) {
+                        /** @var \backend\models\Artist $model */
+                        $titleLog = '';
+                        $logs = $model->getInvoiceLogs('Balance Notification');
+                        $logs = array_filter($logs, function($log) {
+                            return date('m-Y',strtotime($log->date_added)) == date('m-Y');
+                        });
+                        
+                        if (count($logs)) {
+                            $titleLog = "Відправлено звіт в такі дати:\n";
+                            
+                            foreach ($logs as $log) {
+                                $titleLog .= date('d.m.Y H:i:s', strtotime($log->date_added)) . "\n";
+                            }
+                        }
+                
+                        return Html::a('<span class="glyphicon glyphicon-envelope" data-toggle="tooltip" data-placement="top" data-title=" ' . $titleLog. '"></span>', $url, [
+                            'title' => Yii::t('yii', 'Відпрвити звіт'),
+                            'class' => 'btn btn-xs send-report' . ($model->hasNotified() ? ' hidden' : ''),
+                            'data-pjax' => '1',
+                            'style' => $model->country_id != 1 || !$model->notify ? 'display:none' : '',
+                            'data-id' => $model->id,
                         ]);
                     },
                 ],
@@ -182,31 +226,46 @@ jQuery(function($) {
     $('#invoice-add-modal').on('show.bs.modal', function (event) {
          var keys = jQuery('.grid-view').yiiGridView("getSelectedRows");
         if (keys.length > 0) {
-           var modal = $(this);
-            modal.find('#invoice-artist_ids').val(keys);
+            $(this).find('#invoice-artist_ids').val(keys);
        } else {
              alert('Не вибрано жодного артиста');
              
              return false;
        }
-       
     });
     
-    $("#generate1").on("click", function(e) {
+   /* $("#generate1").on("click", function(e) {
        e.preventDefault()
        var keys = jQuery('.grid-view').yiiGridView("getSelectedRows");
        
        if (keys.length > 0) {
            alert(keys);
-          
        } else {
              alert('Не вибрано жодного артиста');
        }
-   });
-    
-   /// jQuery('.select-on-check-all, .checkbox-row').click(function() {
-   //     console.log(jQuery('#w0').yiiGridView('getSelectedRows'));
-    //});
+   });*/
     });
+
+$(document).on('click', 'a.send-report', function (e) {
+e.preventDefault();
+
+console.log($(this).attr('href'));
+    $.ajax({
+        url: $(this).attr('href'), // ваш екшн
+        type: 'GET',
+        success: function (response) {
+            $(this).addClass('hidden');
+            $(this).hide();
+           // alert(response);
+        },
+        error: function (xhr, status, error) {
+            console.log(error);
+            alert('Помилка при відправці!');
+        }
+    });
+    $(this).addClass('hidden');
+    $(this).hide();
+    return false;
+});
 JS;
 $this->registerJs($script);

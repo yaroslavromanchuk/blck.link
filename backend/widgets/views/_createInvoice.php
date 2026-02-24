@@ -22,6 +22,9 @@ $currency = \backend\models\Currency::find()
     ->indexBy('currency_id')
     ->column();
 
+$years = range(2024, (int) date('Y'), 1);
+$years = array_combine($years, $years);
+
 ?>
     <div class="row">
         <div class=" col-xs-12 col-sm-12 col-md-12">
@@ -45,7 +48,7 @@ $currency = \backend\models\Currency::find()
                             </div>
                             <div class="col-sm-12 col-md-4">
                                 <?= $form->field($invoice, 'year')
-                                    ->dropDownList([2024 => 2024, 2025 => 2025]) ?>
+                                    ->dropDownList($years) ?>
                             </div>
                             <div class="col-sm-12 col-md-4">
                                 <?= $form->field($invoice, 'date_pay')->widget(DatePicker::class, [

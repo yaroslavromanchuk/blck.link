@@ -106,7 +106,7 @@ $this->params['breadcrumbs'][] = $this->title;
             'amount',
             [
                     'class' => 'yii\grid\ActionColumn',
-                'template'=> '{update}',
+                'template'=> '{update} {delete}',
                 'urlCreator' => function ($action, $item, $key, $index) {
                     return Url::to(['aggregator-report-item/'.$action, 'id' => $item->id]);
                  }
@@ -114,5 +114,4 @@ $this->params['breadcrumbs'][] = $this->title;
         ],
 
     ]); ?>
-
 </div>

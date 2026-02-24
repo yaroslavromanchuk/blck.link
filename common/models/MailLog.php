@@ -12,6 +12,7 @@ namespace common\models;
  * @property int $invoice_id
  * @property string $content
  * @property int $user_id
+ * @property string $email
  * @property string $date_added
  * @property string $last_update
  */
@@ -33,7 +34,7 @@ class MailLog extends \yii\db\ActiveRecord
         return [
             [['artist_id'], 'required'],
             [['artist_id', 'track_id', 'invoice_id', 'user_id'], 'integer'],
-            [['content'], 'string'],
+            [['content', 'email'], 'string'],
             [['date_added', 'last_update'], 'safe'],
         ];
     }
@@ -49,6 +50,7 @@ class MailLog extends \yii\db\ActiveRecord
             'track_id' => 'Track ID',
             'invoice_id' => 'Invoice ID',
             'content' => 'Content',
+            'email' => 'Email',
             'date_added' => 'Date Added',
             'last_update' => 'Last Update',
         ];

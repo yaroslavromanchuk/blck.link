@@ -64,7 +64,7 @@ class Invoice extends \yii\db\ActiveRecord
             [['invoice_type', 'label_id', 'aggregator_id', 'user_id', 'currency_id', 'quarter', 'year', 'paid'], 'integer'],
             [['exchange'], 'number'],
             ['quarter', 'in', 'allowArray' => true,  'range' => [1, 2, 3, 4]],
-            ['year', 'in', 'allowArray' => true,  'range' => [2024, 2025, 2026]],
+            ['year', 'in', 'allowArray' => true,  'range' => range(2024, (int) date('Y'), 1)],
             [['total', 'quarter', 'year'], 'number'],
             [['date_added', 'last_update', 'description', 'date_pay', 'period_from', 'period_to'], 'safe'],
             [['aggregator_id'], 'exist', 'skipOnError' => true, 'targetClass' => Aggregator::class, 'targetAttribute' => ['aggregator_id' => 'aggregator_id']],
@@ -166,8 +166,14 @@ class Invoice extends \yii\db\ActiveRecord
         return $this->hasOne(InvoiceStatus::class, ['invoice_status_id' => 'invoice_status_id']);
     }
 
-    public function getInvoiceLogs()
+    public function getInvoiceLogs(int $type = null)
     {
+        if (!is_null($type)) {
+            return $this->hasMany(InvoiceLog::class, ['invoice_id' => 'invoice_id'])
+               // ->andWhere([InvoiceLog::tableName() .'.log_type_id' => $type]);
+                ->andOnCondition(['log_type_id' => $type]);
+        }
+        
         return $this->hasMany(InvoiceLog::class, ['invoice_id' => 'invoice_id']);
     }
 
@@ -180,20 +186,9 @@ class Invoice extends \yii\db\ActiveRecord
      */
     public function getNotified(): bool
     {
-        $logs = $this->getInvoiceLogs()->all();
-
-        if (empty($logs)) {
-            return false;
-        }
-
-        /* @var InvoiceLog $log */
-        foreach ($logs as $log) {
-            if ($log->log_type_id == InvoiceLogType::EMAIL) {
-                return true;
-            }
-        }
-
-        return false;
+        $logs = $this->getInvoiceLogs(InvoiceLogType::EMAIL)->all();
+        
+        return !empty($logs);
     }
 
     /**
@@ -203,20 +198,9 @@ class Invoice extends \yii\db\ActiveRecord
      */
     public function getApproved(): bool
     {
-        $logs = $this->getInvoiceLogs()->all();
-
-        if (empty($logs)) {
-            return false;
-        }
-
-        /* @var InvoiceLog $log */
-        foreach ($logs as $log) {
-            if ($log->log_type_id == InvoiceLogType::APPROVED) {
-                return true;
-            }
-        }
-
-        return false;
+        $logs = $this->getInvoiceLogs(InvoiceLogType::APPROVED)->all();
+        
+        return !empty($logs);
     }
 
     /**
@@ -226,20 +210,9 @@ class Invoice extends \yii\db\ActiveRecord
      */
     public function getPayed()
     {
-        $logs = $this->getInvoiceLogs()->all();
-
-        if (empty($logs)) {
-            return false;
-        }
-
-        /* @var InvoiceLog $log */
-        foreach ($logs as $log) {
-            if ($log->log_type_id == InvoiceLogType::PAYED) {
-                return true;
-            }
-        }
-
-        return false;
+        $logs = $this->getInvoiceLogs(InvoiceLogType::PAYED)->all();
+        
+        return !empty($logs);
     }
 
     #endregion sublabel
@@ -257,6 +230,23 @@ class Invoice extends \yii\db\ActiveRecord
             $this->save();
         }
     }
+    
+    public function getPayInvoiceData()
+    {
+        return Yii::$app->db->createCommand("SELECT
+                        a.name,
+                        sum(abs(ii.amount)) as sum,
+                        c.currency_name
+                    FROM `invoice_items` ii
+                        INNER JOIN invoice i ON i.invoice_id = ii.invoice_id
+                        LEFT join artist a ON a.id = ii.artist_id
+                        LEFT join currency c ON c.currency_id = i.currency_id
+                    WHERE ii.invoice_id =:invoice_id
+                    GROUP BY ii.artist_id")
+            ->bindValue(':invoice_id', $this->invoice_id)
+            ->queryAll();
+    }
+    
 
     public function getInvoiceReportDataGroupArtist(): \yii\db\DataReader|array
     {
@@ -368,5 +358,137 @@ class Invoice extends \yii\db\ActiveRecord
         ];
 
         return $_label;
+    }
+    
+    public function calculateUser(): void
+    {
+        // Розрахунок по лейблах
+        $labelIds = (new \yii\db\Query())
+            ->from(InvoiceItems::tableName() . ' as ii')
+            ->select('distinct(a.label_id)')
+            ->innerJoin(Artist::tableName() . ' a', 'a.id = ii.artist_id')->andFilterWhere(['!=', 'a.label_id', 0])
+            ->where(['invoice_id' => $this->invoice_id])
+            ->column();
+        
+        foreach ($labelIds as $labelId) {
+            $usersFromLabel = UserBonus::getUserToLabel($labelId);
+            
+            if ($usersFromLabel) {
+                echo 'Users for label ID ' . $labelId . ': ' . count($usersFromLabel) . "\n";
+                
+                $sumLabel = $this->getLabelSumFromLabel($labelId);
+                
+                echo "Label Sum: " . $sumLabel . "\n";
+                
+                if ($sumLabel > 0) {
+                    /* @var UserBonus $user */
+                    foreach ($usersFromLabel as $user) {
+                        echo 'Processing user ID: ' . $user->user_id . ' with percentage: ' . $user->percentage . "\n";
+                        $b = UserBalance::findOne([
+                            'invoice_id' => $this->invoice_id,
+                            'currency_id' => $this->currency_id,
+                            'user_id' => $user->user_id,
+                            'label_id' => $user->label_id,
+                        ]);
+                        
+                        // Якщо відсотки вже нараховано, то пропускаємо
+                        if ($b) {
+                            echo 'User ID: ' . $user->user_id . ' already has balance entry. Skipping.' . "\n";
+                            continue;
+                        }
+                        
+                        $res = UserBalance::add([
+                            'invoice_id' => $this->invoice_id,
+                            'currency_id' => $this->currency_id,
+                            'all_sum' => $sumLabel,
+                            'percentage' => $user->percentage,
+                            'user_id' => $user->user_id,
+                            'label_id' => $user->label_id,
+                            'amount' => round($sumLabel * ($user->percentage / 100), 3),
+                        ]);
+                        
+                        if (!$res) {
+                            echo 'Failed to add balance for user ID: ' . $user->user_id . "\n";
+                        }
+                    }
+                }
+            }
+        }
+        
+        
+        // Розрахунок по артистах
+        /* @var InvoiceItems $item */
+        foreach ($this->getInvoiceItems()->all() as $item) {
+            $usersFromArtist = UserBonus::getUserToArtist($item->artist_id);
+            
+            if ($usersFromArtist) {
+                echo 'Users for artist ID ' . $item->artist_id . ': ' . count($usersFromArtist) . "\n";
+                $sumLabel = $item->getLabelSumFromArtist();
+                if ($sumLabel > 0 ) {
+                    echo "Artist Sum: " . $sumLabel . "\n";
+                    /* @var UserToArtist $user */
+                    foreach ($usersFromArtist as $user) {
+                        $b = UserBalance::findOne([
+                            'invoice_id' => $this->invoice_id,
+                            'currency_id' => $this->currency_id,
+                            'user_id' => $user->user_id,
+                            'artist_id' => $item->artist_id,
+                        ]);
+                        
+                        // Якщо відсотки вже нараховано, то пропускаємо
+                        if ($b) {
+                            continue;
+                        }
+                        
+                        try {
+                            UserBalance::add([
+                                'invoice_id' => $this->invoice_id,
+                                'currency_id' => $this->currency_id,
+                                'all_sum' => $sumLabel,
+                                'percentage' => $user->percentage,
+                                'user_id' => $user->user_id,
+                                'artist_id' => $user->artist_id,
+                                'amount' => round($sumLabel * ($user->percentage / 100), 3),
+                            ]);
+                        } catch (\Throwable $e) {
+                            echo $e->getMessage();
+                            echo $e->getLine();
+                            echo $e->getTraceAsString();
+                            continue;
+                        }
+                        
+                    }
+                }
+            }
+        }
+    }
+    
+    public function getLabelSumFromLabel(int $labelId): float
+    {
+        $sum = 0.0;
+        
+        if ($this->invoice_type != InvoiceType::$debit) {
+            return $sum;
+        }
+        
+        $sum = (new \yii\db\Query())
+            ->from(InvoiceItems::tableName() . ' as ii')
+            ->select('sum(ii.amount) as sum_amount')
+            ->innerJoin(Artist::tableName() . ' as a', 'a.id = ii.from_artist_id')
+            ->where([
+                'ii.invoice_id' => $this->invoice_id,
+                'ii.artist_id' => Artist::LABEL,
+                'a.label_id' => $labelId,
+            ])
+            ->one()['sum_amount'] ?? 0.0;
+        
+        
+        /*$sum = (new \yii\db\Query())
+            ->from(InvoiceItems::tableName())
+            ->select('sum(amount) as sum_amount')
+            ->where(['invoice_id' => $this->invoice_id])
+            ->one()['sum_amount'] ?? 0.0;*/
+        
+        return round($sum, 2);
     }
 }

@@ -4,12 +4,15 @@ namespace backend\controllers;
 
 use backend\models\Albums;
 use backend\models\AlbumSearch;
+use backend\models\Upload;
 use Yii;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\filters\VerbFilter;
 use yii\bootstrap\ActiveForm;
 use yii\web\Response;
+use yii\web\UploadedFile;
+use yii\filters\AccessControl;
 
 /**
  * AlbumController implements the CRUD actions for Albums model.
@@ -28,6 +31,35 @@ class AlbumController extends Controller
                     'class' => VerbFilter::className(),
                     'actions' => [
                         'delete' => ['POST'],
+                    ],
+                ],
+                // Фільтр доступу
+                'access' => [
+                    'class' => AccessControl::class,
+                    // 'only' => ['index', 'view', 'create', 'update', 'delete'], // перелік екшенів
+                    //  'denyCallback' => function ($rule, $action) {
+                    // Кастомна реакція на заборону
+                    //  throw new \yii\web\ForbiddenHttpException('Немає прав для цієї дії.');
+                    // },
+                    'rules' => [
+                        // Гості можуть переглядати список та один запис
+                        [
+                            'allow' => true,
+                            'actions' => ['index', 'view',],
+                            'roles' => ['@'], // '?' – гість, '@' – автентифікований
+                        ],
+                        // Створення/оновлення тільки для залогінених
+                        [
+                            'allow' => true,
+                            'actions' => ['view', 'create', 'update', 'modal'],
+                            'roles' => ['moder'],
+                        ],
+                        // Видалення лише для ролі 'admin'
+                        [
+                            'allow' => true,
+                            'actions' => ['delete'],
+                            'roles' => ['admin'], // RBAC роль/дозвіл
+                        ],
                     ],
                 ],
             ]
@@ -71,9 +103,55 @@ class AlbumController extends Controller
     public function actionCreate()
     {
         $model = new Albums();
+        
+        if(Yii::$app->request->isAjax) {
+            if ($model->load(Yii::$app->request->post())){
+                Yii::$app->response->format = Response::FORMAT_JSON;
+                
+                return ActiveForm::validate($model);
+            }
+            
+            return false;
+        }
 
-        if ($this->request->isPost) {
-            if ($model->load($this->request->post()) && $model->save()) {
+        if ($model->load(Yii::$app->request->post())) {
+            $file = UploadedFile::getInstance($model, 'file');
+            
+            if ($file && $file->tempName) {
+                $model->file = $file;
+                $id = Albums::find()
+                    ->orderBy('id DESC')
+                    ->one()
+                    ->id;
+                $id++;
+                
+                if ($model->validate(['file'])) {
+                    $model->img = Upload::createImage($model, $id, 'track', [500, 500]);
+                }
+            } else {
+                $model->img = '2565_XZEVWO7R.jpg';
+            }
+            
+            $model->name = trim($model->name);
+            
+            if (empty($model->url)) {
+                $model->url = trim(Yii::$app->translit->t($model->name));
+            }
+            
+            $model->servise = serialize($model->servise);
+            
+            if ($model->validate() && $model->save()) {
+                
+                $trackIds = Yii::$app->request->post('Albums')['tracks']?? [];
+                
+                if (is_string($trackIds)) {
+                    $trackIds = [];
+                }
+                
+                if (!empty($trackIds) && is_array($trackIds)) {
+                    $model->saveTracks($trackIds);
+                }
+                
                 return $this->redirect(['view', 'id' => $model->id]);
             }
         } else {
@@ -117,8 +195,34 @@ class AlbumController extends Controller
     {
         $model = $this->findModel($id);
 
-        if ($this->request->isPost && $model->load($this->request->post()) && $model->save()) {
-            return $this->redirect(['view', 'id' => $model->id]);
+        if ($this->request->isPost && $model->load(Yii::$app->request->post())) {
+            $file = UploadedFile::getInstance($model, 'file');
+            if ($file && $file->tempName) {
+                $model->file = $file;
+                if ($model->validate('file')) {
+                    $model->img = Upload::updateImage($model, $model->img, 'track', [500, 500]);
+                }
+            }
+            
+            if (is_array($model->servise)) {
+                $model->servise = serialize($model->servise);
+            } else {
+                $model->servise = serialize([]);
+            }
+            
+            if ($model->validate() && $model->save()) {
+                $trackIds = Yii::$app->request->post('Albums')['tracks']?? [];
+                
+                if (is_string($trackIds)) {
+                    $trackIds = [];
+                }
+                
+                if (!empty($trackIds) && is_array($trackIds)) {
+                     $model->saveTracks($trackIds);
+                }
+                
+                return $this->redirect(['view', 'id' => $model->id]);
+            }
         }
 
         return $this->render('update', [
@@ -135,7 +239,14 @@ class AlbumController extends Controller
      */
     public function actionDelete($id)
     {
-        $this->findModel($id)->delete();
+        $model = $this->findModel($id);
+        
+        foreach ($model->getTracks()->all() as $track) {
+            $track->album_id = null;
+            $track->save();
+        }
+        
+        $model->delete();
 
         return $this->redirect(['index']);
     }

@@ -17,10 +17,10 @@ use Yii;
 class InvoiceStatus extends \yii\db\ActiveRecord
 {
 
-    public const Generated = 1;
-    public const Calculated = 2;
+    public const Generated = 1; // Новий
+    public const Calculated = 2; // Розрахований
     public const Error = 3;
-    public const InProgress = 4;
+    public const InProgress = 4; // В процесі виплати
     /**
      * {@inheritdoc}
      */

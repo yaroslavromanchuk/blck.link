@@ -153,6 +153,7 @@ class User extends ActiveRecord
     public function getUserBalances()
     {
         return $this->hasMany(UserBalance::class, ['user_id' => 'id']);
+            //->andOnCondition(['is ','is_pay', NULL]);
     }
 
     /**
@@ -185,7 +186,7 @@ class User extends ActiveRecord
 
         if ($balances->count()) {
             /* @var UserBalance $balance */
-            foreach ($balances as $balance) {
+            foreach ($balances->all() as $balance) {
                 $result[$balance->currency_id]['amount'] += $balance->amount;
             }
         }

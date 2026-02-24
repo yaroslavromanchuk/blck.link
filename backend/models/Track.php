@@ -159,6 +159,11 @@ class Track extends \yii\db\ActiveRecord
     {
         return $this->artist->isSubLabel();
     }
+    
+    public function isClient(): bool
+    {
+        return $this->artist->isClient();
+    }
 
     public function isRecords(): bool
     {
@@ -372,82 +377,60 @@ class Track extends \yii\db\ActiveRecord
 
         return null;
     }
-
+    
+    /**
+     * @param int $aggregator_id
+     * @param float $total
+     * @return array
+     */
     public function getCalculation(int $aggregator_id, float $total): array
     {
+        
+        $sumArtist = 0;
         $result = [];
+        // якщо сума відсутня, записуємо всім 0
         if (0 == $total) {
             $result[] = [
                 'artist_id' => $this->artist_id,
                 'amount' => $total,
                 'from_artist_id' => null,
+                'artist_percentage' => 0,
                 'percentage' => 0,
             ];
             $result[] = [
                 'artist_id' => Artist::LABEL,
                 'amount' => $total,
                 'from_artist_id' => $this->artist_id,
+                'artist_percentage' => 0,
                 'percentage' => 0,
             ];
 
             return $result;
         }
 
-        if ($this->isRecords()) {
-            if ($this->artist->percentage > 0) {
-                $sumArtist = round($total * ($this->artist->percentage / 100), 4);
-
-                $result[] = [
-                    'artist_id' => $this->artist_id,
-                    'amount' => $sumArtist,
-                    'from_artist_id' => null,
-                    'percentage' => $this->artist->percentage,
-                ];
-
-                $total = round($total - $sumArtist, 4);
-            } else {
-                $result[] = [
-                    'artist_id' => $this->artist_id,
-                    'amount' => 0,
-                    'from_artist_id' => null,
-                    'percentage' => $this->artist->percentage,
-                ];
+        if ($this->artist->isClient()) {
+            $percentageArtist = $this->artist->percentage; // публішинг
+            
+            $aggregator = Aggregator::findOne($aggregator_id);
+            
+            if ($aggregator->service_type_id == 1) { // дистрибуція
+                $percentageArtist = $this->artist->percentage_distribution;
             }
-            $result[] = [
-                'artist_id' => Artist::LABEL,
-                'amount' => $total,
-                'from_artist_id' => $this->artist_id,
-                'percentage' => (100 - $this->artist->percentage),
-            ];
-
-            return $result;
-        } else if ($this->isSubLabel()) { // якщо трек сублейба, рахуємо відсоток від сублейба ане від треку.
-            if (in_array($aggregator_id, [1])) {
-                $percentageArtist = $this->artist->label->percentage_distribution;
-            } else {
-                $percentageArtist = $this->artist->label->percentage;
-            }
-
+            
             if ($percentageArtist > 0) {
                 $sumArtist = round($total * ($percentageArtist / 100), 4);
-
-                $result[] = [
-                    'artist_id' => $this->artist_id,
-                    'amount' => $sumArtist,
-                    'from_artist_id' => null,
-                    'percentage' => $percentageArtist,
-                ];
-
                 $total = round($total - $sumArtist, 4);
-            } else {
-                $result[] = [
-                    'artist_id' => $this->artist_id,
-                    'amount' => 0,
-                    'from_artist_id' => null,
-                    'percentage' => $percentageArtist,
-                ];
             }
-
+            
+            // artist
+            $result[] = [
+                'artist_id' => $this->artist_id,
+                'amount' => $sumArtist,
+                'from_artist_id' => null,
+                'artist_percentage' => 100,
+                'percentage' => $percentageArtist,
+            ];
+            // label
             $result[] = [
                 'artist_id' => Artist::LABEL,
                 'amount' => $total,
@@ -458,38 +441,7 @@ class Track extends \yii\db\ActiveRecord
             return $result;
         }
 
-      /*  $where = AggregatorToOwnershipType::find()
-            ->select(['ownership_type_id'])
-            ->where(['aggregator_id' => $aggregator_id])
-            ->column();*/
-
-        /*switch ($aggregator_id) {
-            case 1:
-            case 4:
-            $where = [OwnershipType::Phonogram]; // Белив і УЛАСП-Ф - Фонограма
-                break;
-            case 2:
-            case 3:
-            case 6:
-            case 9:
-            case 12:
-                $where = [OwnershipType::Text, OwnershipType::Music,]; // - Текст + Музика
-                break;
-            case 5:
-                $where = [OwnershipType::Implementation]; // УЛАСП-ОКУАСП В, Виконання
-                break;
-            case 7: //ТММ - Текст + Музика + Виконання + Фонограма
-            case 14: //UCELL - Текст + Музика + Виконання + Фонограма
-            case 8: //СУКА - Текст + Музика + Виконання + Фонограма
-                $where = [OwnershipType::Text, OwnershipType::Music, OwnershipType::Implementation, OwnershipType::Phonogram];
-                break;
-            default:
-                $where = [];
-        }
-        */
-
-      // $d = count($where) * 100;
-
+        // рахуємо відсотки нашим артистам
         $data = Percentage::find()
             ->select([
                 'track_to_percentage.artist_id',
@@ -517,27 +469,22 @@ class Track extends \yii\db\ActiveRecord
                 'artist_id' => $datum['artist_id'],
                 'ownership_type' => 5
             ])->percentage;
-
+            
+            $sumArtist = 0;
+            
             if ($percentageArtist > 0) {
                 $sumArtist = round($pSum * ($percentageArtist / 100), 4);
-
-                $result[] = [
-                    'artist_id' => $datum['artist_id'],
-                    'amount' => $sumArtist,
-                    'from_artist_id' => null,
-                    'percentage' => $percentageArtist,
-                ];
-
                 $pSum = round($pSum - $sumArtist, 4);
-            } else {
-                $result[] = [
-                    'artist_id' => $datum['artist_id'],
-                    'amount' => 0,
-                    'from_artist_id' => null,
-                    'percentage' => $percentageArtist,
-                ];
             }
-
+            // artist
+            $result[] = [
+                'artist_id' => $datum['artist_id'],
+                'amount' => $sumArtist,
+                'from_artist_id' => null,
+                'artist_percentage' => $datum['percentage'],
+                'percentage' => $percentageArtist,
+            ];
+            // label
             $result[] = [
                 'artist_id' => Artist::LABEL,
                 'amount' => $pSum,
@@ -548,12 +495,15 @@ class Track extends \yii\db\ActiveRecord
 
         // якщо жодному артисту не виплачуємо за тип прав, весь дохід має іти лейбу
          if (empty($result)) {
+             // artist
              $result[] = [
                  'artist_id' => $this->artist_id,
                  'amount' => 0,
                  'from_artist_id' => null,
+                 'artist_percentage' => 0,
                  'percentage' => 0,
              ];
+             // label
              $result[] = [
                  'artist_id' => Artist::LABEL,
                  'amount' => $total,

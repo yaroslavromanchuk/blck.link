@@ -10,10 +10,7 @@ use backend\models\Invoice;
 use backend\models\InvoiceItems;
 use backend\models\InvoiceStatus;
 use backend\models\Track;
-use backend\models\UserBalance;
-use backend\models\UserToTrack;
 use common\models\t;
-use InvalidArgumentException;
 use RuntimeException;
 use Throwable;
 use Yii;
@@ -293,25 +290,14 @@ class AggregatorReportController extends Controller
                         $invoiceItem->artist_id = $value['artist_id'];
                         $invoiceItem->date_item = date('Y-m-d');
                         $invoiceItem->percentage = $value['percentage'];
+                        
+                        if (isset($value['artist_percentage'])) {
+                            $invoiceItem->artist_percentage = $value['artist_percentage'];
+                        }
 
                         if (!empty($value['from_artist_id'])) {
                             $invoiceItem->from_artist_id = $value['from_artist_id'];
                         }
-
-                      /*  if ($value['artist_id'] == Artist::LABEL
-                            && !empty($value['from_artist_id'])
-                        ) {
-                            // @var UserToTrack $user
-                                foreach ($track->getUserToTracks() as $user) {
-                                    $userBalance = new UserBalance();
-                                    $userBalance->invoice_id = $invoice->invoice_id;
-                                    $userBalance->currency_id = $invoice->currency_id;
-                                    $userBalance->user_id = $user->user_id;
-                                    $userBalance->track_id = $track->id;
-                                    $userBalance->amount = round($value['amount'] * ($user->percentage / 100), 2);
-                                    $userBalance->save();
-                                }
-                        }*/
 
                         $invoiceItem->amount = $value['amount'];
 
@@ -393,7 +379,7 @@ class AggregatorReportController extends Controller
             if (!$is_have) {
                 //InvoiceItems::deleteAll(['invoice_id' => $invoice->invoice_id]);
                 $invoice->delete();
-                UserBalance::deleteAll(['invoice_id' => $invoice->invoice_id]);
+              //  UserBalance::deleteAll(['invoice_id' => $invoice->invoice_id]);
             }
 
            t::log($e->getMessage() . $e->getTraceAsString());

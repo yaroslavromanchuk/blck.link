@@ -24,7 +24,10 @@ $this->title = $album->artist_name.' '.$album->name;
             <?php
 
             if(!empty($album->servise)) {
-                echo $this->render('services.php', ['services' => $album]);
+                
+                $services = (object) unserialize($album->servise);
+                
+                echo $this->render('services.php', ['services' => $services]);
             }
 
             if (!empty($album->artist)) {

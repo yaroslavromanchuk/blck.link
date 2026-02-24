@@ -7,7 +7,7 @@ use yii\widgets\DetailView;
 /** @var backend\models\Albums $model */
 
 $this->title = $model->name;
-$this->params['breadcrumbs'][] = ['label' => 'Albums', 'url' => ['index']];
+$this->params['breadcrumbs'][] = ['label' => 'Альбоми', 'url' => ['index']];
 $this->params['breadcrumbs'][] = $this->title;
 \yii\web\YiiAsset::register($this);
 ?>

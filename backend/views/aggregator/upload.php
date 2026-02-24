@@ -10,6 +10,9 @@ $this->title = 'Завантаження звітів';
 
 $this->params['breadcrumbs'][] = ['label' => Yii::t('app', 'Агрегатори'), 'url' => ['index']];
 $this->params['breadcrumbs'][] = Yii::t('app', 'Завантаження звіту');
+
+$years = range(2024, (int) date('Y'), 1);
+$years = array_combine($years, $years);
 ?>
 <div class="aggregator-update row">
     <div id="message"></div>
@@ -33,8 +36,9 @@ $this->params['breadcrumbs'][] = Yii::t('app', 'Завантаження зві�
                     ->dropDownList([1 => 1, 2 => 2, 3 => 3, 4 => 4]) ?>
             </div>
             <div class="col-md-1">
+                
                 <?= $form->field($model, 'year')
-                    ->dropDownList([2024 => 2024, 2025 => 2025]) ?>
+                    ->dropDownList($years) ?>
             </div>
             <div class="col-md-3">
                 <?= $form->field($model, 'file')->fileInput() ?>

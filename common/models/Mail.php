@@ -2,6 +2,7 @@
 
 namespace common\models;
 
+use backend\models\Artist;
 use InvalidArgumentException;
 use Yii;
 use yii\base\Model;
@@ -119,12 +120,16 @@ class Mail
 
         if ($result) {
             $log = new MailLog();
+            $log->email = is_array($this->to) ? implode(', ', array_keys($this->to)) : $this->to;
             $log->user_id = Yii::$app->user->id;
             $log->content = $action;
-
-            if (!empty($model->artist_id)) {
+            
+            if ($model instanceof Artist) {
+                $log->artist_id = $model->id;
+            } else if (!empty($model->artist_id)) {
                 $log->artist_id = $model->artist_id;
             }
+            
             if (!empty($model->invoice_id)) {
                 $log->invoice_id = $model->invoice_id;
             }

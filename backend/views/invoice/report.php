@@ -44,6 +44,7 @@ use kartik\select2\Select2;
                             'a.name as artist' => Yii::t('app', 'Назва артиста'),
                             't.name as track' => Yii::t('app', 'Назва треку'),
                             'sum(ari2.amount) as amount' => Yii::t('app', 'Дохід'),
+                           // 'sum(ii.amount) as amount_pay' => Yii::t('app', 'Виплата'),
                             'sum(ari2.`count`) as `count`' => Yii::t('app', 'Перегляди')
                         ],
                         'language' => 'uk',
@@ -164,7 +165,7 @@ use kartik\select2\Select2;
                             ->leftJoin('aggregator', 'aggregator.aggregator_id = invoice.aggregator_id')
                             ->leftJoin('sub_label', 'sub_label.id = invoice.label_id')
                             ->leftJoin('currency', 'currency.currency_id = invoice.currency_id')
-                            ->andFilterWhere(['invoice.invoice_type' => 2, 'invoice.invoice_status_id' => 2])
+                            ->andFilterWhere(['invoice.invoice_type' => 2, 'invoice.invoice_status_id' => [2,4]])
                             ->orderBy('invoice.invoice_id DESC')
                             // ->limit(10)
                             ->indexBy('invoice.invoice_id')

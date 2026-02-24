@@ -2,14 +2,22 @@
 
 namespace backend\controllers;
 
+use aki\telegram\Telegram;
 use backend\models\ArtistLog;
 use backend\models\Invoice;
 use backend\models\InvoiceItems;
+use backend\models\InvoiceLog;
+use backend\models\InvoiceLogType;
+use backend\models\InvoiceStatus;
+use backend\models\User;
 use backend\widgets\DateFormat;
 use backend\widgets\Str;
+use common\models\Mail;
 use PhpOffice\PhpSpreadsheet\Reader\Html;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Yii;
 use backend\models\Artist;
@@ -22,6 +30,7 @@ use backend\models\Upload;
 use yii\web\UploadedFile;
 use yii\web\Response;
 use yii\bootstrap\ActiveForm;
+use yii\filters\AccessControl;
 
 /**
  * ArtistController implements the CRUD actions for Artist model.
@@ -41,6 +50,35 @@ class ArtistController extends Controller
                     'delete' => ['POST'],
                 ],
             ],
+            // Фільтр доступу
+            'access' => [
+                'class' => AccessControl::class,
+                // 'only' => ['index', 'view', 'create', 'update', 'delete'], // перелік екшенів
+                //  'denyCallback' => function ($rule, $action) {
+                // Кастомна реакція на заборону
+                //  throw new \yii\web\ForbiddenHttpException('Немає прав для цієї дії.');
+                // },
+                'rules' => [
+                    // Гості можуть переглядати список та один запис
+                    [
+                        'allow' => true,
+                        'actions' => ['index', 'view'],
+                        'roles' => ['@'], // '?' – гість, '@' – автентифікований
+                    ],
+                    // Створення/оновлення тільки для залогінених
+                    [
+                        'allow' => true,
+                        'actions' => ['view', 'create', 'update', 'modal', 'calculate-deposit',  'create-invoice', 'export-act', 'export-balance', 'export-artist'],
+                        'roles' => ['moder'],
+                    ],
+                    // Видалення лише для ролі 'admin'
+                    [
+                        'allow' => true,
+                        'actions' => ['delete'],
+                        'roles' => ['admin'], // RBAC роль/дозвіл
+                    ],
+                ],
+            ],
         ];
     }
 
@@ -52,20 +90,7 @@ class ArtistController extends Controller
     {
         $searchModel = new ArtistSearch();
         $dataProvider = $searchModel->search(Yii::$app->request->queryParams);
-       // $i = 0;
-        //$j = 0;
-        //foreach ($dataProvider->models as $model) {
-           // if(!$model->isSavedBalance(4, 2, 2024)) {
-             //   $model->saveBalance(4, 2, 2024);
-           // }
-            /*if($model->isSavedBalance(4, 1, 2024)) {
-                $i++;
-               $model->saveBalance(4, 1, 2024);
-            }*/
-      //  }
-//echo $j.PHP_EOL;
-      //  echo $i;
-
+        
         return $this->render('index', [
             'searchModel' => $searchModel,
             'dataProvider' => $dataProvider,
@@ -179,7 +204,7 @@ class ArtistController extends Controller
      */
     public function actionUpdate($id)
     {
-            $model = $this->findModel($id);
+        $model = $this->findModel($id);
 
 		if (Yii::$app->request->isAjax ) {
 			if ($model->load(Yii::$app->request->post())){
@@ -189,8 +214,16 @@ class ArtistController extends Controller
 			}
 			return true;
 		}
+        
+        $iban = $model->iban;
+        
+        $currentData = $model->toArray();
 
         if($model->load(Yii::$app->request->post())) {
+            
+            $newData = $model->toArray();
+            
+            
             
             $file = UploadedFile::getInstance($model, 'file');
 
@@ -204,6 +237,24 @@ class ArtistController extends Controller
             }
 
              if($model->validate() && $model->save()) {
+                 if ($iban != $model->iban) {
+                     try {
+                         /* @var $client Telegram */
+                         $client = Yii::$app->telegram;
+                         $data = [
+                             'chat_id' => User::getTelegramId(14), // Тетяна бухгалтер,
+                             'text' => "<b>Зміна IBAN</b>\n"
+                                 . "Артист: {$model->name}\n"
+                                 . "<s>{$iban}</s>\n{$model->iban}",
+                             'parse_mode' => 'HTML',
+                         ];
+                         
+                         $client->sendMessage($data);
+                         $data['chat_id'] = 404070580; // temp
+                         $client->sendMessage($data);
+                     } catch (\Throwable) {}
+                 }
+                 
                  return $this->redirect(['view', 'id' => $model->id]);
              }
             
@@ -458,11 +509,11 @@ class ArtistController extends Controller
      * Звіт артиста по останній виплаті
      *
      * @param int $id
-     * @return void
+     * @return string
      * @throws NotFoundHttpException
      * @throws \yii\db\Exception
      */
-    public function actionExportAct(int $id, int $quarter = null, int $year = null)
+    public function actionExportAct(int $id, int $quarter = null, int $year = null, bool $redirect = true)
     {
         $model = $this->findModel($id);
         //$lastInvoice = $model->getLastPayInvoice();
@@ -478,21 +529,49 @@ class ArtistController extends Controller
             ')
             ->innerJoin(Invoice::tableName(), 'invoice.invoice_id = invoice_items.invoice_id')
             ->where([
-                'invoice.invoice_status_id' => 2,
+                'invoice.invoice_status_id' => [2, 4],
                 'invoice.invoice_type' => 2,
-            ])->orderBy(['invoice.year' => SORT_DESC, 'invoice.quarter' =>  SORT_DESC])
+            ])->orderBy(['invoice.year' => SORT_DESC, 'invoice.quarter' => SORT_DESC])
             ->limit(1)
             ->one();
-        $quarter = $lastInvoice['quarter'] ?? DateFormat::getQuarterNumber();
-        $year = $lastInvoice['year'] ?? date('Y');
-
+        
+        $quarter = $lastInvoice['quarter'] ?? null;
+        $year = $lastInvoice['year'] ?? null;
+        
+        $curPayQuarter = DateFormat::getQuarterNumber();
+        $curPayYear = (int)date('Y');
+        
+        $m = DateFormat::getQuarterDate($quarter, $year);
+        
+        if (date('m', strtotime($m['start'])) != date('m')) {
+            //  Yii::$app->session->setFlash('error', 'Генерація звіту доступна лише в перший місця кварталу, в період виплати!');
+            
+            //return '';
+        }
+        
+        if ($curPayQuarter == 1) {
+            $curPayQuarter = 4;
+            $year--;
+        } else {
+            $curPayQuarter--;
+        }
+        
+        if (null == $quarter || $quarter != $curPayQuarter) {
+            $quarter = $curPayQuarter;
+            $year = $curPayYear;
+        }
+        
         $name = Str::transliterate($model->name);
         $filename = "report_q_{$quarter}_{$year}_{$name}.xlsx";
-
-        if (file_exists(self::$homePage . 'xls/' .  $filename)) {
-            $this->redirect("/xls/" . $filename);
+        
+        if (file_exists(self::$homePage . 'xls/' . $filename) and false) {
+            if ($redirect) {
+                $this->redirect("/xls/" . $filename);
+            } else {
+                return $filename;
+            }
         }
-
+        
         $all_euro = Artist::getLog(
             $model->id,
             $quarter,
@@ -500,7 +579,7 @@ class ArtistController extends Controller
             1,
             'EUR'
         );
-
+        
         $all_usd = Artist::getLog(
             $model->id,
             $quarter,
@@ -508,7 +587,7 @@ class ArtistController extends Controller
             3,
             'USD'
         );
-
+        
         $all_uah = Artist::getLog(
             $model->id,
             $quarter,
@@ -516,440 +595,326 @@ class ArtistController extends Controller
             2,
             'UAH'
         );
-
+        
         $spreadSheet = new Spreadsheet();
         $workSheet = $spreadSheet->getActiveSheet();
         $workSheet->setTitle('Баланс');
         $workSheet->getColumnDimension('A')->setWidth(40);
-        $workSheet->getColumnDimension('B')->setWidth(10);
-        $workSheet->getColumnDimension('C')->setWidth(10);
-        $workSheet->mergeCells('A1:C1');
-
-        $workSheet->getStyle('A1:K1')->getFont()->setBold(true);
-        $workSheet->getStyle('A2:Q2')->getFont()->setBold(true);
-
-        $tempData = [];
-        $tempData[] = ['Звіт за ' . $quarter . ' кв. ' . $year . ', ' . $model->name];
-
-        $tempData[] = [
-            'Операція',
-            'Сума',
-            'Валюта'
-        ];
-
-        $temp = array_map(function ($item) {
-            return [
-                'name' => strip_tags($item['name']),
-                'sum' => number_format($item['value'],2, '.', ''),
-                'currency' => $item['currency_name']
-            ];
-        }, $all_euro);
-
-        $tempData = array_merge($tempData, $temp);
-
-        $co = count($tempData);
-        $co+=2;
-        $tempData[] = [];
-
-        $workSheet->getStyle("A{$co}:C{$co}")->getFont()->setBold(true);
-
-        $tempData[] = [
-            'Операція',
-            'Сума',
-            'Валюта'
-        ];
-
-        $temp = array_map(function ($item) {
-            return [
-                'name' => strip_tags($item['name']),
-                'sum' => number_format($item['value'],2, '.', ''),
-                'currency' => $item['currency_name']
-            ];
-        }, $all_usd);
-
-        $tempData = array_merge($tempData, $temp);
-        $co = count($tempData);
-        $co+=2;
-        $tempData[] = [];
-
-        $workSheet->getStyle("A{$co}:C{$co}")->getFont()->setBold(true);
-
-        $tempData[] = [
-            'Операція',
-            'Сума',
-            'Валюта'
-        ];
-
-        $temp = array_map(function ($item) {
-            return [
-                'name' => strip_tags($item['name']),
-                'sum' => number_format($item['value'],2, '.', ''),
-                'currency' => $item['currency_name']
-            ];
-        }, $all_uah);
-
-        $tempData = array_merge($tempData, $temp);
-
-        $workSheet->fromArray($tempData, null, 'A1');
-        $tempData = [];
-
-        $income = Yii::$app->db->createCommand(
-            "SELECT it.invoice_type_name, ii.date_item, a.name as a_name, t.name as t_name, ii.description, ii.amount, c.currency_name 
-                    FROM `invoice_items` ii 
-                        LEFT JOIN artist a ON a.id = ii.artist_id 
-                        LEFT JOIN track t ON t.id = ii.track_id 
-                        LEFT JOIN invoice i ON i.invoice_id = ii.invoice_id 
-                        LEFT JOIN currency c ON c.currency_id = i.currency_id 
-                        left join invoice_type it ON it.invoice_type_id = i.invoice_type 
-                    WHERE i.invoice_status_id in (2, 4)  
-                      and i.invoice_type = 5 
-                      and i.quarter =:quarter
-                      and i.year =:year
-                      and ii.artist_id =:artist_id
-                    ORDER BY ii.date_item, i.currency_id
-            ")
-            ->bindValue(':quarter', $quarter)
-            ->bindValue(':year', $year)
-            ->bindValue(':artist_id', $model->id)
-            ->queryAll();
-
-        if (count($income)) {
-            $tempData[] = ['Додавткові надходження'];
-            $workSheet->mergeCells('E1:I1');
-            $tempData[] = ['Дата', 'Виконавець', 'Стаття витрат', 'Сума', 'Валюта'];
-            $temp = array_map(function ($item) {
-                return [
-                    'date_item' => $item['date_item'],
-                    'a_name' => $item['a_name'],
-                    'description' => $item['description'],
-                    'amount' => number_format($item['amount'],2, '.', ''),
-                    'currency_name' => $item['currency_name']
-                ];
-            }, $income);
-
-            $tempData = array_merge($tempData, $temp);
-
-            $workSheet->getColumnDimension('E')->setWidth(12);
-            $workSheet->getColumnDimension('F')->setWidth(12);
-            $workSheet->getColumnDimension('G')->setWidth(30);
-            $workSheet->getColumnDimension('H')->setWidth(12);
-            $workSheet->getColumnDimension('I')->setWidth(12);
-
-            $workSheet->fromArray($tempData, null, 'E1');
-            $tempData = [];
-        }
-
-        $costs = Yii::$app->db->createCommand(
-            "SELECT it.invoice_type_name, ii.date_item, a.name as a_name, t.name as t_name, ii.description, ii.amount, c.currency_name 
-                    FROM `invoice_items` ii 
-                        LEFT JOIN artist a ON a.id = ii.artist_id 
-                        LEFT JOIN track t ON t.id = ii.track_id 
-                        LEFT JOIN invoice i ON i.invoice_id = ii.invoice_id 
-                        LEFT JOIN currency c ON c.currency_id = i.currency_id 
-                        left join invoice_type it ON it.invoice_type_id = i.invoice_type 
-                    WHERE i.invoice_status_id in (2, 4)  
-                      and i.invoice_type in (3, 4)
-                      and i.quarter =:quarter
-                      and i.year =:year
-                      and ii.artist_id =:artist_id
-                    ORDER BY ii.date_item, i.currency_id
-            ")
-            ->bindValue(':quarter', $quarter)
-            ->bindValue(':year', $year)
-            ->bindValue(':artist_id', $model->id)
-            ->queryAll();
-
-        if (count($costs)) {
-            $tempData[] = ['Витрати'];
-            $tempData[] = ['Дата', 'Тип', 'Виконавець', 'Трек', 'Стаття витрат', 'Сума', 'Валюта'];
-            $temp = array_map(function ($item) {
-                return [
-                    'date_item' => $item['date_item'],
-                    'invoice_type_name' => $item['invoice_type_name'],
-                    'a_name' => $item['a_name'],
-                    't_name' => $item['t_name'],
-                    'description' => $item['description'],
-                    'amount' => number_format($item['amount'],2, '.', ''),
-                    'currency_name' => $item['currency_name']
-                ];
-            }, $costs);
-
-            $tempData = array_merge($tempData, $temp);
-
-            if (count($income)) {
-                $workSheet->mergeCells('K1:Q1');
-                $workSheet->getColumnDimension('K')->setWidth(12);
-                $workSheet->getColumnDimension('L')->setWidth(12);
-                $workSheet->getColumnDimension('M')->setWidth(12);
-                $workSheet->getColumnDimension('N')->setWidth(12);
-                $workSheet->getColumnDimension('O')->setWidth(30);
-                $workSheet->getColumnDimension('P')->setWidth(8);
-                $workSheet->getColumnDimension('Q')->setWidth(8);
-                $workSheet->fromArray($tempData, null, 'K1');
-            } else {
-                $workSheet->mergeCells('E1:I1');
-                $workSheet->getColumnDimension('E')->setWidth(12);
-                $workSheet->getColumnDimension('F')->setWidth(12);
-                $workSheet->getColumnDimension('G')->setWidth(30);
-                $workSheet->getColumnDimension('H')->setWidth(8);
-                $workSheet->getColumnDimension('I')->setWidth(8);
-                $workSheet->fromArray($tempData, null, 'E1');
-            }
-        }
-
-        $data = Yii::$app->db->createCommand(
-            "SELECT  a.name as artist_name,
-                    t.name as track_name,
-                    ari.count, 
-                    t2p.percentage,
-                    t2p2.percentage as percentage_label,
-                    o.name as prav1,
-                    IFNULL(atu.name, a2ow.name) as prav2,
-                    IFNULL(a_s.name, ari.platform) as platform,
-                    ari.date_report,
-                    ari.country,
-                    c.currency_name,
-                    ari.count,
-                    IF(t2p.percentage != 100, t2p.percentage / 100 * ari.amount, ari.amount) as amount
-                FROM `invoice_items` ii
-                	INNER JOIN invoice i ON i.invoice_id = ii.invoice_id and i.invoice_type = 1
-                    INNER JOIN track t ON REPLACE(t.isrc, '-', '') = REPLACE(ii.isrc, '-', '') and ii.artist_id = t.artist_id
-                    LEFT JOIN currency c ON c.currency_id = i.currency_id
-                    LEFT JOIN artist a ON a.id = ii.artist_id
-                    
-                    LEFT JOIN aggregator_report ar ON ar.id = i.aggregator_report_id
-                    LEFT JOIN `aggregator_report_item` ari ON ari.report_id = ar.id and ii.isrc = ari.isrc
-                    LEFT JOIN aggregator agg ON agg.aggregator_id = ar.aggregator_id
-                    LEFT JOIN aggregator_type_use atu ON atu.type_id = agg.type_use_id
-                    LEFT JOIN aggregator_service a_s ON a_s.service_id = agg.service_id
-                    LEFT JOIN (
-                        SELECT aggregator_id, ownership_type_id , GROUP_CONCAT(ot_.name) as name
-                        FROM aggregator_to_ownership_type 
-                            LEFT JOIN ownership_type ot_ ON ot_.id = ownership_type_id 
-                        GROUP BY aggregator_id
-                    ) as a2ow ON a2ow.aggregator_id = agg.aggregator_id 
-                    LEFT JOIN ownership o ON o.id = agg.ownership_type
-                    LEFT JOIN (
-                        SELECT 100 / count(a2ot.id) * SUM(t2p.percentage) / 100 AS percentage, a2ot.aggregator_id, t2p.track_id, t2p.artist_id
-                            FROM track_to_percentage t2p
-                            LEFT JOIN aggregator_to_ownership_type a2ot ON a2ot.ownership_type_id = t2p.ownership_type
-                        WHERE t2p.artist_id = :artist_id
-                        GROUP BY t2p.artist_id, t2p.track_id, a2ot.aggregator_id
-                    ) as t2p ON t2p.aggregator_id = agg.aggregator_id 
-                        and t2p.artist_id = ii.artist_id 
-                        and t2p.track_id = t.id
-                   LEFT JOIN track_to_percentage t2p2 ON t2p2.track_id = t.id and t2p2.artist_id = a.id and t2p2.ownership_type = 5 
-                WHERE i.quarter =:quarter
-                  AND i.year = :year
-                  AND t.artist_id =:artist_id")
-            ->bindValue(':quarter', $quarter)
-            ->bindValue(':year', $year)
-            ->bindValue(':artist_id', $model->id)
-            ->queryAll();
-
-        $feats = [];
-
-        if ($model->label_id == 0) {
-            $feats = Yii::$app->db->createCommand(
-                "SELECT  a.name as artist_name,
-                    t.name as track_name,
-                    ari.count, 
-                    t2p.percentage,
-                    t2p2.percentage as percentage_label,
-                    o.name as prav1,
-                    IFNULL(atu.name, a2ow.name) as prav2,
-                    IFNULL(a_s.name, ari.platform) as platform,
-                    ari.date_report,
-                    ari.country,
-                    c.currency_name,
-                    ari.count,
-                    IF(t2p.percentage != 100, t2p.percentage / 100 * ari.amount, ari.amount) as amount
-                FROM `invoice_items` ii
-                	INNER JOIN invoice i ON i.invoice_id = ii.invoice_id and i.invoice_type = 1
-                    INNER JOIN track t ON REPLACE(t.isrc, '-', '') = REPLACE(ii.isrc, '-', '') 
-                        and ii.artist_id != t.artist_id
-                    LEFT JOIN currency c ON c.currency_id = i.currency_id
-                    LEFT JOIN artist a ON a.id = ii.artist_id
-                    
-                    LEFT JOIN aggregator_report ar ON ar.id = i.aggregator_report_id
-                    LEFT JOIN `aggregator_report_item` ari ON ari.report_id = ar.id and ii.isrc = ari.isrc
-                    LEFT JOIN aggregator agg ON agg.aggregator_id = ar.aggregator_id
-                    LEFT JOIN aggregator_type_use atu ON atu.type_id = agg.type_use_id
-                    LEFT JOIN aggregator_service a_s ON a_s.service_id = agg.service_id
-                    LEFT JOIN (
-                        SELECT aggregator_id, ownership_type_id , GROUP_CONCAT(ot_.name) as name
-                        FROM aggregator_to_ownership_type 
-                            LEFT JOIN ownership_type ot_ ON ot_.id = ownership_type_id 
-                        GROUP BY aggregator_id
-                    ) as a2ow ON a2ow.aggregator_id = agg.aggregator_id 
-                    LEFT JOIN ownership o ON o.id = agg.ownership_type
-                    LEFT JOIN (
-                        SELECT 100 / count(a2ot.id) * SUM(t2p.percentage) / 100 AS percentage, a2ot.aggregator_id, t2p.track_id, t2p.artist_id
-                            FROM track_to_percentage t2p
-                            LEFT JOIN aggregator_to_ownership_type a2ot ON a2ot.ownership_type_id = t2p.ownership_type
-                        WHERE t2p.artist_id = :artist_id
-                        GROUP BY t2p.artist_id, t2p.track_id, a2ot.aggregator_id
-                    ) as t2p ON t2p.aggregator_id = agg.aggregator_id 
-                        and t2p.artist_id = ii.artist_id 
-                        and t2p.track_id = t.id
-                   LEFT JOIN track_to_percentage t2p2 ON t2p2.track_id = t.id and t2p2.artist_id = a.id and t2p2.ownership_type = 5 
-                WHERE  i.quarter =:quarter
-                    and i.year = :year
-                    AND ii.artist_id =:artist_id")
-                ->bindValue(':quarter', $quarter)
-                ->bindValue(':year', $year)
-                ->bindValue(':artist_id', $model->id)
-                ->queryAll();
-        }
-
-        $spreadSheet->createSheet();
-        $spreadSheet->setActiveSheetIndex(1);
-        $workSheet = $spreadSheet->getActiveSheet();
-        $workSheet->setTitle('Звіт');
-
-        $workSheet->getStyle('A1:N1')->getAlignment()->setWrapText(true)
-            ->setHorizontal(Alignment::HORIZONTAL_CENTER)
-            ->setVertical(Alignment::HORIZONTAL_CENTER);
-        /*
-        $workSheet->getStyle('B1')->getAlignment()->setWrapText(true)
-            ->setHorizontal(Alignment::HORIZONTAL_CENTER)
-            ->setVertical(Alignment::HORIZONTAL_CENTER);
-        $workSheet->getStyle('C1')->getAlignment()->setWrapText(true)
-            ->setHorizontal(Alignment::HORIZONTAL_CENTER)
-            ->setVertical(Alignment::HORIZONTAL_CENTER);
-        $workSheet->getStyle('D1')->getAlignment()->setWrapText(true)
-            ->setHorizontal(Alignment::HORIZONTAL_CENTER)
-            ->setVertical(Alignment::HORIZONTAL_CENTER);
-        $workSheet->getStyle('E1')->getAlignment()->setWrapText(true)
-            ->setHorizontal(Alignment::HORIZONTAL_CENTER)
-            ->setVertical(Alignment::HORIZONTAL_CENTER);
-        $workSheet->getStyle('F1')->getAlignment()->setWrapText(true)
-            ->setHorizontal(Alignment::HORIZONTAL_CENTER)
-            ->setVertical(Alignment::HORIZONTAL_CENTER);
-        $workSheet->getStyle('G1')->getAlignment()->setWrapText(true)
-            ->setHorizontal(Alignment::HORIZONTAL_CENTER)
-            ->setVertical(Alignment::HORIZONTAL_CENTER);
-        $workSheet->getStyle('H1')->getAlignment()->setWrapText(true)
-            ->setHorizontal(Alignment::HORIZONTAL_CENTER)
-            ->setVertical(Alignment::HORIZONTAL_CENTER);
-        $workSheet->getStyle('I1')->getAlignment()->setWrapText(true)
-            ->setHorizontal(Alignment::HORIZONTAL_CENTER)
-            ->setVertical(Alignment::HORIZONTAL_CENTER);
-        $workSheet->getStyle('J1')->getAlignment()->setWrapText(true)
-            ->setHorizontal(Alignment::HORIZONTAL_CENTER)
-            ->setVertical(Alignment::HORIZONTAL_CENTER);
-        $workSheet->getStyle('K1')->getAlignment()->setWrapText(true)
-            ->setHorizontal(Alignment::HORIZONTAL_CENTER)
-            ->setVertical(Alignment::HORIZONTAL_CENTER);
-        $workSheet->getStyle('L1')->getAlignment()->setWrapText(true)
-            ->setHorizontal(Alignment::HORIZONTAL_CENTER)
-            ->setVertical(Alignment::HORIZONTAL_CENTER);
-        $workSheet->getStyle('M1')->getAlignment()->setWrapText(true)
-            ->setHorizontal(Alignment::HORIZONTAL_CENTER)
-            ->setVertical(Alignment::HORIZONTAL_CENTER);
-        $workSheet->getStyle('N1')->getAlignment()->setWrapText(true)
-            ->setHorizontal(Alignment::HORIZONTAL_CENTER)
-            ->setVertical(Alignment::HORIZONTAL_CENTER);*/
-
-        $workSheet->getColumnDimension('A')->setWidth(4);
         $workSheet->getColumnDimension('B')->setWidth(12);
         $workSheet->getColumnDimension('C')->setWidth(12);
-        $workSheet->getColumnDimension('D')->setWidth(13);
-        $workSheet->getColumnDimension('E')->setWidth(11);
+        $workSheet->getColumnDimension('D')->setWidth(12);
+        $workSheet->getColumnDimension('E')->setWidth(12);
         $workSheet->getColumnDimension('F')->setWidth(12);
-        $workSheet->getColumnDimension('G')->setWidth(15);
-        $workSheet->getColumnDimension('H')->setWidth(15);
-        $workSheet->getColumnDimension('I')->setWidth(8);
-        $workSheet->getColumnDimension('J')->setWidth(11);
-        $workSheet->getColumnDimension('K')->setWidth(14);
-        $workSheet->getColumnDimension('L')->setWidth(14);
-        $workSheet->getColumnDimension('M')->setWidth(14);
-        $workSheet->getColumnDimension('N')->setWidth(15);
-
-        $workSheet->getStyle('A1:N1')->getFont()->setBold(true);
-
-        $workSheet->getRowDimension('1')->setRowHeight(100);
-
+        $workSheet->getColumnDimension('G')->setWidth(12);
+        //$workSheet->mergeCells('A1:B1');
+        
+        $workSheet->getStyle('A1:G1')->getFont()->setBold(true);
+        //$workSheet->getStyle('A1:G1')->getFill()->getStartColor()->setRGB('BFBFBF');
+        $workSheet->getStyle('A1:G1')
+            ->getFill()
+            ->setFillType(Fill::FILL_SOLID)
+            ->getStartColor()
+            ->setARGB('BFBFBF');;
+        $workSheet->getStyle('A3:G3')->getFont()->setBold(true);
+        $workSheet->getStyle('A14:G14')->getFont()->setBold(true);
+        $workSheet->getStyle('A3:G3')
+            ->getFill()
+            ->setFillType(Fill::FILL_SOLID)
+            ->getStartColor()
+            ->setRGB('BFBFBF');
+        $workSheet->getStyle("A3:G3")
+            ->getBorders()
+            ->getOutline()
+            ->setBorderStyle(Border::BORDER_THIN)
+            ->getColor()
+            ->setRGB('000000'); // чорний
+        $workSheet->getStyle("A3:G3")
+            ->getBorders()
+            ->getInside()
+            ->setBorderStyle(Border::BORDER_THIN)
+            ->getColor()
+            ->setRGB('A5A5A5'); // сірий
+        $workSheet->getStyle("A14:G14")
+            ->getBorders()
+            ->getOutline()
+            ->setBorderStyle(Border::BORDER_THIN)
+            ->getColor()
+            ->setRGB('000000'); // чорний
+        
+        $workSheet->getStyle("A3:G14")
+            ->getBorders()
+            ->getOutline()
+            ->setBorderStyle(Border::BORDER_THIN)
+            ->getColor()
+            ->setRGB('000000'); // чорний
+        
         $tempData = [];
-        $tempData[] = [
-            '№',
-            'Виконавець',
-            'Назва Твору',
-            'Кіл-ть Використань',
-            'Частка авторських (суміжних) прав, %',
-            'Загальна сума отриманої Винагороди Видавцем',
-            'Ставка Винагороди Правовласника за авторські та суміжні права, %',
-            'Сума Роялті правовласника',
-            'Валюта',
-            'Вид прав',
-            'Тип використання',
-            'Тип та/або ресурс використання',
-            'Країна',
-            'Період використання Об\'єкта',
+        $tempData[0] = ['Звіт за ' . $quarter . ' кв. ' . $year . ', ' . $model->name];  // 1
+        $workSheet->getStyle("A1:G1")
+            ->getBorders()
+            ->getBottom()
+            ->setBorderStyle(Border::BORDER_THIN)
+            ->getColor()
+            ->setRGB('000000'); // чорний
+        
+        $tempData[1] = []; // 2
+        
+        $tempData[2] = [ // 3
+            0 => 'Фінансовий звіт за період',
+            1 => 'Сума',
+            2 => 'Валюта',
+            3 => 'Сума',
+            4 => 'Валюта',
+            5 => 'Сума',
+            6 => 'Валюта',
         ];
-
-        $i = 1;
-
-        foreach ($data as $item) {
-            // Skip items with empty amount
-            if (empty($item['amount'])) {
-                continue;
-            }
-
-            $amount = round($item['amount'] * ($item['percentage_label'] /100), 4);
-            $tempData[] = [
-                $i,
-                $item['artist_name'],
-                str_replace("1", "", $item['track_name']),
-                $item['count'],
-                $item['percentage'],
-                round($item['amount'], 4),
-                $item['percentage_label'],
-                $amount,
-                $item['currency_name'],
-                $item['prav1'],
-                $item['prav2'],
-                $item['platform'],
-                $item['country'],
-                DateFormat::datumUah2($item['date_report'] ?? 'now'),
+        $i = 3;
+        
+        foreach ($all_euro as $key => $item) {
+            $tempData[$i] = [
+                0 => strip_tags($item['name']),
+                1 => number_format($item['value'], 2, '.', ''),
+                2 => $item['currency_name'],
+                3 => number_format($all_usd[$key]['value'] ?? 0, 2, '.', ''),
+                4 => $all_usd[$key]['currency_name'] ?? '',
+                5 => number_format($all_uah[$key]['value'] ?? 0, 2, '.', ''),
+                6 => $all_uah[$key]['currency_name'] ?? '',
             ];
-            $i++;
+            $i++; // 15
         }
-
-        foreach ($feats as $item) {
-            // Skip items with empty amount
-            if (empty($item['amount'])) {
-                continue;
-            }
-
-            $amount = round($item['amount'] * ($item['percentage_label'] /100), 4);
-            $tempData[] = [
-                $i,
-                $item['artist_name'],
-                str_replace("1", "", $item['track_name']),
-                $item['count'],
-                $item['percentage'],
-                round($item['amount'], 4),
-                $item['percentage_label'],
-                $amount,
-                $item['currency_name'],
-                $item['prav1'],
-                $item['prav2'],
-                $item['platform'],
-                $item['country'],
-                DateFormat::datumUah2($item['date_report'] ?? 'now'),
+        
+        // доп. дохід за період
+        $income = $model->getIncome($quarter, $year);
+        // витрати за період
+        $costs = $model->getCosts($quarter, $year);
+        
+        if (count($income) + count($costs) > 0) {
+            $i++;
+            $tempData[$i] = []; // 15
+            $i++; // 16
+            $tempData[$i] = [// 16
+                0 => 'Перелік фінансових операцій за період',
             ];
-            $i++;
+            $workSheet->getStyle('A' . $i)->getFont()->setBold(true);
+            
+            $i++; // 17
+            
+            $tempData[$i] = [
+                0 => 'Назва',
+                1 => 'Тип',
+                2 => 'Виконавець',
+                3 => 'Трек',
+                4 => 'Сума',
+                6 => 'Валюта',
+                7 => 'Дата',
+            ];
+            
+            $workSheet->getStyle("A$i:G$i")->getFont()->setBold(true);
+            $workSheet->getStyle("A$i:G$i")->getFill()
+                ->setFillType(Fill::FILL_SOLID)
+                ->getStartColor()
+                ->setRGB('BFBFBF');
+            $workSheet->getStyle("A$i:G$i")
+                ->getBorders()
+                ->getInside()
+                ->setBorderStyle(Border::BORDER_THIN)
+                ->getColor()
+                ->setRGB('A5A5A5'); // чорний
+            
+            $workSheet->getStyle("A$i:G$i")
+                ->getBorders()
+                ->getOutline()
+                ->setBorderStyle(Border::BORDER_THIN)
+                ->getColor()
+                ->setRGB('000000'); // чорний
+            
+            $workSheet->getStyle("A$i:G" . ($i + count($income) + count($costs)))
+                ->getBorders()
+                ->getOutline()
+                ->setBorderStyle(Border::BORDER_THIN)
+                ->getColor()
+                ->setRGB('000000'); // чорний
+            $i++; // 18
+            foreach ($income as $item) {
+                $tempData[$i] = [
+                    0 => $item['description'],
+                    1 => $item['invoice_type_name'] == 'Баланс' ? 'Нарахування' : $item['invoice_type_name'],
+                    2 => $item['a_name'],
+                    3 => $item['t_name'],
+                    4 => number_format($item['amount'], 2, '.', ''),
+                    5 => $item['currency_name'],
+                    6 => $item['date_item'],
+                ];
+                $i++;
+            }
+            
+            foreach ($costs as $item) {
+                $tempData[$i] = [
+                    0 => $item['description'],
+                    1 => $item['invoice_type_name'],
+                    2 => $item['a_name'],
+                    3 => $item['t_name'],
+                    4 => number_format($item['amount'], 2, '.', ''),
+                    5 => $item['currency_name'],
+                    6 => $item['date_item'],
+                ];
+                $i++;
+            }
         }
-
-        $workSheet->fromArray($tempData);
-       // $reader = new Html();
-       // $data = $reader->loadFromString($content, $spreadSheet);
-        $spreadSheet->setActiveSheetIndex(0);
+        
+        $workSheet->fromArray($tempData, null, 'A1');
+        $workSheet->setSelectedCell('A1');
+        $data = Yii::$app->db->createCommand(
+            "SELECT IF(a.id != a2.id, CONCAT(a.name, ' (', a2.name, ')'), a.name)as artist_name,
+                    t.name as track_name,
+                    ii.artist_percentage as percentage,
+                  	ii.percentage as percentage_label,
+                    o.name as prav1,
+                    IFNULL(atu.name, a2ow.name) as prav2,
+                    IFNULL(a_s.name, ari.platform) as platform,
+                    ari.date_report,
+                    ari.country,
+                    c.currency_name,
+                    ari.count,
+             	ROUND((ii.artist_percentage / 100 * ari.amount), 4) as amount,
+             	ROUND((ii.artist_percentage / 100 * ari.amount) * (ii.percentage / 100), 4) as amount_2
+            FROM `invoice_items` ii
+            INNER JOIN invoice i ON i.invoice_id = ii.invoice_id and i.invoice_type = 1 and i.invoice_status_id = 2
+            INNER JOIN aggregator_report_item ari ON ii.track_id = ari.track_id #and ari.payment_invoice_id is null
+            inner join aggregator_report ar ON ar.id = ari.report_id and ar.report_status_id = 2 and ar.id = i.aggregator_report_id
+            inner join aggregator agg ON agg.aggregator_id = ar.aggregator_id and agg.currency_id = i.currency_id
+            INNER JOIN track t ON t.id = ii.track_id #and ii.artist_id = t.artist_id
+            LEFT JOIN artist a ON a.id = ii.artist_id
+            LEFT JOIN artist a2 ON a2.id = t.artist_id
+            LEFT JOIN currency c ON c.currency_id= i.currency_id
+            LEFT JOIN aggregator_type_use atu ON atu.type_id = agg.type_use_id
+			LEFT JOIN aggregator_service a_s ON a_s.service_id = agg.service_id
+            LEFT JOIN (
+                SELECT aggregator_id, ownership_type_id , GROUP_CONCAT(ot_.name) as name
+                FROM aggregator_to_ownership_type
+                    LEFT JOIN ownership_type ot_ ON ot_.id = ownership_type_id
+                GROUP BY aggregator_id
+            ) as a2ow ON a2ow.aggregator_id = agg.aggregator_id
+            LEFT JOIN ownership o ON o.id = agg.ownership_type
+            WHERE ii.payment_invoice_id is null
+            and ii.artist_id = :artist_id
+            and i.quarter = :quarter
+            and i.year = :year
+            HAVING amount_2 > 0
+            ")
+            ->bindValue(':artist_id', $model->id)
+            ->bindValue(':quarter', $quarter)
+            ->bindValue(':year', $year)
+            ->queryAll();
+        
+        if (count($data)) {
+            $spreadSheet->createSheet();
+            $spreadSheet->setActiveSheetIndex(1);
+            $workSheet = $spreadSheet->getActiveSheet();
+            $workSheet->setTitle('Звіт');
+            
+            $workSheet->getStyle('A1:N1')->getAlignment()->setWrapText(true)
+                ->setHorizontal(Alignment::HORIZONTAL_CENTER)
+                ->setVertical(Alignment::HORIZONTAL_CENTER);
+                
+                $workSheet->getStyle("A1:N1")->getFill()
+                    ->setFillType(Fill::FILL_SOLID)
+                    ->getStartColor()
+                    ->setRGB('BFBFBF');
+                $workSheet->getStyle("A1:N1")
+                    ->getBorders()
+                    ->getInside()
+                    ->setBorderStyle(Border::BORDER_THIN)
+                    ->getColor()
+                    ->setRGB('A5A5A5'); // чорний
+                $workSheet->getStyle("A1:N1")
+                    ->getBorders()
+                    ->getOutline()
+                    ->setBorderStyle(Border::BORDER_THIN)
+                    ->getColor()
+                    ->setRGB('000000'); // чорний
+                
+                $workSheet->getStyle("A1:N" . (count($data) + 1))
+                    ->getBorders()
+                    ->getOutline()
+                    ->setBorderStyle(Border::BORDER_THIN)
+                    ->getColor()
+                    ->setRGB('000000'); // чорний
+            
+            $workSheet->getColumnDimension('A')->setWidth(6);
+            $workSheet->getColumnDimension('B')->setWidth(12);
+            $workSheet->getColumnDimension('C')->setWidth(12);
+            $workSheet->getColumnDimension('D')->setWidth(13);
+            $workSheet->getColumnDimension('E')->setWidth(12);
+            $workSheet->getColumnDimension('F')->setWidth(12);
+            $workSheet->getColumnDimension('G')->setWidth(15);
+            $workSheet->getColumnDimension('H')->setWidth(15);
+            $workSheet->getColumnDimension('I')->setWidth(12);
+            $workSheet->getColumnDimension('J')->setWidth(12);
+            $workSheet->getColumnDimension('K')->setWidth(14);
+            $workSheet->getColumnDimension('L')->setWidth(14);
+            $workSheet->getColumnDimension('M')->setWidth(14);
+            $workSheet->getColumnDimension('N')->setWidth(15);
+            
+            $workSheet->getStyle('A1:N1')->getFont()->setBold(true);
+            
+            $workSheet->getRowDimension('1')->setRowHeight(100);
+            
+            $tempData = [];
+            $tempData[] = [
+                '№',
+                'Виконавець',
+                'Назва Твору',
+                'Кіл-ть Використань',
+                'Частка авторських (суміжних) прав, %',
+                'Загальна сума отриманої Винагороди Видавцем',
+                'Ставка Винагороди Правовласника за авторські та суміжні права, %',
+                'Сума Роялті правовласника',
+                'Валюта',
+                'Вид прав',
+                'Тип використання',
+                'Тип та/або ресурс використання',
+                'Країна',
+                'Період використання Об\'єкта',
+            ];
+            
+            $i = 1;
+            
+            foreach ($data as $item) {
+                $tempData[] = [
+                    $i,
+                    $item['artist_name'],
+                    rtrim($item['track_name'], '1'),
+                    $item['count'],
+                    $item['percentage'],
+                    $item['amount'],
+                    $item['percentage_label'],
+                    $item['amount_2'],
+                    $item['currency_name'],
+                    $item['prav1'],
+                    $item['prav2'],
+                    $item['platform'],
+                    $item['country'],
+                    DateFormat::datumUah2($item['date_report'] ?? 'now'),
+                ];
+                $i++;
+            }
+            
+            $workSheet->fromArray($tempData);
+            $workSheet->setSelectedCell('A1');
+            // $reader = new Html();
+            // $data = $reader->loadFromString($content, $spreadSheet);
+            $spreadSheet->setActiveSheetIndex(0);
+        }
+        
         $writer = new Xlsx($spreadSheet);
         $writer->save(self::$homePage . 'xls/' . $filename);
+        
+        if ($redirect) {
+            $this->redirect("/xls/" . $filename);
+        }
 
-        $this->redirect("/xls/" . $filename);
+      return $filename;
     }
     
     public function actionExportArtist()
@@ -988,6 +953,80 @@ class ArtistController extends Controller
         $writer->save(self::$homePage . 'xls/' . $filename);
         
         $this->redirect("/xls/".$filename);
+    }
+    
+    public function actionMail($id)
+    {
+        $model = $this->findModel($id);
+        
+       // $model->email = 'yaroslav_148@icloud.com'; // test email
+        //$model->email = 'Komar@blackbeatsmusic.com'; // test email
+        
+        $lastInvoice = (new \yii\db\Query())
+            ->from(InvoiceItems::tableName())
+            ->select('invoice.invoice_id,
+             invoice.currency_id,
+              invoice.quarter,
+               invoice.year,
+                invoice.date_pay,
+                 invoice.date_added,
+                  abs(invoice_items.amount) as amount
+            ')
+            ->innerJoin(Invoice::tableName(), 'invoice.invoice_id = invoice_items.invoice_id')
+            ->where([
+                'invoice.invoice_status_id' => [2, 4],
+                'invoice.invoice_type' => 2,
+            ])->orderBy(['invoice.year' => SORT_DESC, 'invoice.quarter' =>  SORT_DESC])
+            ->limit(1)
+            ->one();
+        
+        $reportFileName = $this->actionExportAct($id, null, null, false);
+        $excel =  self::$homePage .  'xls/' . $reportFileName;
+        $attach[] = [$excel, ['fileName' => $reportFileName]];
+        
+        $mail = new Mail([
+            'from' => ['reports@blackbeatsmusic.com' => 'Black Beats Reports'],
+            'to' => [$model->email => $model->name],
+            'subject' => "Black Beats | Royalty Report Q{$lastInvoice['quarter']} {$lastInvoice['year']}",
+            //'bcc' => 'reports@blackbeatsmusic.com',
+            'replyTo' => 'reports@blackbeatsmusic.com',
+            'view' => [
+                'html' => 'artistBalanceNotification-html',
+            ],
+            'params' => [
+                'artist' => $model,
+                'quarter' => $lastInvoice['quarter'],
+                'year' => $lastInvoice['year'],
+            ],
+            'attach' => $attach,
+        ]);
+        
+        if ($mail->send('Balance Notification', $model)) {
+           // Yii::$app->session->setFlash('success', "Артисту {$model->name} успішно відправлено звіт!");
+            return 'Артисту ' . $model->name . ' успішно відправлено звіт на email:' . $model->email;
+        } else {
+            throw new \RuntimeException("Артисту {$model->name} не вдалось відправлено звіт! Зверніться до адміністратора.");
+            //  Yii::$app->session->setFlash('error', "Артисту {$model->artist->name} не вдалось відправлено звіт! Зверніться до адміністратора.");
+        }
+        
+       // return 'Артисту ' . $model->name . ' успішно відправлено звіт!';
+        
+       /* $logs = $model->getInvoiceLogs('Balance Notification');
+        
+        $logs = array_filter($logs, function($log) {
+            return date('m', strtotime($log->date_added)) == date('m');
+        });
+        
+        $titleLog = "Відправлено на email: {$model->email} в такі дати:\n";
+        
+        foreach ($logs as $log) {
+            $titleLog .= date('d.m.Y H:i:s', strtotime($log->date_added)) . "\n";
+        }
+        
+        return '<span class="glyphicon glyphicon-ok text-success" data-toggle="tooltip" data-placement="top" data-title=" ' . $titleLog. '"></span>';
+        */
+        
+        // return $this->redirect(['invoice/view', 'id' => $model->invoice_id]);
     }
 
     /**

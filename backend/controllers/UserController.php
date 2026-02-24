@@ -2,6 +2,9 @@
 
 namespace backend\controllers;
 
+use backend\models\InvoiceItemsSearch;
+use backend\models\UserBalanceSearch;
+use backend\models\UserBonusSearch;
 use Yii;
 use backend\models\User;
 use yii\data\ActiveDataProvider;
@@ -88,8 +91,26 @@ class UserController extends Controller
      */
     public function actionView($id)
     {
+        $UserBalanceSearch = new UserBalanceSearch();
+        $queryParams = Yii::$app->request->queryParams;
+        
+        $queryParamsUserBalanceSearch = [
+            'UserBalanceSearch' => [
+                'user_id' => $id
+            ]
+        ];
+        
+        if (isset($queryParams['UserBalanceSearch'])) {
+            $queryParamsUserBalanceSearch['UserBalanceSearch'] = array_merge($queryParamsUserBalanceSearch['UserBalanceSearch'], $queryParams['UserBalanceSearch']);
+        }
+        
         return $this->render('view', [
             'model' => $this->findModel($id),
+            'bonusProvider' => (new UserBonusSearch())->search(['UserBonusSearch'=>['user_id'=>$id]]),
+            
+            'searchBalance' => $UserBalanceSearch,
+            'balanceProvider' => $UserBalanceSearch->search($queryParamsUserBalanceSearch),
+            
         ]);
     }
 

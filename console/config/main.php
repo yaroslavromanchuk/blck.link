@@ -10,7 +10,7 @@ return [
     'id' => 'app-console',
     'basePath' => dirname(__DIR__),
     'bootstrap' => ['log'],
-    'controllerNamespace' => 'app\controllers',
+    'controllerNamespace' => 'console\controllers',
     'aliases' => [
         '@bower' => '@vendor/bower-asset',
         '@npm'   => '@vendor/npm-asset',
@@ -20,10 +20,6 @@ return [
             'class' => 'yii\console\controllers\FixtureController',
             'namespace' => 'common\fixtures',
           ],
-        'cron' => [
-            'class' => 'app\controllers\CronController',
-            'namespace' => 'common\cron',
-        ],
     ],
     'components' => [
         'log' => [

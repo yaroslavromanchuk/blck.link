@@ -3,12 +3,14 @@
 namespace backend\models;
 
 use backend\widgets\DateFormat;
+use common\models\MailLog;
 use Yii;
 
 /**
  * This is the model class for table "artist".
  *
  * @property int $id
+ * @property int $type_id
  * @property int $artist_type_id
  * @property bool $records
  * @property int $label_id
@@ -31,12 +33,14 @@ use Yii;
 * @property string $whatsapp
 * @property string $ofsite
 * @property int $percentage
+* @property int $percentage_distribution
 * @property double $deposit
 * @property double $deposit_1
 * @property double $deposit_3
 * @property string $date_last_payment
 * @property int $last_payment_invoice
 * @property int $telegram_id
+ * @property string $telegram_code
  * @property string $ipn
  * @property int $edrpou
  * @property int $mfo
@@ -48,8 +52,11 @@ use Yii;
  * @property bool $notify
  * @property SubLabel $label
  * @property Country $country
-*
-* @property Track[] $tracks
+ * @property Track[] $tracks
+ * @property User $admin
+ * @property ArtistType $artistType
+ * @property ClientType $clientType
+ * @property MailLog[] $invoiceLogs
 */
 class Artist extends \yii\db\ActiveRecord
 {
@@ -70,13 +77,14 @@ class Artist extends \yii\db\ActiveRecord
     public function rules(): array
 	{
         return [
-            [['name', 'percentage', 'label_id', 'artist_type_id'], 'required'],
-            [['label_id', 'active', 'admin_id', 'country_id', 'percentage', 'telegram_id', 'artist_type_id', 'last_payment_invoice', 'label_id'], 'integer'],
+            [['name', 'percentage',  'type_id', 'label_id', 'artist_type_id'], 'required'],
+            [['type_id', 'label_id', 'active', 'admin_id', 'country_id', 'percentage', 'percentage_distribution', 'telegram_id', 'artist_type_id', 'last_payment_invoice', 'label_id'], 'integer'],
             [['edrpou', 'mfo', 'records'], 'integer'],
             [['deposit', 'deposit_1', 'deposit_3'], 'number'],
             //['ipn', 'is10NumbersOnly'],
             [['name', 'bank', 'description', 'full_name',], 'string', 'max' => 150],
             [['iban'], 'string', 'length' => 29],
+            [['telegram_code'], 'string', 'length' => 10],
             [['ipn'], 'string', 'length' => 10],
             [['address'], 'string', 'max' => 250],
             [['contract', 'tov_name'], 'string', 'max' => 100],
@@ -101,6 +109,11 @@ class Artist extends \yii\db\ActiveRecord
     {
         return $this->label_id > 0;
     }
+    
+    public function isClient(): bool
+    {
+        return $this->type_id == 2;
+    }
 
     /**
      * {@inheritdoc}
@@ -109,9 +122,10 @@ class Artist extends \yii\db\ActiveRecord
 	{
         return [
             'id' => Yii::t('app', '№'),
-            'artist_type_id' => Yii::t('app', 'Тип'),
+            'type_id' => Yii::t('app', 'Тип'),
+            'artist_type_id' => Yii::t('app', 'Тип суб\'єкта'),
             'label_id' => Yii::t('app', 'Лейбл'),
-            'name' => Yii::t('app', 'Псевдонім'),
+            'name' => Yii::t('app', 'Контрагент'),
             'full_name' => Yii::t('app', 'ПІБ'),
             'contract' => Yii::t('app', 'Договір'),
             'tov_name' => Yii::t('app', 'Назва ТОВ'),
@@ -130,7 +144,8 @@ class Artist extends \yii\db\ActiveRecord
             'ofsite' => Yii::t('app', 'Оф.Сайт'),
             //'reliz' => Yii::t('app', 'Релизы'),
             'admin_id' => Yii::t('app', 'Створив'),
-            'percentage' => Yii::t('app', 'Відсоток %'),
+            'percentage' => Yii::t('app', 'Публішинг %'),
+            'percentage_distribution' => Yii::t('app', 'Дистрибуція %'),
             'file' => Yii::t('app', 'Лого'),
             'deposit' => Yii::t('app', 'Депозит UAH'),
             'deposit_1' => Yii::t('app', 'Депозит EURO'),
@@ -147,7 +162,9 @@ class Artist extends \yii\db\ActiveRecord
             'description' => Yii::t('app', 'Додатково (коментар)'),
             'country_id' => Yii::t('app', 'Країна'),
             'records' => Yii::t('app', 'Рекордс'),
-            'notify' => Yii::t('app', 'Повідомлення'),
+            'notify' => Yii::t('app', 'Повідомляти'),
+            'notified' => Yii::t('app', 'Повідомлено'),
+            'telegram_code' => Yii::t('app', 'ТГ код'),
         ];
     }
 
@@ -180,9 +197,14 @@ class Artist extends \yii\db\ActiveRecord
         return $this->hasOne(Country::class, ['country_id' => 'country_id']);
     }
 
-    public function getType(): \yii\db\ActiveQuery
+    public function getArtistType(): \yii\db\ActiveQuery
     {
         return $this->hasOne(ArtistType::class, ['type_id' => 'artist_type_id']);
+    }
+    
+    public function getClientType(): \yii\db\ActiveQuery
+    {
+        return $this->hasOne(ClientType::class, ['type_id' => 'type_id']);
     }
 
     /**
@@ -197,7 +219,7 @@ class Artist extends \yii\db\ActiveRecord
 
     public function getLogo(): string
 	{
-        if (!empty($this->logo) && file_exists('/home/atpjwxlx/domains/blck.link/public_html/frontend/web//images/artist/'.$this->logo)) {
+        if (!empty($this->logo) && file_exists('/home/atpjwxlx/domains/blck.link/public_html/frontend/web/images/artist/'.$this->logo)) {
             return Yii::getAlias('@site').'/images/artist/'.$this->logo;
         }
 
@@ -453,9 +475,10 @@ class Artist extends \yii\db\ActiveRecord
     /**
      * @return array|bool
      */
-    public function getLastPayInvoice(?int $invoiceId = null, int $currency_id): array|bool
+    public function getLastPayInvoice(int $currency_id, ?int $invoiceId = null): array|bool
     {
-        $query = (new \yii\db\Query())->from(InvoiceItems::tableName())
+        $query = (new \yii\db\Query())
+            ->from(InvoiceItems::tableName())
             ->select('invoice.invoice_id, invoice.currency_id, invoice.quarter, invoice.year, invoice.date_pay, invoice.date_added, abs(invoice_items.amount) as amount')
             ->innerJoin(Invoice::tableName(), 'invoice.invoice_id = invoice_items.invoice_id')
             ->where([
@@ -469,7 +492,7 @@ class Artist extends \yii\db\ActiveRecord
             $query->andFilterWhere(['!=', 'invoice.invoice_id', $invoiceId]);
         }
 		
-        return $query->orderBy('invoice.invoice_id DESC')
+        return $query->orderBy(['invoice.invoice_id' =>  SORT_DESC])
             ->limit(1)
             ->one();
     }
@@ -589,13 +612,8 @@ class Artist extends \yii\db\ActiveRecord
 
     public static function getLog(int $artist_id, int $quarter, int $year, int $currency_id, string $currency_name, ?int $invoice_id = null)
     {
-      //  $invoice = null;
-        $artist = Artist::findOne($artist_id);
-
-        if (!is_null($invoice_id)) {
-           // $invoice = Invoice::findOne($invoice_id);
-            $lastPay = $artist->getLastPayInvoice($invoice_id, $currency_id);
-        }
+       // $artist = Artist::findOne($artist_id);
+      //  $lastPay = $artist->getLastPayInvoice($currency_id, $invoice_id);
 
         $result = [];
         $balance_type = ArtistLogType::find()
@@ -611,30 +629,19 @@ class Artist extends \yii\db\ActiveRecord
             ];
         }
 
-      /*  if ($quarter == 1) {
-            $quarter_2 = 5;
-            $year_2 = ($year-1);
-        } else {
-            $quarter_2 = $quarter;
-            $year_2 = $year;
-        }*/
-
         	$balance = Yii::$app->db->createCommand("
                     SELECT sum(ii.amount) as dep 
                     FROM `invoice_items` ii 
                         LEFT JOIN `invoice` i ON i.invoice_id = ii.invoice_id 
                     WHERE i.currency_id = :currency_id
                       	and ii.artist_id = :artist_id
-                      	and CONCAT(i.year, i.quarter) != CONCAT(:year, :quarter)
-                      #and i.year != :year
-                     # and i.quarter != :quarter
-                      	and i.invoice_id > :last_invoice
+                      AND LAST_DAY(STR_TO_DATE(CONCAT(i.year, '-', LPAD(i.quarter*3, 2, '0'), '-01'), '%Y-%m-%d')) < STR_TO_DATE(CONCAT(:year, '-', LPAD((:quarter-1)*3 + 1, 2, '0'), '-01'), '%Y-%m-%d')
                     	and i.invoice_status_id = 2
              ")->bindValue(':artist_id', $artist_id)
             ->bindValue(':currency_id', $currency_id)
             ->bindValue(':quarter', $quarter)
             ->bindValue(':year', $year)
-			->bindValue(':last_invoice', $lastPay['invoice_id'] ?? 0)
+			//->bindValue(':last_invoice', $lastPay['invoice_id'] ?? 0)
             ->queryOne();
 
         $balance = $balance['dep'] ?? 0;
@@ -653,23 +660,11 @@ class Artist extends \yii\db\ActiveRecord
                     LEFT JOIN invoice i ON i.invoice_id = ii.invoice_id
                     left join invoice_type it ON it.invoice_type_id = i.invoice_type
                  WHERE i.invoice_status_id = 2
-                    and i.invoice_type in (1, 3, 4, 5)
+                    and i.invoice_type in (1, 3, 5)
                     and i.currency_id =:currency_id
                     AND ii.artist_id =:artist_id
                     and CONCAT(i.year, i.quarter) = CONCAT(:year, :quarter)
-                   # and i.quarter =:quarter
-                   #and i.year = :year
                    ";
-
-      /*  if ($invoice !== null) {
-            $query .= " AND i.date_added <= :date_invoice AND i.invoice_id != :invoice_id";
-
-            if (!empty($lastPay['date_pay'])) {
-                $query .= " AND i.date_added > :date_last_pay";
-            }
-        } else {
-            $query .= " and i.quarter =:quarter and i.year = :year";
-        }*/
 
         $query .= " group BY ii.invoice_id";
 		
@@ -678,18 +673,7 @@ class Artist extends \yii\db\ActiveRecord
             ->bindValue(':currency_id', $currency_id)
 			->bindValue(':quarter', $quarter)
 			->bindValue(':year', $year);
-
-      /* if ($invoice !== null) {
-           $all->bindValue(':date_invoice', $invoice->date_pay)
-               ->bindValue(':invoice_id', $invoice->invoice_id);
-
-            if (!empty($lastPay['date_pay'])) {
-                $all->bindValue(':date_last_pay', $lastPay['date_pay']);
-            }
-        } else {
-            $all->bindValue(':quarter', $quarter)
-                ->bindValue(':year', $year);
-        }*/
+        
 
         $all = $all->queryAll();
         $qq = [
@@ -726,45 +710,17 @@ class Artist extends \yii\db\ActiveRecord
                                 and i.currency_id =:currency_id
                                 and CONCAT(i.year, i.quarter) = CONCAT(:year, :quarter)
                             INNER JOIN track t ON t.id = ii.track_id
-                    	#LEFT JOIN artist a ON a.id = ii.artist_id
                             WHERE ii.artist_id =:artist_id
-                               # AND i.quarter = :quarter
-                              	#AND i.year = :year
                             GROUP BY i.invoice_id, ii.track_id
                     ) as inv ON inv.invoice_id = ii2.invoice_id
                     and inv.track_id = ii2.track_id";
-
-       // if ($invoice !== null) {
-         //   $q2 .= " AND i.date_added <= :date_invoice";
-
-        //    if (!empty($lastPay['date_pay'])) {
-           //     $q2 .= " AND i.date_added > :date_last_pay";
-        //    }
-
-      //  } else {
-           // $q2 .= " AND i.quarter = :quarter and i.year = :year";
-      //  }
-
-       // $q2 .= ") as inv ON inv.invoice_id = ii2.invoice_id and inv.track_id = ii2.track_id ";
-
+        
         // дохід артиста за квартал
         $all_2 = Yii::$app->db->createCommand($q2)
             ->bindValue(':artist_id', $artist_id)
             ->bindValue(':currency_id', $currency_id)
 			->bindValue(':quarter', $quarter)
 			->bindValue(':year', $year);
-
-       // if ($invoice !== null) {
-        //    $all_2->bindValue(':date_invoice', $invoice->date_pay);
-
-        //    if (!empty($lastPay['date_pay'])) {
-       //         $all_2->bindValue(':date_last_pay', $lastPay['date_pay']);
-       //     }
-
-      //  } else {
-           // $all_2->bindValue(':quarter', $quarter)
-            //    ->bindValue(':year', $year);
-       // }
 
         $all_2 = $all_2->queryAll();
         $all_b = $artist_a_b = $artist_f_b = $label_b = $feat_b = 0;
@@ -869,5 +825,147 @@ class Artist extends \yii\db\ActiveRecord
         }
 
         return null;
+    }
+    
+    public function getInvoiceLogs(?string $content = null)
+    {
+        $query = $this->hasMany(MailLog::class, ['artist_id' => 'id']);
+
+        if (!is_null($content)) {
+            $query->andOnCondition(['content' => $content]);
+        }
+
+        return $query->all();
+    }
+    
+    public function hasNotified()
+    {
+        $lastInvoice = (new \yii\db\Query())
+            ->from(InvoiceItems::tableName())
+            ->select('invoice.quarter,
+               invoice.year
+            ')
+            ->innerJoin(Invoice::tableName(), 'invoice.invoice_id = invoice_items.invoice_id')
+            ->where([
+                'invoice.invoice_status_id' => [2, 4],
+                'invoice.invoice_type' => 2,
+            ])->orderBy(['invoice.year' => SORT_DESC, 'invoice.quarter' =>  SORT_DESC])
+            ->limit(1)
+            ->one();
+        
+        $quarter = $lastInvoice['quarter'] ?? null;
+        $year = $lastInvoice['year'] ?? null;
+        
+        $invoices = (new \yii\db\Query())
+            ->from(Invoice::tableName())
+            ->select('invoice.invoice_id')
+            ->where([
+                'invoice.invoice_status_id' => [2, 4],
+                'invoice.invoice_type' => 2,
+                'invoice.quarter' => $quarter,
+                'invoice.year' => $year,
+                'invoice.label_id' => $this->label_id,
+            ])->all();
+        
+        $ids = [];
+        foreach ($invoices as $invoice) {
+            $ids[] = $invoice['invoice_id'];
+        }
+        
+        $count = (new \yii\db\Query())
+            ->from(InvoiceLog::tableName())
+            ->andFilterWhere(['in','invoice_log.invoice_id', $ids])
+            ->andFilterWhere(['invoice_log.artist_id' => $this->id])
+            ->count();
+        
+        if ($count > 0 ) {
+            return true;
+        }
+        
+        $logs = $this->getInvoiceLogs('Balance Notification');
+        $logs = array_filter($logs, function($log) {
+            return date('m-Y',strtotime($log->date_added)) == date('m-Y');
+        });
+        
+        return count($logs) > 0;
+    }
+    
+    public function getUserBalances(): \yii\db\ActiveQuery
+    {
+        return $this->hasMany(UserBalance::class, ['artist_id' => 'id']);
+    }
+    
+    public function getUserToArtist(): array
+    {
+        return $this->hasMany(UserBonus::class, ['artist_id' => 'id'])->all();
+    }
+    
+    /**
+     * отримати доп. дохід артиста за період
+     */
+    public function getIncome(int $quarter, int $year): array
+    {
+       return Yii::$app->db->createCommand(
+            "SELECT it.invoice_type_name, ii.date_item, a.name as a_name, t.name as t_name, ii.description, ii.amount, c.currency_name
+                    FROM `invoice_items` ii
+                        INNER JOIN invoice i ON i.invoice_id = ii.invoice_id
+                        LEFT JOIN artist a ON a.id = ii.artist_id
+                        LEFT JOIN track t ON t.id = ii.track_id
+                        LEFT JOIN currency c ON c.currency_id = i.currency_id
+                        left join invoice_type it ON it.invoice_type_id = i.invoice_type
+                    WHERE i.invoice_status_id in (2, 4)
+                      and i.invoice_type = 5 #баланс
+                      and ii.payment_invoice_id is null
+                      and ii.artist_id =:artist_id
+                    and i.quarter = :quarter
+                    and i.year = :year
+                    ORDER BY ii.date_item, i.currency_id
+            ")->bindValue(':artist_id', $this->id)
+            ->bindValue(':quarter', $quarter)
+            ->bindValue(':year', $year)
+            ->queryAll();
+    }
+    
+    /**
+     * отримати витрати артиста за період
+     */
+    public function getCosts(int $quarter, int $year, ?int $currency_id = null): array
+    {
+        // витрати за період
+        $sql = "SELECT it.invoice_type_name,
+                       ii.date_item,
+                       a.name as a_name,
+                       t.name as t_name,
+                       ii.description,
+                       ii.amount,
+                       c.currency_name
+                    FROM `invoice_items` ii
+                        INNER JOIN invoice i ON i.invoice_id = ii.invoice_id
+                        INNER JOIN currency c ON c.currency_id = i.currency_id
+                        INNER join invoice_type it ON it.invoice_type_id = i.invoice_type
+                        LEFT JOIN artist a ON a.id = ii.artist_id
+                        LEFT JOIN track t ON t.id = ii.track_id
+                        WHERE i.invoice_status_id in (2, 4)
+                          AND i.invoice_type IN (3, 4) #витрати і аванси
+                          AND ii.artist_id =:artist_id
+                          AND i.quarter = :quarter
+                          AND i.year = :year";
+        
+        if (!is_null($currency_id)) {
+            $sql .= " AND i.currency_id =:currency_id";
+        }
+        
+        $sql .= " ORDER BY ii.date_item, i.currency_id";
+        
+        $sql =  Yii::$app->db->createCommand($sql)
+            ->bindValue(':artist_id', $this->id)
+            ->bindValue(':quarter', $quarter)
+            ->bindValue(':year', $year);
+        
+        if (!is_null($currency_id)) {
+            $sql->bindValue(':currency_id', $currency_id);
+        }
+        
+        return $sql->queryAll();
     }
 }

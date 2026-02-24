@@ -26,7 +26,25 @@ use yii\widgets\ActiveForm;
                             <?= $form->field($model, 'active')->checkbox([ 'value' => 1,  'checked ' => true ]) ?>
                         </div>
                         <div class="col-sm-12 col-md-2">
+                            <?= $form->field($model, 'records')->checkbox([ 'value' => 1,  'checked ' => false ]) ?>
+                        </div>
+                        <div class="col-sm-12 col-md-2">
+                            <?= $form->field($model, 'type_id')
+                                ->widget(Select2::class, [
+                                    'model' => $model,
+                                    'data' => [
+                                        1 => 'Артіст',
+                                        2 => 'Партнер',
+                                    ],
+                                    'language' => 'uk',
+                                    'options' => ['placeholder' =>  Yii::t('app', 'Вкажіть тип'),],
+                                ]) ?>
+                        </div>
+                        <div class="col-sm-12 col-md-3">
                             <?= $form->field($model, 'percentage')->textInput(['max' => 100]) ?>
+                        </div>
+                        <div class="col-sm-12 col-md-3">
+                            <?= $form->field($model, 'percentage_distribution')->textInput(['max' => 100]) ?>
                         </div>
                         <div class="col-sm-12  col-md-4">
                             <?= $form->field($model, 'label_id')->widget(Select2::class, [

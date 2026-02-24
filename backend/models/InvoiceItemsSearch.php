@@ -60,35 +60,39 @@ class InvoiceItemsSearch extends InvoiceItems
             // $query->where('0=1');
             return $dataProvider;
         }
-
-/*
-        if ($this->note >= 0 || $this->apr >= 0 || $this->pay >= 0) {
-            $query->leftJoin(InvoiceLog::tableName(), 'invoice_log.invoice_id = invoice_items.invoice_id and invoice_log.artist_id = invoice_items.artist_id');
-
-            $n = [];
-            if ($this->note >= 0) {
+        
+            if ($this->note == 1 || $this->note == -1) {
+                $query->leftJoin(InvoiceLog::tableName() . ' as l_note', 'l_note.invoice_id = invoice_items.invoice_id and l_note.artist_id = invoice_items.artist_id and l_note.log_type_id = 1');
+                
                 if ($this->note == 1) {
-                    $n[] = 1;
-                    $query->andWhere(['invoice_log.log_type_id' => 1]);
+                    $query->andWhere(['not', ['l_note.log_id' => null]]);
+                   // $query->andWhere(['l_note.log_type_id' => 1]);
+                } else {
+                    $query->andWhere(['l_note.log_id' => null]);
                 }
             }
 
-            if ($this->apr >= 0) {
+            if ($this->apr == 1 || $this->apr == -1) {
+                $query->leftJoin(InvoiceLog::tableName() . ' as l_apr', 'l_apr.invoice_id = invoice_items.invoice_id and l_apr.artist_id = invoice_items.artist_id and l_apr.log_type_id = 2');
+                
                 if ($this->apr == 1) {
-                    $n[] = 2;
-                    $query->andWhere(['invoice_log.log_type_id' => 2]);
+                    $query->andWhere(['not', ['l_apr.log_id' => null]]);
+                  //  $query->andWhere(['invoice_log.log_type_id' => 2]);
+                } else {
+                    $query->andWhere(['l_apr.log_id' => null]);
                 }
             }
 
-            if ($this->pay >= 0) {
+            if ($this->pay == 1 || $this->pay == -1) {
+                $query->leftJoin(InvoiceLog::tableName() . ' as l_pay', 'l_pay.invoice_id = invoice_items.invoice_id and l_pay.artist_id = invoice_items.artist_id and l_pay.log_type_id = 3');
+                
                 if ($this->pay == 1) {
-                    $n[] = 3;
-                    $query->andWhere(['invoice_log.log_type_id' => 3]);
+                    $query->andWhere(['not', ['l_pay.log_id' => null]]);
+                   // $query->andWhere(['invoice_log.log_type_id' => 3]);
+                } else {
+                    $query->andWhere(['l_pay.log_id' => null]);
                 }
             }
-
-           // $query->andWhere(['in', 'invoice_log.log_type_id', $n]);
-        }*/
 
         // grid filtering conditions
         $query->andFilterWhere([

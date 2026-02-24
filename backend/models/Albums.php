@@ -3,6 +3,7 @@
 namespace backend\models;
 
 use Yii;
+use yii\db\ActiveRecord;
 
 /**
  * This is the model class for table "albums".
@@ -48,7 +49,7 @@ class Albums extends \yii\db\ActiveRecord
             [['servise'], 'string'],
             [['artist_name'], 'string', 'max' => 100],
             [['name', 'img', 'youtube_link'], 'string', 'max' => 255],
-			[['file'], 'file', 'extensions' => 'png, jpg, jpeg',],
+			[['file'], 'file', 'extensions' => 'png, jpg, jpeg'],
             [['url'], 'string', 'max' => 50],
 			['url', 'unique', 'targetClass' => self::class, 'message' => Yii::t('app', 'Це посилання вже зайняте!')],
         ];
@@ -62,7 +63,7 @@ class Albums extends \yii\db\ActiveRecord
         return [
             'id' => 'ID',
             'admin_id' => 'Адмін ID',
-            'artist_id' => 'Артіст ID',
+            'artist_id' => 'Артист',
             'artist_name' => 'Artist Name',
             'date' => 'Дата Релізу',
             'name' => 'Назва',
@@ -116,4 +117,27 @@ class Albums extends \yii\db\ActiveRecord
 	{
 		return $this->hasOne(AlbumsType::class, ['type_id' => 'type_id']);
 	}
+    
+    public function saveTracks(array $data)
+    {
+        $tracks = $this->getTracks()->all();
+        
+        /* @var $track Track */
+        foreach ($tracks as $track) {
+            if (!in_array($track->id, $data)) {
+                $track->album_id = null;
+                $track->save(false);
+            }
+        }
+        
+        $tracksIds = array_column($tracks, 'id');
+        
+        foreach ($data as $trackId) {
+            if (!in_array($trackId, $tracksIds)) {
+                $track = Track::findOne($trackId);
+                $track->album_id = $this->id;
+                $track->save(false);
+            }
+        }
+    }
 }

@@ -7,6 +7,7 @@ use backend\models\InvoiceType;
 use backend\widgets\DateFormat;
 use common\models\SubLabel;
 use kartik\select2\Select2;
+use backend\models\InvoiceLogType;
 use yii\helpers\ArrayHelper;
 use yii\helpers\Html;
 use yii\grid\GridView;
@@ -101,7 +102,7 @@ $this->params['breadcrumbs'][] = $this->title;
         ],
         [
             'attribute' => 'year',
-            'filter'=> [2024 => 2024, 2025 =>2025, 2026 => 2026,],
+            'filter'=> array_combine(range(2024, (int)date('Y')), range(2024, (int)date('Y'))),
         ],
         'description:text',
         //'last_update',
@@ -112,7 +113,12 @@ $this->params['breadcrumbs'][] = $this->title;
             'label' => 'Повідомлено',
             'attribute' => 'note',
             'format' => 'raw',
-            // 'filter' => [1 => 'Так'],
+            'contentOptions' => function ($model, $key, $index, $column) {
+                return [
+                    'id' => "td-notified-" . $model->invoice_id,    // довільний id, якщо потрібно
+                ];
+            },
+            'filter' => [-1 => 'Ні', 1 => 'Так'],
             'value' => function ($data) {
                 if ($data->invoice_type != InvoiceType::$credit) {
                     return '';
@@ -121,32 +127,60 @@ $this->params['breadcrumbs'][] = $this->title;
                 if ($data->invoice_status_id != InvoiceStatus::InProgress) {
                     return $data->notified ? '<span class="glyphicon glyphicon-ok text-success"></span>' : '<span class="glyphicon glyphicon-remove text-danger"></span>';
                 }
-
-                return $data->notified
-                    ? '<span class="glyphicon glyphicon-ok text-success"></span>'
-                    :  (in_array(yii::$app->user->id, [1, 16, 4]) && !empty($data->label->email)
+                
+                $result = "";
+                
+                if ($data->notified) {
+                    $logs = $data->getInvoiceLogs(InvoiceLogType::EMAIL)->all();
+                    $titleLog = "Відправлено на email: {$data->label->email} в такі дати:\n";
+                    
+                   foreach ($logs as $log) {
+                        $titleLog .= date('d.m.Y H:i:s', strtotime($log->date_added)) . "\n";
+                   }
+                    
+                    return '<span class="glyphicon glyphicon-ok text-success" data-toggle="tooltip" data-placement="top" data-title=" ' . $titleLog. '"></span>' . (in_array(yii::$app->user->id, [1, 16])
+                            ? ' ' . Html::a('<span class="glyphicon glyphicon-repeat"></span>', Url::to(['invoice-items/mail', 'id' => $data->invoice_id]), [
+                                'title' => Yii::t('yii', 'Відправити ще раз'),
+                                'class' => 'btn btn-warning btn-xs',
+                                'data-toggle'=>'tooltip',
+                                'data-placement'=>'right',
+                                'data-id' => $data->invoice_id,
+                            ])
+                            : ''
+                        );
+                } else {
+                    return (in_array(yii::$app->user->id, [1, 16, 4]) && !empty($data->label->email)
                         ? Html::a('<span class="glyphicon glyphicon-envelope"></span>', Url::to(['sub-label/invoice-mail', 'id' => $data->invoice_id]), [
                             'title' => Yii::t('yii', 'Відправити повідомлення'),
                             'class' => 'btn btn-success btn-xs',
                             //'target' => '_blank',
                             'data-toggle'=>'tooltip',
                             'data-placement'=>'right',
+                            'data-id' => $data->invoice_id,
                         ])
                         : '<span class="glyphicon glyphicon-remove text-danger"></span>');
+                }
+                
+                return $result;
             },
         ],
         [
             'label' => 'Підтверджено',
             'attribute' => 'apr',
             'format' => 'raw',
-            //'filter' => [1 => 'Так'],
+            'contentOptions' => function ($model, $key, $index, $column) {
+                return [
+                    'id' => "td-approved-" . $model->invoice_id,    // довільний id, якщо потрібно
+                ];
+            },
+            'filter' => [-1 => 'Ні', 1 => 'Так'],
             'value' => function ($data) {
                 if ($data->invoice_type != InvoiceType::$credit) {
                     return '';
                 }
 
                 if ($data->invoice_status_id != InvoiceStatus::InProgress) {
-                    return $data->approved ? '<span class="glyphicon glyphicon-ok text-success"></span>' : '<span class="glyphicon glyphicon-remove text-danger"></span>';
+                    return $data->approved ? '<span class="glyphicon glyphicon-ok text-success" ></span>' : '<span class="glyphicon glyphicon-remove text-danger"></span>';
                 }
 
                 return $data->approved ? '<span class="glyphicon glyphicon-ok text-success"></span>' : (in_array(yii::$app->user->id, [1, 14, 16, 4]) ? Html::a('<span class="glyphicon glyphicon-ok"></span>', Url::to(['sub-label/invoice-approve', 'id' => $data->invoice_id]), [
@@ -155,6 +189,7 @@ $this->params['breadcrumbs'][] = $this->title;
                     //'target' => '_blank',
                     'data-toggle'=>'tooltip',
                     'data-placement'=>'right',
+                    'data-id' => $data->invoice_id,
                 ])  : '<span class="glyphicon glyphicon-remove text-danger"></span>');
             },
             //'contentOptions' => ['class' => $data->approved ? 'success' : ''],
@@ -163,7 +198,12 @@ $this->params['breadcrumbs'][] = $this->title;
             'label' => 'Сплачено',
             'attribute' => 'pay',
             'format' => 'raw',
-            'filter' => [1 => 'Так'],
+            'contentOptions' => function ($model, $key, $index, $column) {
+                return [
+                    'id' => "td-payed-" . $model->invoice_id,    // довільний id, якщо потрібно
+                ];
+            },
+            'filter' => [-1 => 'Ні', 1 => 'Так'],
             'value' => function ($data) {
                 if ($data->invoice_type != InvoiceType::$credit) {
                     return '';
@@ -173,12 +213,14 @@ $this->params['breadcrumbs'][] = $this->title;
                     return $data->payed ? '<span class="glyphicon glyphicon-ok text-success"></span>' : '<span class="glyphicon glyphicon-remove text-danger"></span>';
                 }
 
-                return $data->payed ? '<span class="glyphicon glyphicon-ok text-success"></span>' : (in_array(yii::$app->user->id, [1, 14, 4, 16]) && $data->approved ? Html::a('<span class="glyphicon glyphicon-ok"></span>', Url::to(['sub-label/invoice-pay', 'id' => $data->invoice_id]), [
+                return $data->payed ? '<span class="glyphicon glyphicon-ok text-success"></span>' : (in_array(yii::$app->user->id, [1, 14, 4, 16]) && $data->approved
+                    ? Html::a('<span class="glyphicon glyphicon-ok"></span>', Url::to(['sub-label/invoice-pay', 'id' => $data->invoice_id]), [
                     'title' => Yii::t('yii', 'Підтвердити виплату'),
                     'class' => 'btn btn-warning btn-xs',
                     //'target' => '_blank',
                     'data-toggle'=>'tooltip',
                     'data-placement'=>'right',
+                    'data-id' => $data->invoice_id,
                 ]) : '<span class="glyphicon glyphicon-remove text-danger"></span>');
             },
         ]
@@ -251,3 +293,70 @@ $this->params['breadcrumbs'][] = $this->title;
         ]),
     ]); ?>
 </div>
+
+<?php
+$this->registerJs("
+$(document).on('click', '.btn-notify', function (e) {
+e.preventDefault();
+let id = $(this).data('id');
+let key = 'td' + id;
+
+    $.ajax({
+        url: '/sub-label/invoice-mail/?id='+id, // ваш екшн
+        type: 'GET',
+        success: function (response) {
+            // Оновлюємо лише потрібний рядок у GridView
+            $('#td-notified-' + id).html(response);
+        },
+        error: function () {
+            alert('Помилка при відправці повідомлення!');
+        }
+    });
+    
+    return false;
+});
+
+$(document).on('click', '.btn-approved', function (e) {
+e.preventDefault();
+let id = $(this).data('id');
+let key = 'td' + id;
+
+    $.ajax({
+        url: '/sub-label/invoice-approve/?id='+id,
+        type: 'GET',
+        success: function (response) {
+            // Оновлюємо лише потрібний рядок у GridView
+            $('#td-approved-' + id).html(response);
+        },
+        error: function () {
+            alert('Помилка при підтвердженні!');
+        }
+    });
+    
+    return false;
+});
+
+$(document).on('click', '.btn-payed', function (e) {
+        e.preventDefault();
+       
+        let link = $(this);
+        let url = link.data('url') || link.attr('href');
+        let id = link.data('id');
+        let key = 'td' + id;
+
+        $.ajax({
+            url: url,
+            type: 'GET',
+            success: function (response) {
+                // Оновлюємо лише потрібний рядок у GridView
+                $('#td-payed-' + id).html(response);
+            },
+            error: function () {
+                alert('Помилка при підтвердженні!');
+            }
+        });
+
+        return false;
+    });
+");
+?>

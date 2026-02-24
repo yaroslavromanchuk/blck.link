@@ -20,6 +20,7 @@ class InvoiceSearch extends Invoice
             [['invoice_id', 'invoice_type', 'aggregator_id', 'currency_id', 'aggregator_report_id', 'invoice_status_id', 'quarter', 'year', 'label_id'], 'integer'],
             [['total'], 'number'],
             [['date_added', 'last_update'], 'safe'],
+            [['note', 'apr', 'pay'], 'number'],
         ];
     }
 
@@ -82,6 +83,44 @@ class InvoiceSearch extends Invoice
         } else
             $query->andFilterWhere(['label_id' => $this->label_id]);{
         }
+        
+        
+        if ($this->note == 1 || $this->note == -1 ) {
+            
+            $query->leftJoin(InvoiceLog::tableName() . ' as l_note', 'l_note.invoice_id = invoice.invoice_id and l_note.log_type_id = 1');
+            
+            if ($this->note == 1) {
+                $query->andWhere(['not', ['l_note.log_id' => null]]);
+                // $query->andWhere(['l_note.log_type_id' => 1]);
+            } else {
+                $query->andWhere(['l_note.log_id' => null]);
+            }
+        }
+        
+        if ($this->apr == 1 || $this->apr == -1) {
+            $query->leftJoin(InvoiceLog::tableName() . ' as l_apr', 'l_apr.invoice_id = invoice.invoice_id and l_apr.log_type_id = 2');
+            
+            if ($this->apr == 1) {
+                $query->andWhere(['not', ['l_apr.log_id' => null]]);
+                //  $query->andWhere(['invoice_log.log_type_id' => 2]);
+            } else {
+                $query->andWhere(['l_apr.log_id' => null]);
+            }
+        }
+        
+        if ($this->pay == 1 || $this->pay == -1) {
+            $query->leftJoin(InvoiceLog::tableName() . ' as l_pay', 'l_pay.invoice_id = invoice.invoice_id and l_pay.log_type_id = 3');
+            
+            if ($this->pay == 1) {
+                $query->andWhere(['not', ['l_pay.log_id' => null]]);
+                // $query->andWhere(['invoice_log.log_type_id' => 3]);
+            } else {
+                $query->andWhere(['l_pay.log_id' => null]);
+            }
+        }
+        
+        // $query->andWhere(['in', 'invoice_log.log_type_id', $n]);
+    
 
         return $dataProvider;
     }

@@ -30,6 +30,7 @@ use Yii;
  * @property string $contract
  * @property string $tov_name
  * @property int $label_type_id
+ * @property bool $migrated
  *
  * @property User $user
  */
@@ -49,13 +50,13 @@ class SubLabel extends \yii\db\ActiveRecord
     public function rules()
     {
         return [
-            [['name', 'percentage', 'percentage_distribution', 'label_type_id'], 'required'],
+            [['name', 'label_type_id'], 'required'],
             [['date_added', 'last_update'], 'safe'],
             [['name'], 'string', 'max' => 100],
             [['url'], 'string', 'max' => 50],
             [['description', 'logo'], 'string', 'max' => 255],
             [['url'], 'unique'],
-            [['edrpou', 'mfo',  'percentage', 'percentage_distribution', 'telegram_id', 'label_type_id', 'active'], 'integer'],
+            [['edrpou', 'mfo',  'percentage', 'percentage_distribution', 'telegram_id', 'label_type_id', 'active', 'migrated'], 'integer'],
             [['ipn'], 'string', 'length' => 10],
             [['bank'], 'string', 'max' => 150],
             [['iban'], 'string', 'length' => 29],
@@ -97,6 +98,7 @@ class SubLabel extends \yii\db\ActiveRecord
             'percentage' => Yii::t('app', 'Паблішинг %'),
             'percentage_distribution' => Yii::t('app', 'Дистрибуція %'),
             'telegram_id' => Yii::t('app', 'ТелеграмID'),
+            'migrated' => Yii::t('app', 'Міграція'),
         ];
     }
 

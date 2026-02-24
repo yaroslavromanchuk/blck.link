@@ -1,25 +1,24 @@
 <?php 
 use yii\helpers\Html;
+use yiister\gentelella\widgets\Menu;
+
 ?>
 <div class="col-md-3 left_col">
-            <div class="left_col scroll-view">
-
-                <div class="navbar nav_title" style="border: 0;">
-                    <?= Html::a(Html::img('/img/label.jpg', ['style' => 'border-radius: 50%;width:50px;margin-right: 15px;']) . '<span> ' . Yii::$app->name. '</span>', Yii::$app->homeUrl, ['class' => 'site_title']) ?>
-                </div>
-                <div class="clearfix"></div>
+    <div class="left_col scroll-view">
+        <div class="navbar nav_title" style="border: 0;">
+            <?= Html::a(Html::img('/img/label.jpg', ['style' => 'border-radius: 50%;width:50px;margin-right: 15px;']) . '<span> ' . Yii::$app->name. '</span>', Yii::$app->homeUrl, ['class' => 'site_title']) ?>
+        </div>
+        <div class="clearfix"></div>
                 <br />
-
                 <!-- sidebar menu -->
-<div id="sidebar-menu" class="main_menu_side hidden-print main_menu">
-
-                    <div class="menu_section">
-                        <h3>Меню</h3>
+        <div id="sidebar-menu" class="main_menu_side hidden-print main_menu">
+            <div class="menu_section">
+                <h3>Меню</h3>
                         <?php
                          $items[] = ["label" => Yii::t('app', 'Головна'), "url" =>  Yii::$app->homeUrl, "icon" => "home"];
 
                         if(Yii::$app->user->can('label')) {
-                            $items[] = ["label" => Yii::t('app', 'Артисти'), "url" => ['/artist'], "icon" => "files-o"];
+                            $items[] = ["label" => Yii::t('app', 'Контрагенти'), "url" => ['/artist'], "icon" => "files-o"];
                             $items[] = ["label" => Yii::t('app', 'Альбоми'), "url" => ['/album'], "icon" => "files-o"];
                             $items[] = ["label" => Yii::t('app', 'Треки'), "url" => ['/track'], "icon" => "files-o"];
                             //$items[] = ['label' => Yii::t('app', 'Релізи'),  'url' => ['/release'], "icon" => "files-o"];
@@ -57,17 +56,14 @@ use yii\helpers\Html;
                             ];
                             $items[] = [
                                 'label' => Yii::t('app', 'Суб Лейбли'),
-                                'url' => '#',
+                                'url' => ['/sub-label'],
                                 "icon" => "table",
-                                'items'=> [
-                                    ['label' => Yii::t('app', 'Список лейбів'), 'url' => ['/sub-label']],
+                               // 'items'=> [
+                                   // ['label' => Yii::t('app', 'Список лейбів'), 'url' => ['/sub-label']],
                                     //['label' => Yii::t('app', 'Типи'), 'url' => ['/sub-label-type']],
-                                    ['label' => Yii::t('app', 'Інвойси'), 'url' => ['/sub-label/invoice']],
-                                ],
+                                    //['label' => Yii::t('app', 'Інвойси'), 'url' => ['/sub-label/invoice']],
+                              //  ],
                             ];
-                        }
-
-                        if(Yii::$app->user->can('moder')) {
                             $items[] = [
                                  'label' => Yii::t('app', 'Аналітика'),
                                 'url' => "#",
@@ -166,13 +162,12 @@ use yii\helpers\Html;
                                     ],
                                 ]
                             ]*/
-                    echo   \yiister\gentelella\widgets\Menu::widget([
-                           'items' => $items
-                       ])
-                        ?>
-                    </div>
-
-                </div>
+                    echo   Menu::widget([
+                                'items' => $items
+                            ]);
+                    ?>
+            </div>
+        </div>
                   <!-- /sidebar menu -->
 
                 <!-- /menu footer buttons -->
@@ -192,5 +187,5 @@ use yii\helpers\Html;
                     </a>
                 </div>-->
                 <!-- /menu footer buttons -->
-            </div>
-        </div>
+    </div>
+</div>

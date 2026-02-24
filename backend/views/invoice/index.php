@@ -53,7 +53,7 @@ $this->params['breadcrumbs'][] = $this->title;
 					return $data->aggregator_report_id;
 				}
             ],
-            /*[
+            [
                 'attribute' => 'label_id',
                 'format' => 'raw',
                 'filter' => ArrayHelper::map(SubLabel::find()->where(['active' => 1])->asArray()->all(), 'id', 'name'),
@@ -61,11 +61,11 @@ $this->params['breadcrumbs'][] = $this->title;
                 'value' => function($data) {
                     return $data->label->name;
                 },
-            ],*/
+            ],
             //'invoice_type',
             [
                 'attribute' => 'invoice_type',
-                'filter'=> [1 => 'Надходження', 2 =>'Виплата', 3 => 'Витрати', 4 => 'Аванс', 5 => 'Баланс'],
+                'filter'=> [1 => 'Надходження', 2 =>'Виплата', 3 => 'Витрати', 5 => 'Баланс'],
                 'value' => function($data) {
                     return $data->invoiceType->invoice_type_name;
                 },
@@ -109,13 +109,13 @@ $this->params['breadcrumbs'][] = $this->title;
             ],
             [
                 'attribute' => 'year',
-                'filter'=> [2024 => 2024, 2025 =>2025],
+                'filter'=> array_combine(range(2024, (int)date('Y')), range(2024, (int)date('Y'))),
             ],
             'description:text',
             //'last_update',
             [
                 'class' => 'yii\grid\ActionColumn',
-                'template' => in_array(yii::$app->user->id, [1, 16])? '{view} {update} {export-to-excel} {export-to-pdf-act-for-sub-label} {export-to-excel-report-for-sub-label} {delete}' : '{view} {export-to-excel} {export-to-pdf-act-for-sub-label} {export-to-excel-report-for-sub-label}'  ,// {update}  {delete} | {view-report} {export} {pdf}
+                'template' => in_array(yii::$app->user->id, [1, 16])? '{view} {update} {export-to-excel} {delete}' : '{view} {export-to-excel} '  ,// {update}  {delete} | {view-report} {export} {pdf}
                 'buttons' => [
                     'view-report' => function ($url, $model) {
                         return Html::a('<span class="glyphicon glyphicon-indent-left"></span>', $url, [
@@ -140,7 +140,7 @@ $this->params['breadcrumbs'][] = $this->title;
                        return Html::a('<span class="glyphicon glyphicon-cloud-download"></span>', $url, [
                            'title' => Yii::t('yii', 'Звіт по артистам в xlsx'),
                           // 'target' => '_blank',
-                           'style' => $model->invoice_type != 1 ? 'display:none;margin-left:5px;' : 'margin-left:5px;',
+                           'style' => !in_array($model->invoice_type, [1, 2]) ? 'display:none;margin-left:5px;' : 'margin-left:5px;',
                            'data-toggle'=>'tooltip',
                            'data-placement'=>'left',
                        ]);

@@ -25,9 +25,32 @@ use yii\widgets\ActiveForm;
                             <div class="col-sm-2">
                             <?= $form->field($model, 'active')->checkbox([ 'value' => 1,  'checked ' => true ]) ?>
                              </div>
-                            <div class="col-sm-4">
-                                <?= $form->field($model, 'percentage')->textInput(['max' => 100]) ?>
+                            <div class="col-sm-12 col-md-2">
+                                <?= $form->field($model, 'records')->checkbox([ 'value' => 1,  'checked ' => false ]) ?>
                             </div>
+
+                            <div class="col-sm-12 col-md-2">
+                                <?= $form->field($model, 'type_id')
+                                    ->widget(Select2::class, [
+                                        'model' => $model,
+                                        'data' => [
+                                            1 => 'Артіст',
+                                            2 => 'Партнер',
+                                        ],
+                                        'language' => 'uk',
+                                        'options' => ['placeholder' =>  Yii::t('app', 'Вкажіть тип'),],
+                                    ]) ?>
+                            </div>
+                            
+                            <?php if ($model->type_id > 1) { ?>
+                                <div class="ol-sm-12 col-md-3">
+                                    <?= $form->field($model, 'percentage')->textInput(['max' => 100]) ?>
+                                </div>
+                                <div class="col-sm-12 col-md-3">
+                                    <?= $form->field($model, 'percentage_distribution')->textInput(['max' => 100]) ?>
+                                </div>
+                           <?php } ?>
+                            
                             <div class="col-sm-6">
                                 <?= $form->field($model, 'label_id')->widget(Select2::class, [
                                     'model' => $model,
@@ -52,7 +75,7 @@ use yii\widgets\ActiveForm;
                                             2 => 'ЮР',
                                     ],
                                     'language' => 'uk',
-                                    'options' => ['placeholder' =>  Yii::t('app', 'Вкажіть тип'),],
+                                    'options' => ['placeholder' =>  Yii::t('app', 'Вкажіть тип су\'єкта'),],
                                 ]) ?>
                             </div>
                             <div class="col-sm-6">

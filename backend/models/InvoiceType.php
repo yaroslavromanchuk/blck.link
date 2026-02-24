@@ -18,9 +18,9 @@ class InvoiceType extends \yii\db\ActiveRecord
 {
     public static int $debit = 1; // Надходження
     public static int $credit = 2; // Виплата
-    public static int $costs = 3;
-    public static int $advance = 4;
-    public static int $balance = 4;
+    public static int $costs = 3; // Витрати
+    public static int $advance = 4; // Аванс
+    public static int $balance = 5; // Баланс
     /**
      * {@inheritdoc}
      */

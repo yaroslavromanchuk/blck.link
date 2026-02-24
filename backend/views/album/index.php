@@ -10,7 +10,7 @@ use yii\widgets\Pjax;
 /** @var backend\models\AlbumSearch $searchModel */
 /** @var yii\data\ActiveDataProvider $dataProvider */
 
-$this->title = 'Albums';
+$this->title = 'Альбоми';
 $this->params['breadcrumbs'][] = $this->title;
 ?>
 <div class="albums-index">
@@ -18,7 +18,7 @@ $this->params['breadcrumbs'][] = $this->title;
     <h1><?= Html::encode($this->title) ?></h1>
 
     <p>
-        <?= Html::a('Create Albums', ['create'], ['class' => 'btn btn-success']) ?>
+        <?= Html::a('Створити альбом або лінк', ['create'], ['class' => 'btn btn-success']) ?>
     </p>
 
     <?php Pjax::begin(); ?>
@@ -40,7 +40,7 @@ $this->params['breadcrumbs'][] = $this->title;
 			'name',
 			[
 				//'attribute' => 'artist_id',
-				'label' => 'Артіст',
+				'label' => 'Артист',
 				'value' => function ($model) {
 					return $model->artist->name;
 				},
@@ -60,9 +60,9 @@ $this->params['breadcrumbs'][] = $this->title;
             ],
             [
                 'attribute' => 'url',
-                'format' => 'raw',
+               // 'format' => 'string',
                 'value' => function ($model) {
-                    return Html::a('<span style="font-size: 1em" class="glyphicon glyphicon-eye-open"></span>', 'https://blck.link/album/' . $model->url, ['target' => '_blank']);
+                    return 'https://blck.link/album/' . $model->url;
                 },
             ],
 			//'url:url',
@@ -77,15 +77,25 @@ $this->params['breadcrumbs'][] = $this->title;
             //'sharing',
             //'views',
             //'click',
-            //'active',
+            'active:boolean',
             //'servise:ntext',
             'date_added',
             //'last_update',
             [
-                'class' => ActionColumn::className(),
-                'urlCreator' => function ($action, Albums $model, $key, $index, $column) {
+                'class' => ActionColumn::class,
+               /* 'urlCreator' => function ($action, Albums $model, $key, $index, $column) {
                     return Url::toRoute([$action, 'id' => $model->id]);
-                 }
+                 },*/
+                'template' => '{view} {update} {delete}',
+                 'buttons' => [
+                         'view' => function ($url, $model) {
+                             return Html::a('<span class="glyphicon glyphicon-eye-open"></span>', 'https://blck.link/album/' . $model->url, [
+                                 'title' => 'View',
+                                 'target' => '_blank',
+                                 'data-pjax' => '0',
+                             ]);
+                         },
+                 ],
             ],
         ],
     ]); ?>

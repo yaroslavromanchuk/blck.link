@@ -25,10 +25,10 @@ use yii\widgets\ActiveForm;
             <?= $form->field($model, 'active')->checkbox([0 => 'Inactive', 1 => 'Active']) ?>
         </div>
         <div class="col-sm-6 col-md-3">
-            <?= $form->field($model, 'percentage')->textInput(['maxlength' => true]) ?>
+            <?php // $form->field($model, 'percentage')->textInput(['maxlength' => true]) ?>
         </div>
         <div class="col-sm-6 col-md-3">
-            <?= $form->field($model, 'percentage_distribution')->textInput(['maxlength' => true]) ?>
+            <?php // $form->field($model, 'percentage_distribution')->textInput(['maxlength' => true]) ?>
         </div>
 
         <div class="col-sm-6 col-md-3">
