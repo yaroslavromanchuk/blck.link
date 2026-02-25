@@ -623,7 +623,7 @@ let id = $(this).data('id');
 let key = 'td' + id;
 
     $.ajax({
-        url: '/invoice-items/mail/?id='+id, // ваш екшн
+        url: '/invoice-items/mail?id='+id, // ваш екшн
         type: 'GET',
         //data: {id: id},
         success: function (response) {
@@ -643,7 +643,7 @@ let id = $(this).data('id');
 let key = 'td' + id;
 
     $.ajax({
-        url: '/invoice-items/approve/?id='+id,
+        url: '/invoice-items/approve?id='+id,
         type: 'GET',
         success: function (response) {
             // Оновлюємо лише потрібний рядок у GridView
@@ -662,7 +662,7 @@ let id = $(this).data('id');
 let key = 'td' + id;
 
     $.ajax({
-        url: '/invoice-items/pay/?id='+id,
+        url: '/invoice-items/pay?id='+id,
         type: 'GET',
         success: function (response) {
             // Оновлюємо лише потрібний рядок у GridView

@@ -235,7 +235,7 @@ class Invoice extends \yii\db\ActiveRecord
     {
         return Yii::$app->db->createCommand("SELECT
                         a.name,
-                        sum(abs(ii.amount)) as sum,
+                        ROUND(sum(abs(ii.amount)), 2) as sum,
                         c.currency_name
                     FROM `invoice_items` ii
                         INNER JOIN invoice i ON i.invoice_id = ii.invoice_id

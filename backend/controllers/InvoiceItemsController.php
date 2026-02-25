@@ -379,7 +379,7 @@ class InvoiceItemsController extends Controller
         
         // перевірка чи всі дані заповнені
         if($this->checkBeforeExport($model) !== true) {
-            Yii::$app->session->setFlash('error', 'У артиста не заповнені всі дані');
+           // Yii::$app->session->setFlash('error', 'У артиста не заповнені всі дані');
             
             return $this->redirect(['invoice/view', 'id' => $model->invoice_id]);
         }
@@ -503,14 +503,14 @@ class InvoiceItemsController extends Controller
             }
             
             
-            header("Location: /xls/".$filename);
+           header("Location: /xls/".$filename);
             exit;
         }
 
         // перевірка чи всі дані заповнені
-        if($this->checkBeforeExport($model) !== true) {
-            return $this->redirect(['invoice/view', 'id' => $model->invoice_id]);
-        }
+      //  if($this->checkBeforeExport($model) !== true) {
+       //     return $this->redirect(['invoice/view', 'id' => $model->invoice_id]);
+      //  }
         
         if ($model->artist->type_id == 1) {
             $spreadSheet = $this->generateReportInternalArtist($model, $invoiceItemsIds);
@@ -550,17 +550,17 @@ class InvoiceItemsController extends Controller
             return $this->redirect(['invoice/view', 'id' => $model->invoice_id]);
         }*/
         // перевірка чи всі дані заповнені
-        if($this->checkBeforeExport($model) !== true) {
-            Yii::$app->session->setFlash('error', 'У артиста не заповнені всі дані');
-            return $this->redirect(['invoice/view', 'id' => $model->invoice_id]);
-        }
+       // if($this->checkBeforeExport($model) !== true) {
+         //   Yii::$app->session->setFlash('error', 'У артиста не заповнені всі дані');
+       //     return $this->redirect(['invoice/view', 'id' => $model->invoice_id]);
+       // }
 
         $attach = [];
         $invoiceItemsIds = $this->getAllInvoiceItemsForArtist($model, InvoiceStatus::InProgress, 1);
 		
 		$invoiceIds = $invoiceItemsIds['invoice'];
 		sort($invoiceIds);
-		$name = Str::transliterate($model->artist->name) . "_" . implode('_', $invoiceIds);
+		//$name = Str::transliterate($model->artist->name) . "_" . implode('_', $invoiceIds);
 		
         //$date = new \DateTime($model->invoice->date_pay);
         //$name = Str::transliterate($model->artist->name);
@@ -574,12 +574,16 @@ class InvoiceItemsController extends Controller
          }*/
 
         //$balanceFileName = $date->format('Y_m_d') . "_{$name}_balance_q{$model->invoice->quarter}_invoice_{$model->invoice->invoice_id}.pdf";
-        $reportFileName = "report_{$name}_q{$model->invoice->quarter}_year_{$model->invoice->year}.xlsx";
+        //$reportFileName = "report_{$name}_q{$model->invoice->quarter}_year_{$model->invoice->year}.xlsx";
+       // $excel =  self::$homePage .  'xls/' .$reportFileName;
+        
+        $reportFileName = $this->actionExportAct($id, false, $invoiceItemsIds);
+        
         $excel =  self::$homePage .  'xls/' .$reportFileName;
 
-        if (!file_exists($excel)) {
-            $this->actionExportAct($id, false, $invoiceItemsIds);
-        }
+      //  if (!file_exists($excel)) {
+         //   $this->actionExportAct($id, false, $invoiceItemsIds);
+      //  }
 
         $attach[] = [$excel, ['fileName' => $reportFileName]];
 
@@ -769,14 +773,21 @@ class InvoiceItemsController extends Controller
         
         $i = 3;
         
-        // $sum = [];//['USD'=>0, 'EUR'=>0, 'UAH'=>0];
-        //  $sum2 = [];//['USD'=>0, 'EUR'=>0, 'UAH'=>0];
+         $sum = ['USD'=>0, 'EUR'=>0, 'UAH'=>0];//['USD'=>0, 'EUR'=>0, 'UAH'=>0];
+         // $sum2 = ['USD'=>0, 'EUR'=>0, 'UAH'=>0];
         // $costs = [];
         $balance = [];
+        //$sum = [];
+        $curs = [
+            'EUR' => 1,
+            'UAH' => 1,
+            'USD' => 1,
+        ];
         
         foreach ($invoiceItemsIds['items'] as $id) {
             $_model = ($id == $model->id) ? $model : $this->findModel($id);
-            // $sum[$_model->invoice->currency->currency_name] = round(($_model->amount < 0 ? $_model->amount * -1 : $_model->amount), 2);
+            $curs[$_model->invoice->currency->currency_name] = $_model->invoice->exchange;
+            $sum[$_model->invoice->currency->currency_name] = round(($_model->amount < 0 ? $_model->amount * -1 : $_model->amount), 2);
             
             $balance[$_model->invoice->currency_id] = Artist::getLog(
                 $_model->artist_id,
@@ -788,11 +799,20 @@ class InvoiceItemsController extends Controller
             );
         }
         
-        foreach ($balance[1] as $key => $item) { // 1 - EURO
+        $cur = 1;
+        
+        if (!isset($balance[1])) {
+            if (isset($balance[2])) {
+                $cur = 2;
+            } else {
+                $cur = 3;
+            }
+        }
+        foreach ($balance[$cur] as $key => $item) { // 1 - EURO
             $tempData[$i] = [
                 0 => strip_tags($item['name']),
-                1 => number_format($item['value'], 2, '.', ''),
-                2 => $item['currency_name'] ?? 'EUR',
+                1 => number_format($balance[1][$key]['value'] ?? 0, 2, '.', ''),
+                2 => $balance[1][$key]['currency_name'] ?? 'EUR',
                 3 => number_format($balance[3][$key]['value'] ?? 0, 2, '.', ''),
                 4 => $balance[3][$key]['currency_name'] ?? 'USD',
                 5 => number_format($balance[2][$key]['value'] ?? 0, 2, '.', ''),
@@ -879,6 +899,27 @@ class InvoiceItemsController extends Controller
         
         // зберегти баланс на першому аркуші
         $workSheet->fromArray($tempData);
+        
+        $workSheet->setCellValue('I3', 'Валюта');
+        $workSheet->setCellValue('J3', 'Сума');
+        $workSheet->setCellValue('K3', 'Курс');
+        $workSheet->getStyle('I3')->getFont()->setBold(true);
+        $workSheet->getStyle('J3')->getFont()->setBold(true);
+        $workSheet->getStyle('K3')->getFont()->setBold(true);
+        $x = 4;
+        
+        foreach ($sum as $currency => $value) {
+            if ($value > 0) {
+                $workSheet->setCellValue('I' . $x, $currency);
+                $workSheet->setCellValue('J' . $x, number_format($value, 4, '.', ''));
+                
+                if (isset($curs[$currency]) && $curs[$currency] != 1) {
+                    $workSheet->setCellValue('K' . $x, number_format($curs[$currency], 4, '.', ''));
+                }
+                $x++;
+            }
+        }
+        
         $workSheet->setSelectedCell('A1');
         #endregion Баланс
         
@@ -888,16 +929,16 @@ class InvoiceItemsController extends Controller
         foreach ($invoiceItemsIds['items'] as $id) {
             $_model = ($id == $model->id) ? $model : $this->findModel($id);
             $tracks = $this->getReportData($_model->invoice_id, $_model->artist_id);
-            
+            $curs[$_model->invoice->currency->currency_name] = $_model->invoice->exchange;
             if (!empty($tracks)) {
                 $data = array_merge($data, $tracks);
-                //$sum2[$_model->invoice->currency->currency_name] = round(array_sum(array_column($tracks, 'amount_2')), 2);
+                $sum2[$_model->invoice->currency->currency_name] = round(array_sum(array_column($tracks, 'amount_2')), 2);
             }
             
             $feats = $this->getReportDataFeat($_model->invoice_id, $_model->artist_id);
             
             if (!empty($feats)) {
-                //$sum2[$_model->invoice->currency->currency_name] += round(array_sum(array_column($feats, 'amount_2')), 2);
+                $sum2[$_model->invoice->currency->currency_name] += round(array_sum(array_column($feats, 'amount_2')), 2);
                 $data = array_merge($data, $feats);
             }
             
@@ -1136,7 +1177,7 @@ class InvoiceItemsController extends Controller
             ->setHorizontal(Alignment::HORIZONTAL_CENTER)
             ->setVertical(Alignment::HORIZONTAL_CENTER);
         
-        $workSheet->getColumnDimension('A')->setWidth(6);
+        $workSheet->getColumnDimension('A')->setWidth(10);
         $workSheet->getColumnDimension('B')->setWidth(15);
         $workSheet->getColumnDimension('C')->setWidth(15);
         $workSheet->getColumnDimension('D')->setWidth(13);
@@ -1185,8 +1226,16 @@ class InvoiceItemsController extends Controller
         
         $temp3 = [];
         
+        $curs = [
+            'EUR' => 1,
+            'UAH' => 1,
+            'USD' => 1,
+        ];
+        
         foreach ($invoiceItemsIds['items'] as $invoiceId) {
             $_model = ($invoiceId == $model->invoice_id) ? $model : $this->findModel($invoiceId);
+            
+            $curs[$_model->invoice->currency->currency_name] = $_model->invoice->exchange;
             
             $tracks = $this->getReportDataXls($_model->invoice_id, $_model->artist_id);
             if (!empty($tracks)) {
@@ -1235,6 +1284,13 @@ class InvoiceItemsController extends Controller
         $j = $i+2;
         $workSheet->setCellValue('A' . $j, 'Всього:');
         $workSheet->getStyle('A'. $j)->getFont()->setBold(true);
+        ++$j;
+        $workSheet->setCellValue('A' . $j, 'Валюта');
+        $workSheet->setCellValue('B' . $j, 'Сума');
+        $workSheet->setCellValue('C' . $j, 'Курс');
+        $workSheet->getStyle('A'. $j)->getFont()->setBold(true);
+        $workSheet->getStyle('B'. $j)->getFont()->setBold(true);
+        $workSheet->getStyle('C'. $j)->getFont()->setBold(true);
         
         foreach ($sum as $key => $item) {
             if (empty($item)) {
@@ -1243,10 +1299,11 @@ class InvoiceItemsController extends Controller
             
             $temp = ++$j;
             $workSheet->setCellValue('A' . $temp, $key);
-            $workSheet->setCellValue('B' . $temp, round($item, 2));
+            $workSheet->setCellValue('B' . $temp, round($item, 4));
             
-            $workSheet->getStyle('A'. $temp)->getFont()->setBold(true);
-            $workSheet->getStyle('B'. $temp)->getFont()->setBold(true);
+            if (isset($curs[$key]) && $curs[$key] != 1) {
+                $workSheet->setCellValue('C' . $temp, round($curs[$key], 4));
+            }
         }
         
         $spreadSheet->createSheet();
@@ -1264,9 +1321,16 @@ class InvoiceItemsController extends Controller
         
         $i = count($tempData2);
         
-        $j = $i+1;
+        $j = $i+2;
         $workSheet->setCellValue('A' . $j, 'Всього:');
         $workSheet->getStyle('A'. $j)->getFont()->setBold(true);
+        ++$j;
+        $workSheet->setCellValue('A' . $j, 'Валюта');
+        $workSheet->setCellValue('B' . $j, 'Сума');
+        $workSheet->setCellValue('C' . $j, 'Курс');
+        $workSheet->getStyle('A'. $j)->getFont()->setBold(true);
+        $workSheet->getStyle('B'. $j)->getFont()->setBold(true);
+        $workSheet->getStyle('C'. $j)->getFont()->setBold(true);
         
         foreach ($sum as $key => $item) {
             if (empty($item)) {
@@ -1275,9 +1339,11 @@ class InvoiceItemsController extends Controller
             
             $temp = ++$j;
             $workSheet->setCellValue('A' . $temp, $key);
-            $workSheet->setCellValue('B' . $temp, round($item, 2));
-            $workSheet->getStyle('A'. $temp)->getFont()->setBold(true);
-            $workSheet->getStyle('B'. $temp)->getFont()->setBold(true);
+            $workSheet->setCellValue('B' . $temp, round($item, 4));
+            
+            if (isset($curs[$key]) && $curs[$key] != 1) {
+                $workSheet->setCellValue('C' . $temp, round($curs[$key], 4));
+            }
         }
         
         // переключитись на 1 аркуш
@@ -1289,11 +1355,11 @@ class InvoiceItemsController extends Controller
     private function getReportDataXls(int $invoice_id, int $artist_id): \yii\db\DataReader|array
     {
         $query = "SELECT qq.*,
-o.name as prav1,
-COALESCE(atu.name, a2ow.name) as prav2,
-COALESCE(a_s.name, qq.p3) as platform,
-c.currency_name
-FROM (SELECT  t.artist_name as artist_name,
+                    o.name as prav1,
+                    COALESCE(atu.name, a2ow.name) as prav2,
+                    COALESCE(a_s.name, qq.p3) as platform,
+                    c.currency_name
+                    FROM (SELECT  t.artist_name as artist_name,
                     t.name as track_name,
                     ii2.artist_percentage as percentage,
                   	ii2.percentage as percentage_label,

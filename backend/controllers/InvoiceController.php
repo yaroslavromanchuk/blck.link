@@ -574,6 +574,7 @@ class InvoiceController extends Controller
 
             return;
         }
+        
         switch ($model->invoice_type) {
             case 1:
                 $filename = "report_aggregator_{$model->aggregator_id}_q{$model->quarter}_{$model->invoice_id}.xlsx";
@@ -581,11 +582,14 @@ class InvoiceController extends Controller
             case 2:
                 $filename = "report_invoice_q{$model->quarter}_{$model->invoice_id}.xlsx";
                 break;
+            default: $filename = '';
         }
         
 
         if (file_exists(self::$homePage . 'xls/' .$filename)) {
-            $this->redirect("/xls/".$filename);
+            header("Location: /xls/".$filename);
+            exit;
+           // $this->redirect("/xls/".$filename);
         }
         if ($model->invoice_type == 1) {
             $spreadSheet = new Spreadsheet();
@@ -619,9 +623,9 @@ class InvoiceController extends Controller
             
             if (count($data)) {
                 $i = (count($data) +2);
-                $workSheet->setCellValue('C' . $i, round(array_sum(array_column($data, 'all_sum')), 4));
-                $workSheet->setCellValue('D' . $i, round(array_sum(array_column($data, 'artist_sum')), 4));
-                $workSheet->setCellValue('E' . $i, round(array_sum(array_column($data, 'label_sum')), 4));
+                $workSheet->setCellValue('C' . $i, round(array_sum(array_column($data, 'all_sum')), 2));
+                $workSheet->setCellValue('D' . $i, round(array_sum(array_column($data, 'artist_sum')), 2));
+                $workSheet->setCellValue('E' . $i, round(array_sum(array_column($data, 'label_sum')), 2));
                 $workSheet->getStyle('C'. $i . ':E' . $i)->getFont()->setBold(true);
                 //$workSheet->getStyle('D'. (count($tempData)))->getFont()->setBold(true);
                 //$workSheet->getStyle('E'. (count($tempData)))->getFont()->setBold(true);
@@ -653,8 +657,9 @@ class InvoiceController extends Controller
 
         $writer = new Xlsx($spreadSheet);
         $writer->save(self::$homePage .'xls/' .  $filename);
-
-        $this->redirect("/xls/" . $filename);
+        header("Location: /xls/".$filename);
+        exit;
+       // $this->redirect("/xls/" . $filename);
     }
 
 
