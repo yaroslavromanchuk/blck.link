@@ -67,6 +67,20 @@ $this->params['breadcrumbs'][] = $this->title;
                     return $model->admin->getFullName();
                 }
             ],
+            [
+                'attribute' => 'img',
+                
+                'format' => 'raw',
+                'value' => function ($model) {
+                    return $model->img
+                        ? Html::img($model->image, [
+                            'style' => 'max-width:200px; border-radius:8px;',
+                            'alt' => 'image'
+                        ])
+                        : '<span class="text-muted">Немає зображення</span>';
+                },
+            
+            ]
         ],
     ]) ?>
 

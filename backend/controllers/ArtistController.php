@@ -3,6 +3,7 @@
 namespace backend\controllers;
 
 use aki\telegram\Telegram;
+use backend\helpers\InvoiceService;
 use backend\models\ArtistLog;
 use backend\models\Invoice;
 use backend\models\InvoiceItems;
@@ -31,6 +32,7 @@ use yii\web\UploadedFile;
 use yii\web\Response;
 use yii\bootstrap\ActiveForm;
 use yii\filters\AccessControl;
+use yii\helpers\Url;
 
 /**
  * ArtistController implements the CRUD actions for Artist model.
@@ -68,7 +70,7 @@ class ArtistController extends Controller
                     // Створення/оновлення тільки для залогінених
                     [
                         'allow' => true,
-                        'actions' => ['view', 'create', 'update', 'modal', 'calculate-deposit',  'create-invoice', 'export-act', 'export-balance', 'export-artist'],
+                        'actions' => ['view', 'create', 'update', 'modal', 'calculate-deposit',  'create-invoice', 'export-act', 'export-balance', 'export-artist', 'mail'],
                         'roles' => ['moder'],
                     ],
                     // Видалення лише для ролі 'admin'
@@ -218,12 +220,9 @@ class ArtistController extends Controller
         $iban = $model->iban;
         
         $currentData = $model->toArray();
-
         if($model->load(Yii::$app->request->post())) {
             
             $newData = $model->toArray();
-            
-            
             
             $file = UploadedFile::getInstance($model, 'file');
 
@@ -311,16 +310,42 @@ class ArtistController extends Controller
     public function actionCreateInvoice()
     {
         $model = new Invoice();
-
-        if (Yii::$app->request->isAjax) {
+        
+        // Ajax-validate
+        if (Yii::$app->request->isAjax && $model->load(Yii::$app->request->post())) {
             Yii::$app->response->format = Response::FORMAT_JSON;
-           $model->load(Yii::$app->request->post());
-
-            return ActiveForm::validate($model);
+            return \yii\widgets\ActiveForm::validate($model);
         }
-
+        
+        $artistIds = explode(',', Yii::$app->request->post('Invoice')['artist_ids'] ?? '');
+        
+        if (empty($artistIds) || !is_array($artistIds)) {
+            return [
+                'success' => false,
+                'message' => 'Артисти не передані'
+            ];
+        }
+        
+        try {
+            $invoiceId = InvoiceService::createPayFromArtists($artistIds, Yii::$app->request->post());
+            
+            return [
+                'success' => true,
+                'url' => Url::to(['invoice/view', 'id' => $invoiceId], true)
+            ];
+            
+        } catch (\Throwable $e) {
+            Yii::error($e);
+            
+            return [
+                'success' => false,
+                'message' => $e->getMessage()
+            ];
+        }
+        
         if ($model->load(Yii::$app->request->post()) && $model->validate()) {
-
+            Yii::$app->response->format = Response::FORMAT_JSON;
+            
             $model->description = 'Виплата за ' .$model->quarter . 'кв ' . $model->year;
             if ($model->save()) {
                 $Invoice = Yii::$app->request->post('Invoice');
@@ -368,20 +393,34 @@ class ArtistController extends Controller
                 }
 
                 $model->calculate();
-
-                return $this->redirect(['invoice/view', 'id' => $model->invoice_id]);
-            } else {
-                Yii::$app->session->setFlash('error', 'Не вдалось створити інвойс');
-
-                return $this->redirect(['artist/index']);
+                
+                
+                return [
+                    'success' => true,
+                    'url' => Url::to(['invoice/view', 'id' => $model->invoice_id], true),
+                ];
+                
+               // return $this->redirect(['invoice/view', 'id' => $model->invoice_id]);
             }
-        } else {
-            $errors = $model->getErrors();
-
-            Yii::$app->session->setFlash('error', 'Помилка сворення інвойсу на виплату: ' .current($errors));
+            //   Yii::$app->session->setFlash('error', 'Не вдалось створити інвойс');
+            return [
+                'success' => false,
+                'message' => 'Не вдалось створити інвойс',
+            ];
+         //   return $this->redirect(['artist/index']);
         }
+        
+        $errors = $model->getErrors();
 
-        return $this->redirect(['artist/index']);
+       // Yii::$app->session->setFlash('error', 'Помилка сворення інвойсу на виплату: ' .current($errors));
+        
+        return [
+            'success' => false,
+            'message' => 'Помилка сворення інвойсу на виплату: ' .current($errors)
+        ];
+        
+
+       // return $this->redirect(['artist/index']);
     }
 
     /**
@@ -517,9 +556,11 @@ class ArtistController extends Controller
     {
         $model = $this->findModel($id);
         //$lastInvoice = $model->getLastPayInvoice();
-        $lastInvoice = (new \yii\db\Query())
-            ->from(InvoiceItems::tableName())
-            ->select('invoice.invoice_id,
+        
+        if (is_null($quarter)|| is_null($year)) {
+            $lastInvoice = (new \yii\db\Query())
+                ->from(InvoiceItems::tableName())
+                ->select('invoice.invoice_id,
              invoice.currency_id,
               invoice.quarter,
                invoice.year,
@@ -527,46 +568,32 @@ class ArtistController extends Controller
                  invoice.date_added,
                   abs(invoice_items.amount) as amount
             ')
-            ->innerJoin(Invoice::tableName(), 'invoice.invoice_id = invoice_items.invoice_id')
-            ->where([
-                'invoice.invoice_status_id' => [2, 4],
-                'invoice.invoice_type' => 2,
-            ])->orderBy(['invoice.year' => SORT_DESC, 'invoice.quarter' => SORT_DESC])
-            ->limit(1)
-            ->one();
-        
-        $quarter = $lastInvoice['quarter'] ?? null;
-        $year = $lastInvoice['year'] ?? null;
-        
-        $curPayQuarter = DateFormat::getQuarterNumber();
-        $curPayYear = (int)date('Y');
-        
-        $m = DateFormat::getQuarterDate($quarter, $year);
-        
-        if (date('m', strtotime($m['start'])) != date('m')) {
-            //  Yii::$app->session->setFlash('error', 'Генерація звіту доступна лише в перший місця кварталу, в період виплати!');
+                ->innerJoin(Invoice::tableName(), 'invoice.invoice_id = invoice_items.invoice_id')
+                ->where([
+                    'invoice.invoice_status_id' => [2, 4],
+                    'invoice.invoice_type' => 2,
+                ])->orderBy(['invoice.year' => SORT_DESC, 'invoice.quarter' => SORT_DESC])
+                ->limit(1)
+                ->one();
             
-            //return '';
+            $quarter = $lastInvoice['quarter'] ?? null;
+            $year = $lastInvoice['year'] ?? null;
         }
         
-        if ($curPayQuarter == 1) {
-            $curPayQuarter = 4;
-            $year--;
-        } else {
-            $curPayQuarter--;
-        }
-        
-        if (null == $quarter || $quarter != $curPayQuarter) {
-            $quarter = $curPayQuarter;
-            $year = $curPayYear;
+        if (null == $quarter || null == $year) {
+            Yii::$app->session->setFlash('error', 'Генерація звіту доступна лише в період виплати!');
+            
+            return '';
         }
         
         $name = Str::transliterate($model->name);
         $filename = "report_q_{$quarter}_{$year}_{$name}.xlsx";
         
-        if (file_exists(self::$homePage . 'xls/' . $filename) and false) {
+        if (file_exists(self::$homePage . 'xls/' . $filename)) {
             if ($redirect) {
-                $this->redirect("/xls/" . $filename);
+                header("Location: /xls/".$filename);
+                exit;
+                //$this->redirect("/xls/" . $filename);
             } else {
                 return $filename;
             }
@@ -606,57 +633,21 @@ class ArtistController extends Controller
         $workSheet->getColumnDimension('E')->setWidth(12);
         $workSheet->getColumnDimension('F')->setWidth(12);
         $workSheet->getColumnDimension('G')->setWidth(12);
-        //$workSheet->mergeCells('A1:B1');
         
         $workSheet->getStyle('A1:G1')->getFont()->setBold(true);
-        //$workSheet->getStyle('A1:G1')->getFill()->getStartColor()->setRGB('BFBFBF');
-        $workSheet->getStyle('A1:G1')
-            ->getFill()
-            ->setFillType(Fill::FILL_SOLID)
-            ->getStartColor()
-            ->setARGB('BFBFBF');;
+        $workSheet->getStyle('A1:G1')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB('BFBFBF');;
+        $workSheet->getStyle("A1:G1")->getBorders()->getOutline()->setBorderStyle(Border::BORDER_THIN)->getColor()->setRGB('000000'); // чорний
+        
         $workSheet->getStyle('A3:G3')->getFont()->setBold(true);
+        $workSheet->getStyle('A3:G3')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('BFBFBF');
+        $workSheet->getStyle("A3:G3")->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN)->getColor()->setRGB('000000'); // чорний
+        //$workSheet->getStyle("A3:G3")->getBorders()->getInside()->setBorderStyle(Border::BORDER_THIN)->getColor()->setRGB('000000'); // чорний
+        //$workSheet->getStyle("A14:G14")->getBorders()->getOutline()->setBorderStyle(Border::BORDER_THIN)->getColor()->setRGB('000000'); // чорний
+        
+        $workSheet->getStyle("A3:G14")->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN)->getColor()->setRGB('000000'); // чорний
         $workSheet->getStyle('A14:G14')->getFont()->setBold(true);
-        $workSheet->getStyle('A3:G3')
-            ->getFill()
-            ->setFillType(Fill::FILL_SOLID)
-            ->getStartColor()
-            ->setRGB('BFBFBF');
-        $workSheet->getStyle("A3:G3")
-            ->getBorders()
-            ->getOutline()
-            ->setBorderStyle(Border::BORDER_THIN)
-            ->getColor()
-            ->setRGB('000000'); // чорний
-        $workSheet->getStyle("A3:G3")
-            ->getBorders()
-            ->getInside()
-            ->setBorderStyle(Border::BORDER_THIN)
-            ->getColor()
-            ->setRGB('A5A5A5'); // сірий
-        $workSheet->getStyle("A14:G14")
-            ->getBorders()
-            ->getOutline()
-            ->setBorderStyle(Border::BORDER_THIN)
-            ->getColor()
-            ->setRGB('000000'); // чорний
-        
-        $workSheet->getStyle("A3:G14")
-            ->getBorders()
-            ->getOutline()
-            ->setBorderStyle(Border::BORDER_THIN)
-            ->getColor()
-            ->setRGB('000000'); // чорний
-        
         $tempData = [];
         $tempData[0] = ['Звіт за ' . $quarter . ' кв. ' . $year . ', ' . $model->name];  // 1
-        $workSheet->getStyle("A1:G1")
-            ->getBorders()
-            ->getBottom()
-            ->setBorderStyle(Border::BORDER_THIN)
-            ->getColor()
-            ->setRGB('000000'); // чорний
-        
         $tempData[1] = []; // 2
         
         $tempData[2] = [ // 3
@@ -710,30 +701,12 @@ class ArtistController extends Controller
             ];
             
             $workSheet->getStyle("A$i:G$i")->getFont()->setBold(true);
-            $workSheet->getStyle("A$i:G$i")->getFill()
-                ->setFillType(Fill::FILL_SOLID)
-                ->getStartColor()
-                ->setRGB('BFBFBF');
-            $workSheet->getStyle("A$i:G$i")
-                ->getBorders()
-                ->getInside()
-                ->setBorderStyle(Border::BORDER_THIN)
-                ->getColor()
-                ->setRGB('A5A5A5'); // чорний
+            $workSheet->getStyle("A$i:G$i")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('BFBFBF');
             
-            $workSheet->getStyle("A$i:G$i")
-                ->getBorders()
-                ->getOutline()
-                ->setBorderStyle(Border::BORDER_THIN)
-                ->getColor()
-                ->setRGB('000000'); // чорний
+            //$workSheet->getStyle("A$i:G$i")->getBorders()->getInside()->setBorderStyle(Border::BORDER_THIN)->getColor()->setRGB('000000'); // чорний
+            //$workSheet->getStyle("A$i:G$i")->getBorders()->getOutline()->setBorderStyle(Border::BORDER_THIN)->getColor()->setRGB('000000'); // чорний
+            $workSheet->getStyle("A$i:G" . ($i + count($income) + count($costs)))->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN)->getColor()->setRGB('000000'); // чорний
             
-            $workSheet->getStyle("A$i:G" . ($i + count($income) + count($costs)))
-                ->getBorders()
-                ->getOutline()
-                ->setBorderStyle(Border::BORDER_THIN)
-                ->getColor()
-                ->setRGB('000000'); // чорний
             $i++; // 18
             foreach ($income as $item) {
                 $tempData[$i] = [
@@ -821,22 +794,13 @@ class ArtistController extends Controller
                     ->setFillType(Fill::FILL_SOLID)
                     ->getStartColor()
                     ->setRGB('BFBFBF');
-                $workSheet->getStyle("A1:N1")
-                    ->getBorders()
-                    ->getInside()
-                    ->setBorderStyle(Border::BORDER_THIN)
-                    ->getColor()
-                    ->setRGB('A5A5A5'); // чорний
-                $workSheet->getStyle("A1:N1")
-                    ->getBorders()
-                    ->getOutline()
-                    ->setBorderStyle(Border::BORDER_THIN)
-                    ->getColor()
-                    ->setRGB('000000'); // чорний
+                
+               /// $workSheet->getStyle("A1:N1")->getBorders()->getInside()->setBorderStyle(Border::BORDER_THIN)->getColor()->setRGB('000000'); // чорний
+                //$workSheet->getStyle("A1:N1")->getBorders()->getOutline()->setBorderStyle(Border::BORDER_THIN)->getColor()->setRGB('000000'); // чорний
                 
                 $workSheet->getStyle("A1:N" . (count($data) + 1))
                     ->getBorders()
-                    ->getOutline()
+                    ->getAllBorders()
                     ->setBorderStyle(Border::BORDER_THIN)
                     ->getColor()
                     ->setRGB('000000'); // чорний
@@ -911,7 +875,9 @@ class ArtistController extends Controller
         $writer->save(self::$homePage . 'xls/' . $filename);
         
         if ($redirect) {
-            $this->redirect("/xls/" . $filename);
+            header("Location: /xls/".$filename);
+            exit;
+          //  $this->redirect("/xls/" . $filename);
         }
 
       return $filename;
@@ -980,8 +946,13 @@ class ArtistController extends Controller
             ->limit(1)
             ->one();
         
-        $reportFileName = $this->actionExportAct($id, null, null, false);
-        $excel =  self::$homePage .  'xls/' . $reportFileName;
+        $reportFileName = $this->actionExportAct($id, $lastInvoice['quarter'], $lastInvoice['year'], false);
+        
+        if (empty($reportFileName)) {
+            throw new \RuntimeException("Артисту {$model->name} не вдалось відправити звіт! Відсутній файл звіту. Зверніться до адміністратора.");
+        }
+        
+        $excel = self::$homePage .  'xls/' . $reportFileName;
         $attach[] = [$excel, ['fileName' => $reportFileName]];
         
         $mail = new Mail([
@@ -989,6 +960,7 @@ class ArtistController extends Controller
             'to' => [$model->email => $model->name],
             'subject' => "Black Beats | Royalty Report Q{$lastInvoice['quarter']} {$lastInvoice['year']}",
             //'bcc' => 'reports@blackbeatsmusic.com',
+            'bcc' => 'gmmkam123@gmail.com',
             'replyTo' => 'reports@blackbeatsmusic.com',
             'view' => [
                 'html' => 'artistBalanceNotification-html',
@@ -1004,10 +976,10 @@ class ArtistController extends Controller
         if ($mail->send('Balance Notification', $model)) {
            // Yii::$app->session->setFlash('success', "Артисту {$model->name} успішно відправлено звіт!");
             return 'Артисту ' . $model->name . ' успішно відправлено звіт на email:' . $model->email;
-        } else {
-            throw new \RuntimeException("Артисту {$model->name} не вдалось відправлено звіт! Зверніться до адміністратора.");
-            //  Yii::$app->session->setFlash('error', "Артисту {$model->artist->name} не вдалось відправлено звіт! Зверніться до адміністратора.");
         }
+        
+        throw new \RuntimeException("Артисту {$model->name} не вдалось відправити звіт! Зверніться до адміністратора.");
+        //  Yii::$app->session->setFlash('error', "Артисту {$model->artist->name} не вдалось відправлено звіт! Зверніться до адміністратора.");
         
        // return 'Артисту ' . $model->name . ' успішно відправлено звіт!';
         

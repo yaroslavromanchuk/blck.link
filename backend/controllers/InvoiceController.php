@@ -347,7 +347,8 @@ class InvoiceController extends Controller
                          SET ii.`payment_invoice_id`= {$model->invoice_id}
                          WHERE ii.artist_id in (SELECT distinct(artist_id) FROM `invoice_items` ii WHERE ii.invoice_id = {$model->invoice_id})
                             AND ii.payment_invoice_id is null
-                            AND i.currency_id = {$model->currency_id}"
+                            AND i.currency_id = {$model->currency_id}
+                            and ii.invoice_id < {$model->invoice_id}"
 				)->execute();
 		//	}
 			
@@ -378,7 +379,7 @@ class InvoiceController extends Controller
 								and i.invoice_status_id = 2
                             INNER JOIN invoice_items ii ON ii.invoice_id = i.invoice_id
                             	and ii.payment_invoice_id = {$model->invoice_id}
-                        SET ari.payment_invoice_id = {$model->invoice_id} 
+                        SET ari.payment_invoice_id = ii.payment_invoice_id
                         WHERE ari.payment_invoice_id is null 
                             AND ari.track_id = ii.track_id
                    ")->execute();
@@ -823,30 +824,32 @@ class InvoiceController extends Controller
                    a.name as artist,
                    a.full_name as full_name,
                    GROUP_CONCAT(distinct(ag.name)) as aggregator,
-                    i2.year as year_pay,
+                   i2.year as year_pay,
                     i2.quarter as quarter_pay,
                     IFNULL(ar.year, i.year) as year_in,
                     IFNULL(ar.quarter, i.quarter) as quarter_in,
                     sum(ii.amount) as sum_pay,
                     c.currency_name
                FROM `invoice_items` ii
-                    inner join invoice i ON i.invoice_id = ii.invoice_id and i.invoice_status_id IN (2, 4) and i.invoice_type != 2
-                    inner join artist a ON a.id = ii.artist_id #and a.label_id = 0
+                    inner join invoice i ON i.invoice_id = ii.invoice_id
+                           and i.invoice_status_id IN (2, 4)
+                           and i.invoice_type != 2
+                    inner join artist a ON a.id = ii.artist_id
+                    inner join invoice i2 ON i2.invoice_id = ii.payment_invoice_id and i2.invoice_type = 2 and i2.invoice_status_id IN (2, 4) and i2.currency_id = i.currency_id
                     left join aggregator_report ar ON ar.id = i.aggregator_report_id
-                    left join `invoice_items` ii2 ON ii2.invoice_id = ii.payment_invoice_id and ii.artist_id = ii2.artist_id
-                    inner join invoice i2 ON i2.invoice_id = ii2.invoice_id and i2.invoice_type =2 and i2.invoice_status_id IN (2, 4)
                     left join aggregator ag ON ag.aggregator_id = i.aggregator_id
                     left join currency c ON c.currency_id = i.currency_id
-                    LEFT JOIN sub_label sl ON sl.id = i.label_id
-               WHERE i.currency_id = i2.currency_id";
+                    LEFT JOIN sub_label sl ON sl.id = i2.label_id
+               WHERE 1
+               ";
         
         if ($model->invoiceId) {
-            $sql .= " and i2.invoice_id = {$model->invoiceId} ";
+            $sql .= " and ii.payment_invoice_id = {$model->invoiceId} ";
         } else {
             $sql .= " and i2.quarter = {$model->quarter}  and i2.year = {$model->year} ";
         }
         
-        $sql .="  GROUP BY ii.artist_id, ag.internal_type, ar.year, ar.quarter, i.currency_id
+        $sql .=" GROUP BY ii.artist_id, CONCAT(ar.year, '-', ar.quarter)
          ORDER BY i2.invoice_id desc, ii.artist_id asc,  IFNULL(ar.year, i.year) asc, IFNULL(ar.quarter, i.quarter) asc, i.aggregator_id asc;
          ";
         

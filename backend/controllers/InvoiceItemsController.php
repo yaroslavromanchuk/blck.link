@@ -191,7 +191,7 @@ class InvoiceItemsController extends Controller
     {
         $model = $this->findModel($id);
 
-        if ($model->invoice->invoice_status_id == InvoiceStatus::Calculated) {
+        if (false /*$model->invoice->invoice_status_id == InvoiceStatus::Calculated*/) {
             Yii::$app->session->setFlash('error', 'Неможна видаляти записи з інвойсу в статусі Проведений.');
 
             if (Yii::$app->request->isAjax) {
@@ -389,7 +389,7 @@ class InvoiceItemsController extends Controller
         $name = Str::transliterate($model->artist->name) . "_act_q{$model->invoice->quarter}_invoice_{$model->invoice->invoice_id}";
         $amount = 0;
         
-        if ($model->artist->type_id == 1) {
+        if ($model->artist->type_id == 1) { // артисти
             $invoiceItemsIds = !empty($invoiceItemsIds) ? $invoiceItemsIds : $this->getAllInvoiceItemsForArtist($model, $model->invoice->invoice_status_id);
             $invoiceIds = $invoiceItemsIds['invoice'];
             sort($invoiceIds);
@@ -408,8 +408,8 @@ class InvoiceItemsController extends Controller
 		
         if (file_exists(self::$homePage . 'pdf/' . $filename) && $redirect) {
            //$this->redirect("/pdf/".$filename);
-            header("Location: /pdf/".$filename);
-            exit;
+           // header("Location: /pdf/".$filename);
+          //  exit;
         }
         
 		$amount = abs($amount);
@@ -494,14 +494,16 @@ class InvoiceItemsController extends Controller
        // $name = Str::transliterate($model->artist->name);
         $name = Str::transliterate($model->artist->name) . "_" . implode('_', $invoiceIds);
       //  $filename = $date->format('Y_m_d') . "_{$name}_act_q{$model->invoice->quarter}_invoice_{$model->invoice->invoice_id}.xlsx";
-
+        // TODO: тимчасово для генерація нового звіту
+        if ($model->invoice_id == 538) {
+            $name .= "__";
+        }
         $filename = "report_{$name}_q{$model->invoice->quarter}_year_{$model->invoice->year}.xlsx";
-
+        
         if (file_exists(self::$homePage . 'xls/' .$filename) === true) {
             if ($redirect === false) {
                 return $filename;
             }
-            
             
            header("Location: /xls/".$filename);
             exit;
@@ -556,7 +558,7 @@ class InvoiceItemsController extends Controller
        // }
 
         $attach = [];
-        $invoiceItemsIds = $this->getAllInvoiceItemsForArtist($model, InvoiceStatus::InProgress, 1);
+        $invoiceItemsIds = $this->getAllInvoiceItemsForArtist($model, InvoiceStatus::InProgress);
 		
 		$invoiceIds = $invoiceItemsIds['invoice'];
 		sort($invoiceIds);
@@ -646,8 +648,6 @@ class InvoiceItemsController extends Controller
 
         if(InvoiceLog::add($model->invoice_id, InvoiceLogType::APPROVED, $model->artist_id)) {
             $tId = User::getTelegramId(14); // Тетяна бухгалтер
-            
-            
 
             if (!empty($tId)) {
                 $message = "Підтверджено виплату артистом {$model->artist->name}.\nІнвойс {$model->invoice_id}";
@@ -930,6 +930,7 @@ class InvoiceItemsController extends Controller
             $_model = ($id == $model->id) ? $model : $this->findModel($id);
             $tracks = $this->getReportData($_model->invoice_id, $_model->artist_id);
             $curs[$_model->invoice->currency->currency_name] = $_model->invoice->exchange;
+            
             if (!empty($tracks)) {
                 $data = array_merge($data, $tracks);
                 $sum2[$_model->invoice->currency->currency_name] = round(array_sum(array_column($tracks, 'amount_2')), 2);

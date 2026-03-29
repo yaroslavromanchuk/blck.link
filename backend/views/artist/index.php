@@ -55,10 +55,21 @@ $this->params['breadcrumbs'][] = $this->title;
             ->column();
     }, 3600); // Кешування на 1 годину (3600 секунд)
     
-    $countries = \backend\models\Country::getDb()->cache(function ($db) {
-        // Запит, результат якого буде кешовано
-        return \backend\models\Country::find()->asArray()->all();
+    
+    $countries = Yii::$app->cache->getOrSet('countries_map', function () {
+        return ArrayHelper::map(
+            \backend\models\Country::find()->select(['country_id', 'country_name'])->asArray()->all(),
+            'country_id',
+            'country_name'
+        );
     }, 3600); // Кешування на 1 годину (3600 секунд)
+    ?>
+
+
+    <?php Pjax::begin([
+    'timeout' => 5000,
+    'enablePushState' => false,
+    ]);
     ?>
 
     <?= GridView::widget([
@@ -75,13 +86,11 @@ $this->params['breadcrumbs'][] = $this->title;
             ['class' => 'yii\grid\SerialColumn'],
             [
                 'class' => 'yii\grid\CheckboxColumn',
-                'checkboxOptions' =>
-                    function($model) {
-                        if(!$model->id) {
-                            return ['value' => $model->id, 'class' => 'checkbox-row', 'disabled' => true];
-                        }else{
-                            return ['value' => $model->id, 'class' => 'checkbox-row'];
-                        }
+                'checkboxOptions' => static function ($model) {
+                        return [
+                            'value' => $model->id,
+                            'disabled' => !$model->id,
+                        ];
                     }
             ],
             [
@@ -90,7 +99,8 @@ $this->params['breadcrumbs'][] = $this->title;
                 'format' => 'raw',
                 'value' => function($data) {
                     return !empty($data->logo)
-                        ? '<div class="trumb_foto"> ' . Html::img($data->getLogo(),['alt' => 'logo', 'style' => 'border-radius: 50%;width:50px; padding:1px;']) .'</div>'
+                        ? '<div class="trumb_foto"> ' . Html::img($data->getLogo(),[
+                            'loading' => 'lazy', 'alt' => 'logo', 'style' => 'border-radius: 50%;width:50px; padding:1px;']) .'</div>'
                         : '';
                 },
             ],
@@ -129,7 +139,7 @@ $this->params['breadcrumbs'][] = $this->title;
             [ // name свойство зависимой модели owner
                 'attribute' => 'reliz',
                 'label' => Yii::t('app', 'Треків'),
-                'value' => function($data) { return $data->getTracks()->count(); },
+                'value' => fn($model) => $model->tracks_count,
             ],
            /* [
                 'attribute' => 'percentage',
@@ -188,7 +198,7 @@ $this->params['breadcrumbs'][] = $this->title;
                     },
                     'mail' => function ($url, $model, $key) {
                         /** @var \backend\models\Artist $model */
-                        $titleLog = '';
+                        $titleLog = 'Відправити звіт';
                         $logs = $model->getInvoiceLogs('Balance Notification');
                         $logs = array_filter($logs, function($log) {
                             return date('m-Y',strtotime($log->date_added)) == date('m-Y');
@@ -204,9 +214,10 @@ $this->params['breadcrumbs'][] = $this->title;
                 
                         return Html::a('<span class="glyphicon glyphicon-envelope" data-toggle="tooltip" data-placement="top" data-title=" ' . $titleLog. '"></span>', $url, [
                             'title' => Yii::t('yii', 'Відпрвити звіт'),
-                            'class' => 'btn btn-xs send-report' . ($model->hasNotified() ? ' hidden' : ''),
+                            'class' => 'btn btn-xs send-report',// . ($model->hasNotified() ? ' hidden' : ''),
                             'data-pjax' => '1',
-                            'style' => $model->country_id != 1 || !$model->notify ? 'display:none' : '',
+                            'disabled' => $model->hasNotified(),
+                            'style' => !$model->notify ? 'display:none' : '',
                             'data-id' => $model->id,
                         ]);
                     },
@@ -215,7 +226,7 @@ $this->params['breadcrumbs'][] = $this->title;
         ],
     ]); ?>
 
-    <?php //Pjax::end(); ?>
+    <?php Pjax::end(); ?>
 
 </div>
 <?=\backend\widgets\CreateInvoice::widget();?>
@@ -246,26 +257,14 @@ jQuery(function($) {
    });*/
     });
 
-$(document).on('click', 'a.send-report', function (e) {
-e.preventDefault();
+$(document).on('click', '.send-report', function(e) {
+    e.preventDefault();
+    const btn = $(this);
 
-console.log($(this).attr('href'));
-    $.ajax({
-        url: $(this).attr('href'), // ваш екшн
-        type: 'GET',
-        success: function (response) {
-            $(this).addClass('hidden');
-            $(this).hide();
-           // alert(response);
-        },
-        error: function (xhr, status, error) {
-            console.log(error);
-            alert('Помилка при відправці!');
-        }
-    });
-    $(this).addClass('hidden');
-    $(this).hide();
-    return false;
+    $.get(btn.attr('href'))
+        .done(() => btn.hide())
+        .fail(() => alert('Помилка'));
 });
+
 JS;
 $this->registerJs($script);

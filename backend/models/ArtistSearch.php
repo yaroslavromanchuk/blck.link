@@ -41,8 +41,23 @@ class ArtistSearch extends Artist
      */
     public function search(array $params): ActiveDataProvider
 	{
-        $query = Artist::find();
-
+        //$query = Artist::find();
+        
+        $query = Artist::find()
+            ->alias('a')
+            ->with([
+                'label',
+                'country',
+                'clientType',
+            ])
+            ->select([
+                'a.*',
+                'COUNT(t.id) AS tracks_count'
+            ])
+            ->leftJoin(['t' => 'track'], 't.artist_id = a.id')
+            ->groupBy('a.id');
+        
+        
         // add conditions that should always apply here
 
         $dataProvider = new ActiveDataProvider([
@@ -65,15 +80,15 @@ class ArtistSearch extends Artist
             // $query->where('0=1');
             return $dataProvider;
         }
-
+        
         // grid filtering conditions
         $query->andFilterWhere([
-            'id' => $this->id,
-            'active' => 1,//$this->active,
-            'type_id' => $this->type_id,
-            'label_id' => $this->label_id,
-            'country_id' => $this->country_id,
-            'notify' => $this->notify,
+            'a.id' => $this->id,
+            'a.active' => 1,//$this->active,
+            'a.type_id' => $this->type_id,
+            'a.label_id' => $this->label_id,
+            'a.country_id' => $this->country_id,
+            'a.notify' => $this->notify,
             //'reliz' => $this->reliz,
         ]);
 
@@ -83,29 +98,29 @@ class ArtistSearch extends Artist
           //  $query->andFilterWhere(['label_id' => Yii::$app->user->identity->label_id]);
       //  }
 
-        $query->andFilterWhere(['like', 'name', '%'.$this->name.'%', false])
+        $query->andFilterWhere(['like', 'a.name', '%'.$this->name.'%', false])
            // ->andFilterWhere(['like', 'full_name', '%'.$this->full_name.'%', false])
-            ->andFilterWhere(['like', 'phone', $this->phone])
-            ->andFilterWhere(['like', 'email', $this->email])
-            ->andFilterWhere(['like', 'date_last_payment', $this->date_last_payment])
+            ->andFilterWhere(['like', 'a.phone', $this->phone])
+            ->andFilterWhere(['like', 'a.email', $this->email])
+            ->andFilterWhere(['like', 'a.date_last_payment', $this->date_last_payment])
            // ->andFilterWhere(['=', 'last_payment_invoice', $this->last_payment_invoice])
-            ->andFilterWhere(['=', 'percentage', $this->percentage])
-            ->andFilterWhere(['>', 'deposit', $this->deposit])
-            ->andFilterWhere(['>', 'deposit_1', $this->deposit_1])
-            ->andFilterWhere(['>', 'deposit_3', $this->deposit_3]);
+            ->andFilterWhere(['=', 'a.percentage', $this->percentage])
+            ->andFilterWhere(['>', 'a.deposit', $this->deposit])
+            ->andFilterWhere(['>', 'a.deposit_1', $this->deposit_1])
+            ->andFilterWhere(['>', 'a.deposit_3', $this->deposit_3]);
         
         
         if (!empty($this->full_name)) {
-           $query->andFilterWhere(['like', 'full_name', '%'.$this->full_name.'%']);
+           $query->andFilterWhere(['like', 'a.full_name', '%'.$this->full_name.'%']);
        }
         
         if ($this->notify == 1) {
             
             $query->andFilterWhere([
                 'or',
-                ['!=', 'deposit', 0],
-                ['!=', 'deposit_1', 0],
-                ['!=', 'deposit_3', 0]
+                ['!=', 'a.deposit', 0],
+                ['!=', 'a.deposit_1', 0],
+                ['!=', 'a.deposit_3', 0]
             ]);
             
         }

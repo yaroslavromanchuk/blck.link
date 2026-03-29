@@ -50,10 +50,7 @@ use yii\helpers\Html;
                 <span class="badge"><?php echo !empty($model->deposit_euro) ? $model->deposit_euro + $model->getTotalAmount(3) : 0; ?> USD</span>
             </p>
             <?php if (!$model->is_album) { ?>
-                <p>
-                    <?=Yii::t('app', 'ISRC')?>
-                    <span class=""><?=$model->isrc?></span>
-                </p>
+                <p><?= (new \backend\helpers\Isrc($model->isrc))->getIsrc(true, true)?></p>
             <?php }?>
         </div>
         <div class="col-md-3">

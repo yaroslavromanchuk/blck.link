@@ -129,3 +129,54 @@ $years = array_combine($years, $years);
     </div>
 <?php
 Modal::end();
+
+$script = <<< JS
+$(document).on('beforeSubmit', '#create_invoice', function (e) {
+    e.preventDefault();
+    
+    const form = $(this);
+    let btn = form.find('#invoice-artist_ids');
+    btn.prop('disabled', true).text('Створюємо...');
+
+    // якщо є помилки валідації — не відправляємо
+    if (form.find('.has-error').length) {
+        return false;
+    }
+
+    $.ajax({
+        url: form.attr('action'),
+        type: 'POST',
+        data: form.serialize(),
+        success: function (response) {
+
+            if (response.success) {
+                
+                $.notify("Інвойс успішно створено", "success");
+                
+                // закрити модалку
+                $('#invoice-add-modal').modal('hide');
+
+                // відкрити інвойс
+                if (response.url) {
+                    window.open(response.url, '_blank');
+                }
+
+                // очистити чекбокси (опційно)
+                $('.grid-view').yiiGridView('clearSelection');
+
+            } else {
+                alert(response.message || 'Помилка створення інвойсу');
+            }
+        },
+        error: function () {
+            alert('Помилка сервера');
+        }
+    });
+    
+     btn.prop('disabled', false).text('Створити інвойс');
+
+    return false;
+});
+
+JS;
+$this->registerJs($script);

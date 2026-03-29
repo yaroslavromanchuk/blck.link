@@ -7,6 +7,7 @@ use backend\models\Invoice;
 use backend\models\InvoiceStatus;
 use backend\models\InvoiceType;
 use backend\models\SubLabel;
+use backend\models\Track;
 use common\models\User;
 use Yii;
 use yii\console\Controller;
@@ -148,5 +149,27 @@ class CronController extends Controller
             $sql = "UPDATE `artist` SET `active`= {$status} WHERE label_id = {$labelId} and id != {$id}";
             Yii::$app->db->createCommand($sql)->execute();
         }
+    }
+    
+    public function actionMigrateTrack(int $trackId, int $toArtistId)
+    {
+        if (empty($trackId) || empty($toArtistId)) {
+            exit('Empty trackId, to artistId');
+        }
+        
+        $track = Track::findOne($trackId);
+        
+        if (is_null($track)) {
+            exit('Error track');
+        }
+        
+        try {
+            $track->migrateToArtist($toArtistId);
+        } catch (\Throwable $e) {
+            exit($e->getMessage());
+        }
+        
+        echo 'Ok' . PHP_EOL;
+        exit(0);
     }
 }

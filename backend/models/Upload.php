@@ -53,39 +53,65 @@ class Upload
 	 * @return string
 	 * @throws \yii\base\Exception
 	 */
-     public static  function updateImage(ActiveRecord $model, string $current_image, string $folder='', array $crop = []) {
-                    
-                        $dir = Yii::getAlias('@app/../frontend/web/images/').($folder?$folder.'/':'');
-      //  Yii::$app->controller->createDirectory($dir); //создаст папку если ее нет!
-                      
-                     if(is_file($dir.$current_image) && file_exists($dir.$current_image))
-                        {
-                            //удаляем файл
-                            unlink($dir.$current_image);
-                           // $model->image = '';
-                        }
+     public static  function updateImage(ActiveRecord $model, string $current_image, string $folder='', array $crop = []): string
+     {
+         $baseDir = Yii::getAlias('@frontend/web/images');
+         $dir = rtrim($baseDir . '/' . trim($folder, '/'), '/') . '/';
+         
+         
+         if (!is_dir($dir)) {
+             throw new \RuntimeException('Відсутній каталог:' . $dir);
+         }
+         
+         // $dir = Yii::getAlias('@app/../frontend/web/images/').($folder?$folder.'/':'');
+         
+       //  $fileName = $model->id . '_' . Yii::$app->getSecurity()->generateRandomString(9) . '.' . $model->file->extension;
 
-                  $fileName = $model->id.'_'.Yii::$app->getSecurity()->generateRandomString(9) . '.' . $model->file->extension;
-                  $img = $dir . $fileName;
-                  
+        // безпечна назва файлу
+         $fileName = sprintf(
+             '%d_%s.%s',
+             (int) $model->id,
+             Yii::$app->security->generateRandomString(8),
+             $model->file->extension
+         );
+         
+         $path = $dir . $fileName;
+         
+         if (!$model->file->saveAs($path)) {
+             throw new \RuntimeException('Не вдалося зберегти файл');
+         }
 
-                    $model->file->saveAs($img);
-                    $model->file = $fileName; // без этого ошибка
-                    
-                    if ($crop) {
-                    $size = getimagesize($img); // Определяем размер картинки
-                    $imageWidth = $size[0]; // Ширина картинки
-                    $imageHeight = $size[1]; // Высота картинки
+         // видалити старе зображення
+         if ($current_image
+             && $current_image != '2565_XZEVWO7R.jpg'
+             && is_file($dir . $current_image)
+         ) {
+             @unlink($dir . $current_image);
+         }
+         
+         $model->file = $fileName; // без этого ошибка
 
-                        if($imageWidth != $imageHeight || $imageWidth > $crop[0] || $imageHeight > $crop[1]) {
-                            Image::getImagine()->open($img)
-                              ->thumbnail(new Box($crop[0], $crop[1]))
-                              ->save($img, ['quality' => 90]);
-                        }
-                    }
-                   
-        return $fileName;
-    }
+         //crop / resize
+         if ($crop && count($crop) === 2) {
+             [$targetW, $targetH] = $crop;
+             $size = getimagesize($path); // Определяем размер картинки
+             
+             if ($size) {
+                 [$width, $height] = $size;
+                 
+                 if ($width > $targetW || $height > $targetH) {
+                     Image::thumbnail(
+                         $path,
+                         $targetW,
+                         $targetH
+                     )->save($path, ['quality' => 90]);
+                 }
+         }
+             }
+         
+         return $fileName;
+     }
+     
      public static function createImageAll($file, $id) {
        $dir = Yii::getAlias('@app/../frontend/web/images/');
         Yii::$app->controller->createDirectory(Yii::getAlias('@app/../frontend/web/images/')); //создаст папку если ее нет!

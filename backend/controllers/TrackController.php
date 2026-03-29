@@ -21,6 +21,7 @@ use yii\base\Exception;
 use yii\data\ActiveDataProvider;
 use yii\db\ActiveRecord;
 use yii\db\StaleObjectException;
+use yii\helpers\Url;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\filters\VerbFilter;
@@ -142,8 +143,12 @@ class TrackController extends Controller
     {
         $model = new Track();
 
-		if(Yii::$app->request->isAjax) {
+		if(Yii::$app->request->isAjax && Yii::$app->request->post('ajax')) {
         	if ($model->load(Yii::$app->request->post())){
+                if (is_array($model->servise)) {
+                    $model->servise = serialize($model->servise);
+                }
+                
             	Yii::$app->response->format = Response::FORMAT_JSON;
 
         	    return ActiveForm::validate($model);
@@ -151,52 +156,75 @@ class TrackController extends Controller
         	return true;
       }
 
-        if ($model->load(Yii::$app->request->post())) {
-            $file = UploadedFile::getInstance($model, 'file');
-
-            if ($file && $file->tempName) {
-                $model->file = $file;
-                $id = Track::find()
-                    ->orderBy('id DESC')
-                    ->one()
-                    ->id;
-                $id++;
-
-                if ($model->validate(['file'])) {
-                    $model->img = Upload::createImage($model, $id, 'track', [500, 500]);
+        if (Yii::$app->request->isAjax) {
+            Yii::$app->response->format = Response::FORMAT_JSON;
+            $success = false;
+            $redirect = '';
+            $errors = [];
+            $oldModel = $model->toArray();
+            
+            if ($model->load(Yii::$app->request->post())) {
+                $file = UploadedFile::getInstance($model, 'file');
+                
+                if ($file && $file->tempName) {
+                    $model->file = $file;
+                    $id = Track::find()
+                        ->orderBy('id DESC')
+                        ->one()
+                        ->id;
+                    $id++;
+                    
+                    if ($model->validate(['file'])) {
+                        $model->img = Upload::createImage($model, $id, 'track', [500, 500]);
+                    }
+                } else {
+                    $model->img = '2565_XZEVWO7R.jpg';
+                }
+                
+                $model->name = trim($model->name);
+                
+                if (empty($model->url)) {
+                    $model->url = trim(Yii::$app->translit->t($model->name));//     Yii::$app->getSecurity()->generateRandomString(8);
+                }
+                
+                $model->isrc = str_replace("-", "", trim($model->isrc));
+                $model->servise = serialize($model->servise);
+                
+                if ($model->validate() && $model->save()) {
+                    $client = $model->artist->isClient();
+                    
+                    if (!$model->is_album && !$client) {
+                        $model->addArtistPercentage();
+                    }
+                    
+                    $feeds = Yii::$app->request->post('Track')['feeds'] ?? [];
+                    
+                    if (!empty($feeds) && is_array($feeds) && !$client) {
+                        $model->saveFeeds(Yii::$app->request->post('Track')['feeds'] ?? []);
+                    }
+                    
+                    if (Yii::$app->user->id != 16) {
+                        $message = $model->is_album == 1 ? 'трек: ' . $model->name : 'трек: ' . $model->name . ' (' . $model->isrc . ')';
+                        t::log(Yii::$app->user->identity->getFullName() . "\nДодав " . $message, 529871503);
+                    }
+                    
+                    $success = true;
+                    
+                    $model->saveLog($oldModel, $model->toArray());
+                    
+                    $redirect = Url::to(['view', 'id' => $model->id]);
+                } else {
+                    $errors = $model->getErrors();
                 }
             } else {
-                $model->img = '2565_XZEVWO7R.jpg';
+                $errors = $model->getErrors();
             }
-
-            $model->name = trim($model->name);
-
-            if (empty($model->url)) {
-                $model->url = trim(Yii::$app->translit->t($model->name));//     Yii::$app->getSecurity()->generateRandomString(8);
-            }
-
-            $model->isrc = str_replace("-", "", trim($model->isrc));
-            $model->servise = serialize($model->servise);
-
-            if($model->validate() && $model->save()) {
-
-                if (!$model->is_album && !$model->isSubLabel()) {
-                    $model->addArtistPercentage();
-                }
-
-                $feeds = Yii::$app->request->post('Track')['feeds']?? [];
-
-                if (!empty($feeds) && is_array($feeds)) {
-                    $model->saveFeeds(Yii::$app->request->post('Track')['feeds']?? []);
-                }
-
-                if (Yii::$app->user->id != 16) {
-                    $message = $model->is_album == 1 ? 'трек: ' . $model->name : 'трек: ' . $model->name . ' (' . $model->isrc . ')';
-                    t::log(Yii::$app->user->identity->getFullName()  . "\nДодав " . $message, 529871503);
-                }
-
-                return $this->redirect(['view', 'id' => $model->id]);
-            }
+            
+            return [
+                'success' => $success,
+                'redirect' => $redirect,
+                'errors' => $errors,
+            ];
         }
 
         return $this->render('create', [
@@ -292,41 +320,89 @@ class TrackController extends Controller
     public function actionUpdate(int $id)
     {
         $model = $this->findModel($id);
-
-        if ($model->load(Yii::$app->request->post())) {
-             $file = UploadedFile::getInstance($model, 'file');
-            if ($file && $file->tempName) {
-                $model->file = $file;
-                if ($model->validate('file')) {
-                   $model->img = Upload::updateImage($model, $model->img, 'track', [500, 500]);
+        $model->feeds = $model->getFeeds();
+        
+        $oldImg = $model->img;
+        $oldAdmin = $model->admin_id;
+        
+        if(Yii::$app->request->isAjax && Yii::$app->request->post('ajax')) {
+            if ($model->load(Yii::$app->request->post())){
+                if (is_array($model->servise)) {
+                    $model->servise = serialize($model->servise);
+                } else {
+                    $model->servise = serialize([]);
                 }
+                
+                Yii::$app->response->format = Response::FORMAT_JSON;
+                
+                return ActiveForm::validate($model);
+            }
+            return true;
+        }
+        
+        if (Yii::$app->request->isAjax) {
+            $oldModel = $model->toArray();
+            $success = false;
+            $redirect = '';
+            $errors = [];
+            Yii::$app->response->format = Response::FORMAT_JSON;
+            
+            if ($model->load(Yii::$app->request->post())) {
+                $file = UploadedFile::getInstance($model, 'file');
+                
+                if ($file) {
+                    $model->file = $file;
+                    if ($model->validate('file')) {
+                        $model->img = Upload::updateImage($model, $model->img, 'track', [500, 500]);
+                    }
+                } else {
+                    $model->img = $oldImg;
+                }
+                
+                if (is_array($model->servise)) {
+                    $model->servise = serialize($model->servise);
+                } else {
+                    $model->servise = serialize([]);
+                }
+                
+                $model->admin_id = $oldAdmin;
+                
+                if ($model->validate() && $model->save()) {
+                    
+                    if (!$model->is_album && count(Percentage::findAll(['track_id' => $model->id, 'artist_id' => $model->artist_id])) != 4) {
+                        $model->updateArtistPercentage();
+                    }
+                    
+                    $feeds = Yii::$app->request->post('Track')['feeds'] ?? [];
+                    
+                    if (is_string($feeds)) {
+                        $feeds = [];
+                    }
+                    
+                    $client = $model->artist->isClient();
+                    
+                    if (!$client) {
+                        $model->saveFeeds($feeds);
+                    }
+                   
+                    $model->saveLog($oldModel, $model->toArray());
+                    
+                    $success = true;
+                    $redirect = Url::to(['view', 'id' => $model->id]);
+                } else {
+                    $errors = $model->getErrors();
+                }
+            } else {
+                $errors = $model->getErrors();
             }
             
-            if (is_array($model->servise)) {
-                $model->servise = serialize($model->servise);
-            } else {
-                $model->servise = serialize([]);
-            }
-             
-			if ($model->validate() && $model->save()) {
-
-                if (!$model->is_album && count(Percentage::findAll(['track_id' => $model->id, 'artist_id' => $model->artist_id])) != 4) {
-                    $model->updateArtistPercentage();
-                }
-
-                $feeds = Yii::$app->request->post('Track')['feeds'] ?? [];
-
-                if (is_string($feeds)) {
-                    $feeds = [];
-                }
-
-                $model->saveFeeds($feeds);
-
-                return $this->redirect(['view', 'id' => $model->id]);
-			}
+            return [
+                'success' => $success,
+                'redirect' => $redirect,
+                'errors' => $errors,
+            ];
         }
-
-
+        
         return $this->render('update', [
             'model' => $model,
         ]);

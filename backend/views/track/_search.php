@@ -15,7 +15,9 @@ $artists = Artist::getDb()->cache(function () {
     // Запит, результат якого буде кешовано
     return Artist::find()
         ->leftJoin('sub_label', 'sub_label.id = artist.label_id')
-        ->select(['CONCAT(artist.name, " (", sub_label.name, ")")', 'artist.id'])->indexBy('artist.id')->column();
+        ->select(['CONCAT(artist.name, " (", sub_label.name, ")")', 'artist.id'])
+        ->where(['artist.active' => 1])
+        ->indexBy('artist.id')->column();
 }, 1800); // Кешування на 1800 секунд (30 хвилин)
 
 $traks = Track::getDb()->cache(function () {

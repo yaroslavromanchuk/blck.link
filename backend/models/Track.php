@@ -43,6 +43,7 @@ use yii\db\ActiveRecord;
 class Track extends \yii\db\ActiveRecord
 {
     public $file;
+    public array $feeds = [];
 
     /**
      * {@inheritdoc}
@@ -85,9 +86,9 @@ class Track extends \yii\db\ActiveRecord
     {
         return [
             'id' => Yii::t('app', '№'),
-            'artist_id' => Yii::t('app', 'Артист'),
+            'artist_id' => Yii::t('app', 'Контрагент'),
             'release_id' => Yii::t('app', 'Реліз'),
-            'artist_name' => Yii::t('app', 'Ім\'я артиста для відображення'),
+            'artist_name' => Yii::t('app', 'Виконавець'),
             'date' => Yii::t('app', 'Дата реліза'),
             'name' => Yii::t('app', 'Назва теку'),
             'img' => Yii::t('app', 'Обкладинка'),
@@ -528,5 +529,47 @@ class Track extends \yii\db\ActiveRecord
     public function getUserToTracks()
     {
         return $this->hasMany(UserToTrack::class, ['track_id' => 'id']);
+    }
+    
+    public function migrateToArtist(int $artistId)
+    {
+        $artist = Artist::findOne($artistId);
+        
+        if ($artist->label_id != $this->artist->label_id) {
+            throw new \Exception('Неможливо перемістити трек, артисти належать до різних лейблів');
+        }
+        $transaction = Yii::$app->db->beginTransaction();
+        
+        try {
+            Yii::$app->db->createCommand("UPDATE `invoice_items` SET `artist_id`= {$artistId} WHERE `artist_id` = {$this->artist_id}")->execute();
+            Yii::$app->db->createCommand("UPDATE `invoice_items` SET `from_artist_id`= {$artistId} WHERE `from_artist_id` = {$this->artist_id}")->execute();
+            Yii::$app->db->createCommand("UPDATE `track` SET `artist_id`= {$artistId} WHERE id = {$this->id}")->execute();
+            
+            if ($artist->label_id == 0) {
+                Yii::$app->db->createCommand("UPDATE `track_to_percentage` SET `artist_id`= {$artistId} WHERE track_id = {$this->id} and artist_id = {$this->artist_id}")->execute();
+                
+            }
+            
+            $transaction->commit();
+        } catch (\Throwable $e) {
+            // Roll back in case of error
+            $transaction->rollback();
+            throw $e; // optional: rethrow to handle elsewhere
+        }
+        
+        Artist::calculationDeposit($this->artist_id); // перерахунок депозиту старого артиста
+        Artist::calculationDeposit($artistId); // перерахунок депозиту нового артиста
+    }
+    
+    public function saveLog(array $currentData, array $newData): void
+    {
+        Yii::$app->db->createCommand()
+            ->insert('track_log', [
+                'admin_id' => Yii::$app->user->id,
+                'track_id' => $this->id,
+                'old_data' => serialize($currentData),
+                'new_data' => serialize($newData),
+            ])->execute();
+        
     }
 }

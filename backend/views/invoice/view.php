@@ -387,7 +387,7 @@ $this->params['breadcrumbs'][] = $this->title;
                         return '<span class="glyphicon glyphicon-ok text-success" data-toggle="tooltip" data-placement="top" data-title=" ' . $titleLog. '"></span>' . (in_array(yii::$app->user->id, [1, 16]) ? ' ' . Html::a('<span class="glyphicon glyphicon-repeat"></span>',
                                     Url::to(['invoice-items/mail', 'id' => $data->id]), [
                                         'title' => Yii::t('yii', 'Відправити повторне повідомлення'),
-                                        'class' => 'btn btn-warning btn-xs',
+                                        'class' => 'btn btn-warning btn-xs btn-notify',
                                         'data-toggle'=>'tooltip',
                                         'data-placement'=>'right',
                                         'data-id' => $data->id,

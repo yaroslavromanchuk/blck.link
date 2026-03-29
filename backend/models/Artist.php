@@ -49,7 +49,7 @@ use Yii;
  * @property string $iban
  * @property string $address
  * @property int $country_id
- * @property bool $notify
+ * @property int $notify
  * @property SubLabel $label
  * @property Country $country
  * @property Track[] $tracks
@@ -63,6 +63,7 @@ class Artist extends \yii\db\ActiveRecord
     public const LABEL = 0;
 
      public $file;
+    public ?int $tracks_count = 0;
     /**
      * {@inheritdoc}
      */
@@ -78,7 +79,7 @@ class Artist extends \yii\db\ActiveRecord
 	{
         return [
             [['name', 'percentage',  'type_id', 'label_id', 'artist_type_id'], 'required'],
-            [['type_id', 'label_id', 'active', 'admin_id', 'country_id', 'percentage', 'percentage_distribution', 'telegram_id', 'artist_type_id', 'last_payment_invoice', 'label_id'], 'integer'],
+            [['type_id', 'label_id', 'active', 'admin_id', 'country_id', 'percentage', 'percentage_distribution', 'telegram_id', 'artist_type_id', 'last_payment_invoice', 'label_id', 'notify'], 'integer'],
             [['edrpou', 'mfo', 'records'], 'integer'],
             [['deposit', 'deposit_1', 'deposit_3'], 'number'],
             //['ipn', 'is10NumbersOnly'],
@@ -967,5 +968,15 @@ class Artist extends \yii\db\ActiveRecord
         }
         
         return $sql->queryAll();
+    }
+    
+    public function getDep(int $currency_id): float
+    {
+        return match ($currency_id) {
+            1  => $this->deposit_1, // EURO
+            2  => $this->deposit, // UAH
+            3 => $this->deposit_3, // USD
+            default  => 0.0,
+        };
     }
 }

@@ -15,28 +15,35 @@ use yii\widgets\Pjax;
 /* @var $this yii\web\View */
 /* @var $model Track */
 
-$artistData = Artist::find()
+$artistData = Artist::getDb()->cache(function ($db) {
+    return Artist::find()
     ->select(['CONCAT(artist.name, " (", sub_label.name, ")")', 'artist.id'])
     ->leftJoin('sub_label', 'sub_label.id = artist.label_id')
+    ->where(['artist.active' => 1])
     //->leftJoin('user', 'user.id = artist.admin_id')
     //->andFilterWhere(['user.label_id' => Yii::$app->user->identity->label_id])
     ->indexBy('artist.id')
     ->column();
+}, 30);
 
-$releaseData = Release::find()
+$releaseData = Release::getDb()->cache(function ($db) {
+    return Release::find()
     ->select(['releases.release_name', 'releases.release_id'])
     //->leftJoin('user', 'user.id = releases.admin_id')
     //->andFilterWhere(['user.label_id' => Yii::$app->user->identity->label_id])
     ->indexBy('releases.release_id')
     ->column();
+}, 3600);
 
-$albumData = Track::find()
-    ->select(['track.name', 'track.id'])
-   /// ->leftJoin('user', 'user.id = track.admin_id')
-    //->andFilterWhere(['user.label_id' => Yii::$app->user->identity->label_id])
-    ->andFilterWhere(['track.is_album' => 1])
-    ->indexBy('track.id')
-    ->column();
+$albumData = Track::getDb()->cache(function ($db) {
+    return Track::find()
+        ->select(['track.name', 'track.id'])
+        /// ->leftJoin('user', 'user.id = track.admin_id')
+        //->andFilterWhere(['user.label_id' => Yii::$app->user->identity->label_id])
+        ->andFilterWhere(['track.is_album' => 1])
+        ->indexBy('track.id')
+        ->column();
+}, 3600); // Кешування на 1 годину (3600 секунд)
 ?>
 <div class="row">
     <div class="col-md-12 col-sm-12 col-xs-12">
@@ -48,7 +55,12 @@ $albumData = Track::find()
             <div class="x_content">
                  <?php
                  $form = ActiveForm::begin([
-                         'options' => ['enctype' => 'multipart/form-data']
+                         'id' => 'track-form',
+                     
+                     'enableAjaxValidation' => true,
+                     'enableClientValidation' => true,
+                     
+                     'options' => ['enctype' => 'multipart/form-data']
                  ]);
                  ?>
                 <div class="row">
@@ -74,8 +86,11 @@ $albumData = Track::find()
                                             ],
                                             'pluginEvents' => [
                                                 'select2:select' => ' function(e) {
-                                                  $("input#track-artist_name").val(e.params.data.text); 
-                                                  }'
+                                                    var data = e.params.data;
+                                                    console.log("Selected:", data);
+
+                                                 // $("input#track-artist_name").val(e.params.data.text);
+                                                }'
                                             ]
                                         ]) ?>
                                     </div>
@@ -163,13 +178,13 @@ $albumData = Track::find()
                             </div>
                         </div>
                     </div>
-                    <div class="col-sm-12 col-md-6 col-lg-6">
+                   <!-- <div class="col-sm-12 col-md-6 col-lg-6">
                         <div class="card">
                             <h5 class="card-header">Реліз</h5>
                             <div class="card-body">
                                 <div class="row">
                                     <div class="col-sm-12">
-                                        <?= $form->field($model, 'release_id')
+                                        <?php /*$form->field($model, 'release_id')
                                             ->widget(Select2::class, [
                                                 'model' => $model,
                                                 'data' => $releaseData,
@@ -181,7 +196,7 @@ $albumData = Track::find()
                                                 'pluginEvents' => [
                                                     'select2:select' => ' function(e) {  $("input.release").val(e.params.data.text); }'
                                                 ]
-                                            ]) ?>
+                                            ]) */?>
                                     </div>
                                     <div class="col-sm-12">
                                         <span class="release"></span>
@@ -190,12 +205,12 @@ $albumData = Track::find()
                             </div>
                             <div class="card-footer">
                                 <div class="form-group text-center">
-                                    <?= Html::Button(Yii::t('app', 'Створити реліз'),  ['class' => 'btn btn-sm btn-success','data-toggle' => 'modal', 'data-target' => '#release-add-modal']) ?>
+                                    <?php // Html::Button(Yii::t('app', 'Створити реліз'),  ['class' => 'btn btn-sm btn-success','data-toggle' => 'modal', 'data-target' => '#release-add-modal']) ?>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                            <div class="col-sm-12">
+                    </div>-->
+                    <div class="col-sm-12">
                         <div class="card"><!--Площадки-->
                             <h5 class="card-header">Площадки</h5>
                             <div class="card-body">
@@ -281,12 +296,9 @@ $albumData = Track::find()
                                     <div class="col-sm-12">
                                         <?php // $form->field($model, 'img')->textInput(['maxlength' => true]) ?>
                                         <?php if(!empty($model->img)) {
-                                            echo Html::img($model->image,['alt'=>'yii2 - картинка в gridview', 'style' => 'width: 200px; margin-top: 15px;']);
+                                            echo Html::img($model->image, ['alt'=>'yii2 - картинка в gridview', 'style' => 'width: 200px; margin-top: 15px;']);
                                         }
                                         ?>
-                                        <?= $form->field($model, 'img')
-                                            ->hiddenInput(['value' => !empty($model->img) ? $model->img : ''])
-                                            ->label(false)?>
                                         <?= $form->field($model, 'file')->fileInput() ?>
                                     </div>
                                     <div class="col-sm-12 col-md-6">
@@ -307,18 +319,102 @@ $albumData = Track::find()
                         </div>
                     </div>
                 </div>
-            <?php ActiveForm::end();
+
+                <div id="upload-loader" style="display:none; text-align:center; margin-top:20px;">
+                    <div class="spinner-border text-success" role="status">
+                        <span class="sr-only">Loading...</span>
+                    </div>
+                    <div style="margin-top:10px;">
+                        Збереження даних… будь ласка, зачекайте
+                    </div>
+                </div>
+
+                <div id="upload-progress" style="display:none; margin-top:15px;">
+                    <div class="progress">
+                        <div id="upload-progress-bar"
+                             class="progress-bar progress-bar-striped progress-bar-animated"
+                             role="progressbar"
+                             style="width:0%">
+                            0%
+                        </div>
+                    </div>
+                </div>
+
+
+                <?php ActiveForm::end();
             ?>
         </div>
       </div>
 </div>
 <?php echo CreateArtist::widget(); ?>
-<?php echo CreateRelease::widget(); ?>
+<?php //CreateRelease::widget(); ?>
 <?php echo CreateAlbum::widget(); ?>
   <?php
 
 $script = <<< JS
+
         $(function() {
+        
+$(document).on('beforeSubmit', 'form#track-form', function (e) {
+    e.preventDefault();
+    console.log('qrwq2342');
+
+    const form = $(this);
+    const formData = new FormData(form[0]);
+    
+    
+// ✅ показати лоадер
+    $('#upload-loader').show();
+
+    // ✅ заблокувати кнопку сабміту
+    $(form).find(':submit').prop('disabled', true);
+
+
+    $.ajax({
+        url: form.attr('action'),
+        type: 'POST',
+        data: formData,
+        contentType: false, // 🔴 критично
+        processData: false, // 🔴 критично
+        xhr: function () {
+            const xhr = new window.XMLHttpRequest();
+    
+            xhr.upload.addEventListener('progress', function (e) {
+                if (e.lengthComputable) {
+                    const percent = Math.round((e.loaded / e.total) * 100);
+    
+                    $('#upload-progress').show();
+                    $('#upload-progress-bar')
+                        .css('width', percent + '%')
+                        .text(percent + '%');
+                }
+            });
+    
+            return xhr;
+        },
+        success: function (res) {
+            console.log(res);
+            if (res && res.success && res.redirect) {
+                // ✅ редірект після успішного upload
+                window.location.href = res.redirect;
+            }
+        },
+
+        error: function (xhr) {
+            alert('Помилка при завантаженні');
+            console.error(xhr.responseText);
+        },
+        complete: function () {
+        $('#upload-loader').hide();
+        $('#upload-progress').hide();
+        $('#upload-progress-bar').css('width', '0%').text('0%');
+        $(form).find(':submit').prop('disabled', false);
+        }
+    });
+
+    return false;
+});
+            
             $(document).on('click', '[data-toggle=reroute]', function(e) {
                 console.log(this);
                 
@@ -363,6 +459,9 @@ $script = <<< JS
 
     });
 });
+
+
+
 JS;
 $this->registerJs($script); 
 ?>
