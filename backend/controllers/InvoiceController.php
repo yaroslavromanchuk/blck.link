@@ -2,6 +2,7 @@
 
 namespace backend\controllers;
 
+use backend\helpers\InvoiceAllocationService;
 use backend\models\AggregatorReport;
 use backend\models\AggregatorReportItem;
 use backend\models\AggregatorReportStatus;
@@ -228,34 +229,53 @@ class InvoiceController extends Controller
     public function actionReCalculate(int $id)
     {
         $model = $this->findModel($id);
-
+        
         $total_temp = $model->total;
+        $reportItems = [];
+        if ($model->invoice_type == InvoiceType::$debit) {
+            $reportItems = (new \yii\db\Query())
+                ->from(AggregatorReportItem::tableName())
+                ->select('track_id, SUM(amount) as amount')
+                ->where(['report_id' => $model->aggregator_report_id])
+                ->groupBy(['track_id'])
+                ->all();
+        }
+        
+        
+        if (!empty($reportItems)) {
+            Yii::$app->db->beginTransaction();
 
-        $reportItems = (new \yii\db\Query())
-            ->from(AggregatorReportItem::tableName())
-            ->select('track_id, SUM(amount) as amount')
-            ->where(['report_id' => $model->aggregator_report_id])
-            ->groupBy(['track_id'])
-            ->all();
+            if (UserBalance::find()->where(['invoice_id' => $model->invoice_id, 'is_pay' => 1])->exists()) {
+                throw new \LogicException('Неможна перерахувати інвойс, бо вже є виплачений UserBalance для цього інвойсу.');
+            }
 
-        if ($reportItems) {
-            InvoiceItems::deleteAll(['invoice_id' => $model->invoice_id]);
+            try {
+                InvoiceItems::deleteAll(['invoice_id' => $model->invoice_id]);
+                /** видаляємо розподілення для цього пункту виплати (payout item) */
+                $itemsIds = array_column(
+                    $model->invoiceItems,
+                    'id'
+                );
 
-            foreach ($reportItems as $item) {
-                if (empty($item['track_id'])) {
-                    Yii::$app->session->setFlash('error', $item['track_id']);
+                InvoiceAllocationService::deleteAllocation($itemsIds);
+                
+                UserBalance::deleteAll(['invoice_id' => $model->invoice_id]);
+                
+                foreach ($reportItems as $item) {
+                    if (empty($item['track_id'])) {
+                        Yii::$app->session->setFlash('error', $item['track_id']);
+                        
+                        continue;
+                    }
                     
-                    continue;
-                }
-                
-                $track = Track::findOne($item['track_id']);
-                
-                if (is_null($track)) {
-                    continue;
-                }
-                
-                $calculation = $track->getCalculation($model->aggregator_id, $item['amount']);
-
+                    $track = Track::findOne($item['track_id']);
+                    
+                    if (is_null($track)) {
+                        continue;
+                    }
+                    
+                    $calculation = $track->getCalculation($model->aggregator_id, $item['amount']);
+                    
                     foreach ($calculation as $value) {
                         $invoiceItem = new InvoiceItems();
                         $invoiceItem->invoice_id = $model->invoice_id;
@@ -268,39 +288,46 @@ class InvoiceController extends Controller
                         if (isset($value['artist_percentage'])) {
                             $invoiceItem->artist_percentage = $value['artist_percentage'];
                         }
-
+                        
                         if (!empty($value['from_artist_id'])) {
                             $invoiceItem->from_artist_id = $value['from_artist_id'];
                         }
-
-                        /*  if ($value['artist_id'] == Artist::LABEL
-                              && !empty($value['from_artist_id'])
-                          ) {
-                              // @var UserToTrack $user
-                                  foreach ($track->getUserToTracks() as $user) {
-                                      $userBalance = new UserBalance();
-                                      $userBalance->invoice_id = $invoice->invoice_id;
-                                      $userBalance->currency_id = $invoice->currency_id;
-                                      $userBalance->user_id = $user->user_id;
-                                      $userBalance->track_id = $track->id;
-                                      $userBalance->amount = round($value['amount'] * ($user->percentage / 100), 2);
-                                      $userBalance->save();
-                                  }
-                          }*/
-
+                        
                         $invoiceItem->amount = $value['amount'];
-                        if(!$invoiceItem->save()) {
+                        
+                        if (!$invoiceItem->save()) {
                             Yii::$app->session->setFlash('error', 'Помилка при збереженні інвойсу: ' . current($invoiceItem->getErrors()));
-                            $model->invoice_status_id = InvoiceStatus::Error;
-
-                            return $this->redirect(['view', 'id' => $id]);
+                            $error = current($invoiceItem->getErrors());
+                            throw new \RuntimeException(current($error));
+                            //return $this->redirect(['view', 'id' => $id]);
                         }
                     }
                 }
+                
+                if ($model->invoice_status_id == InvoiceStatus::Calculated) {  // Розрахований
+                    // Додаємо баланс користувачів
+                    $model->calculateUser();
+                    
+                    /** Розподіляємо суму інвойсу по авансах, витратах і виплатах
+                     * 1. Знаходимо всі авансах, витратах і виплатах артиста, які не розподілені
+                     * 2. Розподіляємо суму інвойсу пропорційно до суми боргу
+                     */
+                   // InvoiceAllocationService::allocateIncomeItemsToAdvanceItems($model->invoice_id);
+                }
+                
+                Yii::$app->db->transaction->commit();
+            } catch (\Throwable $e) {
+                Yii::$app->db->transaction->rollBack();
+                Yii::$app->session->setFlash('error', "Помилка при перерахунку інвойсу: " . $e->getMessage());
+                
+                return $this->redirect(['view', 'id' => $id]);
+            }
         }
-
+        
         $model->calculate();
-
+        // Requeue invoice for allocation rebuild after recalculation changes.
+        $model->allocated = 0;
+        $model->save(false, ['allocated']);
         Artist::calculationDeposit();
 
         if ($total_temp != $model->total) {
@@ -331,16 +358,24 @@ class InvoiceController extends Controller
         }
         
         $currentStatus = $model->invoice_status_id;
-
-        if ($model->invoice_type == InvoiceType::$credit
-            && $model->invoice_status_id == InvoiceStatus::Generated
-        ) { // Виплата
-			
-			$artist = [];
-			//foreach ($model->getInvoiceItems()->all() as $item) {
-				//$artist[] = $item->artist_id;
-				Yii::$app->db->createCommand(
-					"UPDATE `invoice_items` ii
+        Yii::$app->db->beginTransaction();
+        
+        try {
+            
+            if (in_array($model->invoice_type, [InvoiceType::$credit, InvoiceType::$costs, InvoiceType::$advance]) // Виплата
+                && $model->invoice_status_id == InvoiceStatus::Generated
+            ) { // Виплата
+                /** Розподіляємо суму інвойсу по платежах
+                 * 1. Знаходимо всі платежі артиста, які не розподілені
+                 * 2. Розподіляємо суму інвойсу пропорційно до суми платежу
+                 * 3. Оновлюємо статус платежу на розподілений
+                 */
+                //// InvoiceAllocationService::allocatePayoutItemsToIncome($model);
+               // InvoiceAllocationService::allocateUnallocatedPayoutItems($model);
+                
+                if ($model->invoice_type == InvoiceType::$credit) {
+                    Yii::$app->db->createCommand(
+                        "UPDATE `invoice_items` ii
                             INNER JOIN invoice i ON i.invoice_id = ii.invoice_id
 								and i.invoice_type in (1, 3, 4, 5)
 								and i.invoice_status_id = 2
@@ -348,31 +383,17 @@ class InvoiceController extends Controller
                          WHERE ii.artist_id in (SELECT distinct(artist_id) FROM `invoice_items` ii WHERE ii.invoice_id = {$model->invoice_id})
                             AND ii.payment_invoice_id is null
                             AND i.currency_id = {$model->currency_id}
-                            and ii.invoice_id < {$model->invoice_id}"
-				)->execute();
-		//	}
-			
-			/*if (count($artist) > 0) {
-				foreach (array_chunk($artist, 10) as $chunk) {
-					$ids = implode(',', $chunk);
-				}
-				
-			}*/
-               /*  Yii::$app->db->createCommand()
-                    ->update('artist',
-                        [
-                            'date_last_payment' => date('Y-m-d'),
-                            'last_payment_invoice' => $model->invoice_id
-                        ],
-                        'id = :ID',
-                        [':ID' => $item->artist_id]
+                            AND (
+                                i.year < {$model->year}
+                                OR (i.year = {$model->year} AND i.quarter <= {$model->quarter})
+                            )
+                            #and ii.invoice_id < {$model->invoice_id}
+                            "
                     )->execute();
-                */
-
-
-            Yii::$app->db->createCommand(
-                "UPDATE aggregator_report_item ari 
-                            INNER JOIN aggregator_report ar ON ar.id = ari.report_id 
+                    
+                    Yii::$app->db->createCommand(
+                        "UPDATE aggregator_report_item ari
+                            INNER JOIN aggregator_report ar ON ar.id = ari.report_id
                             INNER JOIN invoice i ON i.aggregator_report_id = ar.id
 								and ar.report_status_id = 2
 								and i.invoice_type = 1
@@ -380,41 +401,53 @@ class InvoiceController extends Controller
                             INNER JOIN invoice_items ii ON ii.invoice_id = i.invoice_id
                             	and ii.payment_invoice_id = {$model->invoice_id}
                         SET ari.payment_invoice_id = ii.payment_invoice_id
-                        WHERE ari.payment_invoice_id is null 
+                        WHERE ari.payment_invoice_id is null
                             AND ari.track_id = ii.track_id
                    ")->execute();
-        }
-
-        $model->calculate();
-
-        if ($model->invoice_type == InvoiceType::$debit
-        && abs($model->total - $model->aggregatorReport->total) > 1
-        ) {
-            Yii::$app->session->setFlash('error', 'Сума інвойсу не сходиться із сумою звіту агрегатора. Перевірте правильність заповнення інвойсу.');
-
-            return $this->redirect(['view', 'id' => $id]);
-        }
-
-        if ($model->invoice_type == InvoiceType::$credit
-			&& $model->invoice_status_id == InvoiceStatus::Generated
-		) { // Виплата
-            $model->invoice_status_id = InvoiceStatus::InProgress;
-        } else {
-            $model->invoice_status_id = InvoiceStatus::Calculated; // Розрахований
-        }
-
-        $model->save();
-        
-        if ($model->invoice_type == InvoiceType::$debit
-            && $currentStatus == InvoiceStatus::Generated
-            && $model->invoice_status_id == InvoiceStatus::Calculated
-        ) {
-            // Додаємо баланс користувачів
-            $model->calculateUser();
-        }
-
-        if(in_array($model->invoice_status_id, [InvoiceStatus::InProgress, InvoiceStatus::Calculated])) {
-            Artist::calculationDeposit();
+                }
+            }
+            
+            $model->calculate();
+            
+            if ($model->invoice_type == InvoiceType::$debit
+                && abs($model->total - $model->aggregatorReport->total) > 1
+            ) {
+                Yii::$app->session->setFlash('error', 'Сума інвойсу не сходиться із сумою звіту агрегатора. Перевірте правильність заповнення інвойсу.');
+                
+                throw new \RuntimeException('Сума інвойсу не сходиться із сумою звіту агрегатора. Перевірте правильність заповнення інвойсу.');
+            }
+            
+            if ($model->invoice_type == InvoiceType::$credit
+                && $model->invoice_status_id == InvoiceStatus::Generated
+            ) { // Виплата
+                $model->invoice_status_id = InvoiceStatus::InProgress;
+            } else {
+                $model->invoice_status_id = InvoiceStatus::Calculated; // Розрахований
+            }
+            
+            $model->save();
+            
+            if (in_array($model->invoice_type, [InvoiceType::$debit, InvoiceType::$balance]) // Нарахування + баланс
+                && $currentStatus == InvoiceStatus::Generated // Новий
+                && $model->invoice_status_id == InvoiceStatus::Calculated // Провести
+            ) {
+                // Додаємо баланс користувачів
+                $model->calculateUser();
+                
+                /** Розподіляємо суму інвойсу по авансах, витратах і виплатах
+                 * 1. Знаходимо всі авансах, витратах і виплатах артиста, які не розподілені
+                 * 2. Розподіляємо суму інвойсу пропорційно до суми боргу
+                 */
+               // InvoiceAllocationService::allocateIncomeItemsToAdvanceItems($model->invoice_id);
+            }
+            
+            if (in_array($model->invoice_status_id, [InvoiceStatus::InProgress, InvoiceStatus::Calculated])) {
+                Artist::calculationDeposit();
+            }
+            Yii::$app->db->transaction->commit();
+        } catch (\Throwable $e) {
+            Yii::$app->db->transaction->rollBack();
+            Yii::$app->session->setFlash('error', "Помилка при розрахунку інвойсу: " . $e->getMessage());
         }
 
         return $this->redirect(['view', 'id' => $id]);
@@ -492,11 +525,21 @@ class InvoiceController extends Controller
      * If update is successful, the browser will be redirected to the 'view' page.
      * @param integer $id
      * @return mixed
+     * @throws Exception
      * @throws NotFoundHttpException if the model cannot be found
      */
     public function actionUpdate($id)
     {
         $model = $this->findModel($id);
+
+        if(Yii::$app->request->isAjax && Yii::$app->request->post('ajax')) {
+            if ($model->load(Yii::$app->request->post())){
+                Yii::$app->response->format = Response::FORMAT_JSON;
+
+                return ActiveForm::validate($model);
+            }
+            return true;
+        }
 
         if ($model->load(Yii::$app->request->post()) && $model->save()) {
             return $this->redirect(['view', 'id' => $model->invoice_id]);
@@ -518,40 +561,60 @@ class InvoiceController extends Controller
     {
         $model = $this->findModel($id);
 
-            if (!in_array($model->invoice_status_id, [InvoiceStatus::InProgress, InvoiceStatus::Calculated])
-                || Yii::$app->user->id == 1
+            if (Yii::$app->user->id == 1
+                || !in_array($model->invoice_status_id, [InvoiceStatus::InProgress, InvoiceStatus::Calculated])
             ) {
-                if ($model->delete() !== false) {
-                    if (!empty($model->aggregator_report_id)) {
-                        $aggregatorReport = AggregatorReport::findOne($model->aggregator_report_id);
-                        if (!is_null($aggregatorReport)) {
-                            $aggregatorReport->report_status_id = 1;
-                            $aggregatorReport->save();
+                $itemsIds = array_column(
+                    $model->invoiceItems,
+                    'id'
+                );
+                
+                Yii::$app->db->beginTransaction();
+                
+                try {
+                    if ($model->delete() !== false) {
+                        if (!empty($model->aggregator_report_id)) {
+                            $aggregatorReport = AggregatorReport::findOne($model->aggregator_report_id);
+                            if (!is_null($aggregatorReport)) {
+                                $aggregatorReport->report_status_id = 1;
+                                $aggregatorReport->save();
+                            }
                         }
-                    }
-
-                    $db = Yii::$app->db;
-                    $db->createCommand(
-                        "UPDATE `invoice_items` ii 
+                        
+                        if ($model->invoice_type == InvoiceType::$credit
+                            || $model->invoice_type == InvoiceType::$advance
+                            || $model->invoice_type == InvoiceType::$costs
+                        ) {
+                            Yii::$app->db->createCommand(
+                                "UPDATE `invoice_items` ii
                         SET ii.`payment_invoice_id`= null
                          WHERE ii.`payment_invoice_id`= {$id}"
-                    )->execute();
-
-                    $db->createCommand(
-                        "UPDATE aggregator_report_item ari 
+                            )->execute();
+                            
+                            Yii::$app->db->createCommand(
+                                "UPDATE aggregator_report_item ari
                         SET ari.payment_invoice_id = null
                         WHERE ari.payment_invoice_id = {$id}"
-                    )->execute();
-
-                    if (in_array($model->invoice_type, [InvoiceType::$credit, InvoiceType::$debit])
-						&& in_array($model->invoice_status_id, [InvoiceStatus::InProgress, InvoiceStatus::Calculated])
-					) {
-                        Artist::calculationDeposit();
+                            )->execute();
+                        }
+                        
+                        /** видаляємо розподілення для цього пункту виплати (payout item) */
+                        InvoiceAllocationService::deleteAllocation($itemsIds);
+                        
+                        if (in_array($model->invoice_type, [InvoiceType::$credit, InvoiceType::$debit])
+                            && in_array($model->invoice_status_id, [InvoiceStatus::InProgress, InvoiceStatus::Calculated])
+                        ) {
+                            Artist::calculationDeposit();
+                        }
+                        
+                        if ($model->invoice_type == InvoiceType::$debit) {
+                            UserBalance::deleteAll(['invoice_id' => $model->invoice_id]);
+                        }
                     }
-
-                    if ($model->invoice_type == InvoiceType::$debit) {
-                        UserBalance::deleteAll(['invoice_id' => $model->invoice_id]);
-                    }
+                    Yii::$app->db->transaction->commit();
+                } catch (\Throwable $e) {
+                    Yii::$app->db->transaction->rollBack();
+                    Yii::$app->session->setFlash('error', "Помилка при видаленні інвойсу: " . $e->getMessage());
                 }
            } else {
               Yii::$app->session->setFlash('error', "Неможа видалити розрахований інвойст");
@@ -581,17 +644,20 @@ class InvoiceController extends Controller
                 $filename = "report_aggregator_{$model->aggregator_id}_q{$model->quarter}_{$model->invoice_id}.xlsx";
                 break;
             case 2:
-                $filename = "report_invoice_q{$model->quarter}_{$model->invoice_id}.xlsx";
+                $filename = "report_invoice_q_{$model->quarter}_{$model->invoice_id}.xlsx";
                 break;
             default: $filename = '';
         }
-        
 
-        if (file_exists(self::$homePage . 'xls/' .$filename)) {
+        $filePath = self::$homePage . 'xls/' . $filename;
+        clearstatcache(true, $filePath);
+
+        if (file_exists($filePath)) {
             header("Location: /xls/".$filename);
             exit;
            // $this->redirect("/xls/".$filename);
         }
+        // нарахування
         if ($model->invoice_type == 1) {
             $spreadSheet = new Spreadsheet();
             $workSheet = $spreadSheet->getActiveSheet();
@@ -641,13 +707,17 @@ class InvoiceController extends Controller
             $workSheet->getColumnDimension('A')->setWidth(17);
             $workSheet->getColumnDimension('B')->setWidth(17);
             $workSheet->getColumnDimension('C')->setWidth(15);
-            $workSheet->getStyle('A1:C1')->getFont()->setBold(true);
+            $workSheet->getColumnDimension('D')->setWidth(15);
+            $workSheet->getColumnDimension('E')->setWidth(15);
+            $workSheet->getStyle('A1:E1')->getFont()->setBold(true);
             
             $header = [
                 [
                     'Артист',
                     'Сума Виплати',
-                    'Валюта'
+                    'Валюта',
+                    'Курс',
+                    'Сума'
                 ]
             ];
             
@@ -657,7 +727,7 @@ class InvoiceController extends Controller
         }
 
         $writer = new Xlsx($spreadSheet);
-        $writer->save(self::$homePage .'xls/' .  $filename);
+        $writer->save($filePath);
         header("Location: /xls/".$filename);
         exit;
        // $this->redirect("/xls/" . $filename);
@@ -765,14 +835,17 @@ class InvoiceController extends Controller
                     FROM (SELECT isrc, track_id, sum(amount) as amount, sum(`count`) as `count`
                           FROM aggregator_report_item ari
                           INNER JOIN invoice i ON i.aggregator_report_id = ari.report_id and i.invoice_id in ({$invoice})
-                          GROUP BY isrc, report_id
+                          GROUP BY track_id, report_id
                          ) as ari2
                     LEFT JOIN track t ON t.id = ari2.track_id
                     LEFT JOIN artist a ON a.id = t.artist_id
                     WHERE a.label_id = 0
                     GROUP BY {$model->groupBy}
-                    ORDER BY {$model->orderBy}
-                    limit {$model->limit}";
+                    ORDER BY {$model->orderBy}";
+
+            if ($model->limit) {
+                $query .= " LIMIT {$model->limit}";
+            }
 
             $request = Yii::$app->db->createCommand($query);
 
@@ -818,6 +891,7 @@ class InvoiceController extends Controller
             $model->quarter = $invoice->quarter;
             $model->year = $invoice->year;
         }
+        /*
         
         $sql = "SELECT i.invoice_id,
                    sl.name as label_name,
@@ -852,6 +926,54 @@ class InvoiceController extends Controller
         $sql .=" GROUP BY ii.artist_id, CONCAT(ar.year, '-', ar.quarter)
          ORDER BY i2.invoice_id desc, ii.artist_id asc,  IFNULL(ar.year, i.year) asc, IFNULL(ar.quarter, i.quarter) asc, i.aggregator_id asc;
          ";
+        */
+        
+        
+        $sql = "
+            SELECT
+                i_payout.invoice_id                         AS payout_invoice_id,
+                sl.name                                     AS label_name,
+                a.name                                      AS artist,
+                a.full_name                                 AS full_name,
+                GROUP_CONCAT(DISTINCT ag.name)              AS aggregator,
+                i_payout.year                               AS year_pay,
+                i_payout.quarter                            AS quarter_pay,
+                i_income.year                               AS year_in,
+                i_income.quarter                            AS quarter_in,
+                SUM(ia.amount)                              AS sum_pay,
+                c.currency_name
+            FROM invoice_allocation ia
+                JOIN invoice_items ii_payout ON ii_payout.id = ia.payout_item_id
+                JOIN invoice i_payout ON i_payout.invoice_id = ii_payout.invoice_id
+                    AND i_payout.invoice_type in (2,3,4)
+                    AND i_payout.invoice_status_id IN (2, 4)
+                JOIN invoice_items ii_income ON ii_income.id = ia.income_item_id
+                JOIN invoice i_income ON i_income.invoice_id = ii_income.invoice_id
+                    AND i_income.invoice_type IN (1, 5)
+                    AND i_income.invoice_status_id IN (2, 4)
+                JOIN artist a ON a.id = ii_income.artist_id
+                LEFT JOIN aggregator ag ON ag.aggregator_id = i_income.aggregator_id
+                LEFT JOIN currency c ON c.currency_id = i_income.currency_id
+                LEFT JOIN sub_label sl ON sl.id = i_payout.label_id
+            WHERE 1";
+        
+        if ($model->invoiceId) {
+            $sql .= " and i_payout.invoice_id = {$model->invoiceId} ";
+        } else {
+            $sql .= " and i_payout.quarter = {$model->quarter} and i_payout.year = {$model->year} ";
+        }
+        
+        $sql .=" GROUP BY
+                ii_income.artist_id,
+                i_income.year,
+                i_income.quarter,
+                i_payout.invoice_id,
+                sl.name,
+                a.name,
+                a.full_name,
+                c.currency_name
+            ORDER BY `year_in` ASC, quarter_in asc;
+         ";
         
         $data = Yii::$app->db->createCommand($sql)
             ->queryAll();
@@ -880,17 +1002,23 @@ class InvoiceController extends Controller
         $spreadSheet = new Spreadsheet();
         // баланси
         $workSheet = $spreadSheet->getActiveSheet();
-        $workSheet->setTitle('Звіт по виплатім');
-        $workSheet->getStyle('A1:J1')->getAlignment()
+        $workSheet->setTitle('Звіт по виплатам');
+        $workSheet->getStyle('A1:K1')->getAlignment()
             ->setWrapText(true)
             ->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        $workSheet->getStyle('A1:J1')->getFont()->setBold(true);
+        $workSheet->getStyle('A1:K1')->getFont()->setBold(true);
         
        // $workSheet->getColumnDimension('A1:J1')->setWidth(15);
         
         // зберегти баланс на першому аркуші
         $workSheet->fromArray($tempData);
-        $filename = "report_pay_invoice.xlsx";
+        $name = "report_pay_invoice";
+
+        if (!empty($model->invoiceId)) {
+            $name .= "_" . $model->invoiceId;
+        }
+
+        $filename = $name . ".xlsx";
         $writer = new Xlsx($spreadSheet);
         $writer->save(self::$homePage . 'xls/' . $filename);
         

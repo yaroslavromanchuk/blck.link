@@ -135,4 +135,32 @@ class DateFormat
             'end' => '31.03.'.$year,
         ];
     }
+
+    /**
+     * Returns next quarter/year pair for given quarter and year.
+     *
+     * Example:
+     * - q=3, y=2026 => [quarter => 4, year => 2026]
+     * - q=4, y=2026 => [quarter => 1, year => 2027]
+     *
+     * @param int $q
+     * @param int $y
+     * @return array{quarter:int,year:int}
+     */
+    public static function getNextQuarterYear(int $q, int $y): array
+    {
+        $q = max(1, min(4, $q));
+
+        if ($q < 4) {
+            return [
+                'quarter' => $q + 1,
+                'year' => $y,
+            ];
+        }
+
+        return [
+            'quarter' => 1,
+            'year' => $y + 1,
+        ];
+    }
 }

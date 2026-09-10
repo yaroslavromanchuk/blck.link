@@ -15,7 +15,7 @@ use yii\widgets\Pjax;
 /* @var $this yii\web\View */
 /* @var $model Track */
 
-$artistData = Artist::getDb()->cache(function ($db) {
+/*$artistData = Artist::getDb()->cache(function ($db) {
     return Artist::find()
     ->select(['CONCAT(artist.name, " (", sub_label.name, ")")', 'artist.id'])
     ->leftJoin('sub_label', 'sub_label.id = artist.label_id')
@@ -24,7 +24,16 @@ $artistData = Artist::getDb()->cache(function ($db) {
     //->andFilterWhere(['user.label_id' => Yii::$app->user->identity->label_id])
     ->indexBy('artist.id')
     ->column();
-}, 30);
+}, 5); */
+
+$artistData = Artist::find()
+        ->select(['CONCAT(artist.name, " (", sub_label.name, ")")', 'artist.id'])
+        ->leftJoin('sub_label', 'sub_label.id = artist.label_id')
+        ->where(['artist.active' => 1])
+        //->leftJoin('user', 'user.id = artist.admin_id')
+        //->andFilterWhere(['user.label_id' => Yii::$app->user->identity->label_id])
+        ->indexBy('artist.id')
+        ->column();
 
 $releaseData = Release::getDb()->cache(function ($db) {
     return Release::find()
@@ -287,17 +296,12 @@ $albumData = Track::getDb()->cache(function ($db) {
                                         <?= $form->field($model, 'name')->textInput(['maxlength' => true]) ?>
                                     </div>
                                     <div class="col-sm-12 col-md-6">
-                                        <?php if($model->url){
-                                            echo $form->field($model, 'url',  ['enableAjaxValidation' => true])->textInput(['maxlength' => true]);
-                                        } else {
-                                            echo $form->field($model, 'url', ['enableAjaxValidation' => true])->textInput(['maxlength' => true]);
-                                        }  ?>
+                                        <?=$form->field($model, 'url',  ['enableAjaxValidation' => true])->textInput(['maxlength' => true])?>
                                     </div>
                                     <div class="col-sm-12">
-                                        <?php // $form->field($model, 'img')->textInput(['maxlength' => true]) ?>
                                         <?php if(!empty($model->img)) {
-                                            echo Html::img($model->image, ['alt'=>'yii2 - картинка в gridview', 'style' => 'width: 200px; margin-top: 15px;']);
-                                        }
+                                                echo Html::img($model->image, ['alt'=>'yii2 - картинка в gridview', 'style' => 'width: 200px; margin-top: 15px;']);
+                                            }
                                         ?>
                                         <?= $form->field($model, 'file')->fileInput() ?>
                                     </div>
@@ -339,12 +343,11 @@ $albumData = Track::getDb()->cache(function ($db) {
                         </div>
                     </div>
                 </div>
-
-
-                <?php ActiveForm::end();
-            ?>
-        </div>
+                
+                <?php ActiveForm::end();?>
+            </div>
       </div>
+    </div>
 </div>
 <?php echo CreateArtist::widget(); ?>
 <?php //CreateRelease::widget(); ?>
@@ -352,9 +355,30 @@ $albumData = Track::getDb()->cache(function ($db) {
   <?php
 
 $script = <<< JS
+function transliterate(text) {
+    const map = {
+        'а':'a','б':'b','в':'v','г':'h','ґ':'g','д':'d','е':'e','є':'ye',
+        'ж':'zh','з':'z','и':'y','і':'i','ї':'yi','й':'y',
+        'к':'k','л':'l','м':'m','н':'n','о':'o','п':'p','р':'r',
+        'с':'s','т':'t','у':'u','ф':'f','х':'kh','ц':'ts','ч':'ch',
+        'ш':'sh','щ':'shch','ь':'','ю':'yu','я':'ya',
+        ' ':'-','_':'-'
+    };
 
-        $(function() {
-        
+    return text.toLowerCase()
+        .split('')
+        .map(char => map[char] ?? char)
+        .join('')
+        .replace(/[^a-z0-9-]/g, '')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '');
+}
+
+$('#track-name').on('input', function () {
+    $('#track-url').val(transliterate($(this).val()));
+});
+
+$(function() {
 $(document).on('beforeSubmit', 'form#track-form', function (e) {
     e.preventDefault();
     console.log('qrwq2342');

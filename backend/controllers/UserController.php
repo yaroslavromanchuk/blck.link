@@ -3,7 +3,9 @@
 namespace backend\controllers;
 
 use backend\models\InvoiceItemsSearch;
+use backend\models\UserBalance;
 use backend\models\UserBalanceSearch;
+use backend\models\UserBonus;
 use backend\models\UserBonusSearch;
 use Yii;
 use backend\models\User;
@@ -55,6 +57,11 @@ class UserController extends Controller
                         'actions' => ['index', 'create', 'delete'],
                         'allow' => true,
                         'roles' => ['admin']
+                    ],
+                    [
+                        'actions' => ['view', 'index',],
+                        'allow' => true,
+                        'roles' => ['manager']
                     ],
                     
                 ],
@@ -206,6 +213,25 @@ class UserController extends Controller
         $this->findModel($id)->delete();
 
         return $this->redirect(['index']);
+    }
+
+    public function actionBulkPay()
+    {
+        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+
+        $ids = Yii::$app->request->post('ids');
+
+        if (!empty($ids)) {
+            UserBalance::updateAll(
+                [
+                    'is_pay' => 1,
+                    'date_pay' => date('Y-m-d H:i:s'),
+                ],
+                ['balance_id' => $ids]
+            );
+        }
+
+        return ['success' => true];
     }
 
     /**

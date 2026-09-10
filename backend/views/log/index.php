@@ -54,8 +54,9 @@ $this->params['breadcrumbs'][] = 'Фінанси';
             <div class="row">
                 <div class="col-sm-12">
             <div class="panel panel-success">
-                <div class="panel-heading">Баланс лейбів EUR </div>
+                <div class="panel-heading">Баланс лейбів EUR</div>
                 <div class="panel-body">
+                    <p>Сума депозитів тільки тих артитсів в кого на депозиті > 0</p>
                     <?php
                     $dataProvider = new SqlDataProvider([
                         'sql' => 'SELECT l.name,
@@ -68,10 +69,11 @@ $this->params['breadcrumbs'][] = 'Фінанси';
                                           and artist.deposit_1 >= 0
                                         GROUP BY artist.label_id
                                         HAVING `sum` > 0
+                                        order by `sum` DESC
                                         ',
                         'totalCount' => 1,
                         'pagination' => [
-                            'pageSize' => 20,
+                            'pageSize' => 30,
                         ],
                     ]);
                     echo GridView::widget([
@@ -103,6 +105,7 @@ $this->params['breadcrumbs'][] = 'Фінанси';
                     <div class="panel panel-warning">
                         <div class="panel-heading">Баланс лейбів USD </div>
                         <div class="panel-body">
+                            <p>Сума депозитів тільки тих артитсів в кого на депозиті > 0</p>
                             <?php
                             $dataProvider = new SqlDataProvider([
                                 'sql' => 'SELECT l.name,
@@ -115,11 +118,12 @@ $this->params['breadcrumbs'][] = 'Фінанси';
                                           and artist.deposit_3 >= 0
                                         GROUP BY artist.label_id
                                         HAVING `sum` > 0
+                                        order by `sum` DESC
                                         ',
                                 //'params' => [':status' => 1],
                                 'totalCount' => 1,
                                 'pagination' => [
-                                    'pageSize' => 20,
+                                    'pageSize' => 30,
                                 ],
                             ]);
                             
@@ -151,6 +155,7 @@ $this->params['breadcrumbs'][] = 'Фінанси';
                     <div class="panel panel-info">
                         <div class="panel-heading">Баланс лейбів UAH</div>
                         <div class="panel-body">
+                            <p>Сума депозитів тільки тих артитсів в кого на депозиті > 0</p>
                             <?php
                             $dataProvider = new SqlDataProvider([
                                 'sql' => '
@@ -164,10 +169,11 @@ $this->params['breadcrumbs'][] = 'Фінанси';
                                           and artist.deposit >= 0
                                         GROUP BY artist.label_id
                                         HAVING `sum` > 0
+                                        order by `sum` DESC
                                         ',
                                 'totalCount' => 1,
                                 'pagination' => [
-                                    'pageSize' => 20,
+                                    'pageSize' => 30,
                                 ],
                             ]);
                             
@@ -201,36 +207,30 @@ $this->params['breadcrumbs'][] = 'Фінанси';
             <div class="row">
                 <div class="col-sm-12">
                     <div class="panel panel-primary">
-                        <div class="panel-heading">Баланс Акртистів BlackBeats EUR</div>
+                        <div class="panel-heading">Баланс Акртистів EUR</div>
                         <div class="panel-body">
+                            <p>Дані основані на інвойсах. Включає дані всіх контрагентів</p>
                             <?php
                             $dataProvider = new SqlDataProvider([
-                                'sql' => 'SELECT GROUP_CONCAT(distinct(ag.name)) as name,
-                                            IFNULL(ar.year, i.year) as year,
-                                            IFNULL(ar.quarter, i.quarter) as quarter,
-                                            sum(ii.amount) as sum_in,
-                                            sum(IF(ii.payment_invoice_id is null, 0, ii.amount)) as sum_out,
-                                            sum(IF(ii.payment_invoice_id is null, ii.amount, 0)) as `sum_ost`,
+                                'sql' => 'SELECT GROUP_CONCAT(distinct(f.aggregator_name)) as name,
+                                            f.year,
+                                            f.quarter,
+                                            sum(f.total_income) as sum_in,
+                                            sum(f.total_paid) as sum_out,
+                                            sum(f.unpaid_amount) as `sum_ost`,
                                             c.currency_name
-                                        FROM `invoice_items` ii
-                                            inner join invoice i ON i.invoice_id = ii.invoice_id
-                                                and i.invoice_status_id = 2
-                                                and i.invoice_type in (1, 5, 3, 4)
-                                            inner join artist a On a.id = ii.artist_id
-                                                                       and a.label_id = 0
-                                                                       and a.deposit_1 > 0
-                                            left join aggregator_report ar ON ar.id = i.aggregator_report_id
-                                            left JOIN currency c ON c.currency_id = i.currency_id
-                                            left join aggregator ag ON ag.aggregator_id = i.aggregator_id
-                                        where ii.artist_id != 0
-                                        and i.currency_id = 1
-                                        group by ag.internal_type, ar.year, ar.quarter, i.currency_id
-                                        ORDER BY i.year asc, i.quarter asc, i.aggregator_id asc',
+                                        FROM `v_aggregator_quarter_financials` f
+                                            left JOIN currency c ON c.currency_id = f.currency_id
+                                            left join aggregator ag ON ag.aggregator_id = f.aggregator_id
+                                        where f.currency_id = 1
+                                        group by ag.internal_type, f.year, f.quarter
+                                        ORDER BY f.year asc, f.quarter asc, f.aggregator_id asc',
                                 'totalCount' => 1,
                                 'pagination' => [
                                     'pageSize' => 20,
                                 ],
                             ]);
+                            $i = 0;
                             
                             echo GridView::widget([
                                 'dataProvider' => $dataProvider,
@@ -276,31 +276,24 @@ $this->params['breadcrumbs'][] = 'Фінанси';
                 </div>
                 <div class="col-sm-12">
                     <div class="panel panel-warning">
-                        <div class="panel-heading">Баланс Акртистів BlackBeats USD</div>
+                        <div class="panel-heading">Баланс Акртистів USD</div>
                         <div class="panel-body">
+                            <p>Дані основані на інвойсах. Включає дані всіх контрагентів</p>
                             <?php
                             $dataProvider = new SqlDataProvider([
-                                'sql' => 'SELECT GROUP_CONCAT(distinct(ag.name)) as name,
-                                            IFNULL(ar.year, i.year) as year,
-                                            IFNULL(ar.quarter, i.quarter) as quarter,
-                                            sum(ii.amount) as sum_in,
-                                            sum(IF(ii.payment_invoice_id is null, 0, ii.amount)) as sum_out,
-                                            sum(IF(ii.payment_invoice_id is null, ii.amount, 0)) as `sum_ost`,
+                                'sql' => 'SELECT GROUP_CONCAT(distinct(f.aggregator_name)) as name,
+                                            f.year,
+                                            f.quarter,
+                                            sum(f.total_income) as sum_in,
+                                            sum(f.total_paid) as sum_out,
+                                            sum(f.unpaid_amount) as `sum_ost`,
                                             c.currency_name
-                                        FROM `invoice_items` ii
-                                            inner join invoice i ON i.invoice_id = ii.invoice_id
-                                                and i.invoice_status_id = 2
-                                                and i.invoice_type in (1, 5, 3, 4)
-                                            inner join artist a On a.id = ii.artist_id
-                                                                       and a.label_id = 0
-                                                                       and a.deposit_3 > 0
-                                            left join aggregator_report ar ON ar.id = i.aggregator_report_id
-                                            left JOIN currency c ON c.currency_id = i.currency_id
-                                            left join aggregator ag ON ag.aggregator_id = i.aggregator_id
-                                        where ii.artist_id != 0
-                                        and i.currency_id = 3
-                                        group by ag.internal_type, ar.year, ar.quarter, i.currency_id
-                                        ORDER BY i.year asc, i.quarter asc, i.aggregator_id asc',
+                                        FROM `v_aggregator_quarter_financials` f
+                                            left JOIN currency c ON c.currency_id = f.currency_id
+                                            left join aggregator ag ON ag.aggregator_id = f.aggregator_id
+                                        where f.currency_id = 3
+                                        group by ag.internal_type, f.year, f.quarter
+                                        ORDER BY f.year asc, f.quarter asc, f.aggregator_id asc',
                                 //'params' => [':status' => 1],
                                 'totalCount' => 1,
                                 'pagination' => [
@@ -352,31 +345,24 @@ $this->params['breadcrumbs'][] = 'Фінанси';
                 </div>
                 <div class="col-sm-12">
                     <div class="panel panel-info">
-                        <div class="panel-heading">Баланс Акртистів BlackBeats UAH</div>
+                        <div class="panel-heading">Баланс Акртистів UAH</div>
                         <div class="panel-body">
+                            <p>Дані основані на інвойсах. Включає дані всіх контрагентів</p>
                             <?php
                             $dataProvider = new SqlDataProvider([
-                                'sql' => 'SELECT GROUP_CONCAT(distinct(ag.name)) as name,
-                                            IFNULL(ar.year, i.year) as year,
-                                            IFNULL(ar.quarter, i.quarter) as quarter,
-                                            sum(ii.amount) as sum_in,
-                                            sum(IF(ii.payment_invoice_id is null, 0, ii.amount)) as sum_out,
-                                            sum(IF(ii.payment_invoice_id is null, ii.amount, 0)) as `sum_ost`,
+                                'sql' => 'SELECT GROUP_CONCAT(distinct(f.aggregator_name)) as name,
+                                            f.year,
+                                            f.quarter,
+                                            sum(f.total_income) as sum_in,
+                                            sum(f.total_paid) as sum_out,
+                                            sum(f.unpaid_amount) as `sum_ost`,
                                             c.currency_name
-                                        FROM `invoice_items` ii
-                                            inner join invoice i ON i.invoice_id = ii.invoice_id
-                                                and i.invoice_status_id = 2
-                                                and i.invoice_type in (1, 5, 3, 4)
-                                            inner join artist a On a.id = ii.artist_id
-                                                                       and a.label_id = 0
-                                                                       and a.deposit > 0
-                                            left join aggregator_report ar ON ar.id = i.aggregator_report_id
-                                            left JOIN currency c ON c.currency_id = i.currency_id
-                                            left join aggregator ag ON ag.aggregator_id = i.aggregator_id
-                                        where ii.artist_id != 0
-                                        and i.currency_id = 2
-                                        group by ag.internal_type, ar.year, ar.quarter, i.currency_id
-                                        ORDER BY  i.year asc, i.quarter asc,  i.aggregator_id asc',
+                                        FROM `v_aggregator_quarter_financials` f
+                                            left JOIN currency c ON c.currency_id = f.currency_id
+                                            left join aggregator ag ON ag.aggregator_id = f.aggregator_id
+                                        where f.currency_id = 2
+                                        group by ag.internal_type, f.year, f.quarter
+                                        ORDER BY f.year asc, f.quarter asc, f.aggregator_id asc',
                                 //'params' => [':status' => 1],
                                 'totalCount' => 1,
                                 'pagination' => [
@@ -427,6 +413,56 @@ $this->params['breadcrumbs'][] = 'Фінанси';
                     </div>
                 </div>
         </div>
+            <div class="row">
+                <div class="col-sm-12">
+                    <div class="panel panel-info">
+                        <div class="panel-heading">Борги Акртистів</div>
+                        <div class="panel-body">
+                            <?php
+                            $dataProvider = new SqlDataProvider([
+                                'sql' => 'SELECT v_p.*, c.currency_name
+                                            FROM `v_payout_debt_by_quarter` v_p
+                                                LEFT JOIN currency c ON c.currency_id = v_p.currency_id
+                                            WHERE v_p.debt_amount > 0
+                                            group by v_p.year, v_p.quarter,  v_p.currency_id
+                                            ',
+                                //'params' => [':status' => 1],
+                                'totalCount' => 1,
+                                'pagination' => [
+                                    'pageSize' => 20,
+                                ],
+                            ]);
+                            
+                            echo GridView::widget([
+                                'dataProvider' => $dataProvider,
+                                //'showFooter' => true,
+                                'columns' => [
+                                    ['class' => 'yii\grid\SerialColumn'],
+                                    [
+                                        'attribute' => 'year',
+                                        'label' => 'Рік'
+                                    ],
+                                    [
+                                        'attribute' => 'quarter',
+                                        'label' => 'Квартал',
+                                       // 'footer' => '<b>Всього:</b>'
+                                    ],
+                                    [
+                                        'attribute' => 'debt_amount',
+                                        'label' => 'Борг',
+                                       // 'footer' => '<b>' . array_sum(array_column($dataProvider->getModels(), 'sum_ost')) . '</b>',
+                                    ],
+                                    [
+                                        'attribute' => 'currency_name',
+                                        'label' => 'Валюта'
+                                    ],
+                                ]
+                            ]) ?>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
         <!--  <div class="col-sm-12 col-md-4">
                 <div class="panel panel-success">
                     <div class="panel-heading">Дохід по типу власності і валюті (без частки лейбу)</div>

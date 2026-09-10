@@ -11,13 +11,7 @@ return [
             'class' => 'yii\caching\FileCache',
         ],
         'session' => [
-            'class' => 'yii\web\DbSession',
-            'writeCallback' => function () {
-                return [
-                    'user_id' => Yii::$app->user->id
-                ];
-    
-            }
+            'class' => yii\web\Session::class,
         ],
         'authManager' => [
             'class' => 'yii\rbac\DbManager',

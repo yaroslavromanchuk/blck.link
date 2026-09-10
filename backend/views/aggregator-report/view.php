@@ -10,7 +10,6 @@ use yii\helpers\Url;
 /* @var $model backend\models\AggregatorReport */
 /* @var $items backend\models\AggregatorReportItem */
 /* @var $searchModel backend\models\AggregatorReportItemSearch */
-/* @var $loaded array */
 /* @var $perc integer */
 
 $this->title = $model->id;
@@ -89,16 +88,8 @@ $this->params['breadcrumbs'][] = $this->title;
     <?= GridView::widget([
         'dataProvider' => $items['dataProvider'],
         'filterModel' => $searchModel,
-        'rowOptions' => function ($model) use ($loaded)
-        {
-            if(in_array(str_replace('-', '', $model->isrc), $loaded)) {
-                return ['class' => 'success'];
-            } else {
-                return ['class' => 'danger'];
-            }
-        },
         'columns' => [
-                'country',
+            'country',
             'date_report',
             'platform',
             'isrc',

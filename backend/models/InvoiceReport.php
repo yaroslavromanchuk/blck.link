@@ -9,9 +9,9 @@ class InvoiceReport extends Model
 {
     public $data = null;
     public $invoiceId = null;
-    public $groupBy = 't.artist_id';
-    public $orderBy = 'amount DESC';
-    public $limit = 30;
+    public string $groupBy = 't.artist_id';
+    public string $orderBy = 'amount DESC';
+    public int|string $limit = '';
 
     public function rules(): array
     {
@@ -20,7 +20,7 @@ class InvoiceReport extends Model
             [['data'], 'each', 'rule' => ['string', 'min' => 1]],
             [['invoiceId'], 'each', 'rule' => ['integer', 'min' => 1]],
             [['groupBy', 'orderBy'], 'string', 'max' => 255],
-            [['limit'], 'integer', 'min' => 1, 'max' => 100],
+            [['limit'], 'integer', 'max' => 1000],
             //[['groupBy', 'orderBy'], 'in', 'range' => [0, 1, 2]], // Assuming 0, 1, 2 are valid values for groupBy and orderBy
         ];
     }

@@ -52,7 +52,10 @@ class InvoiceSearch extends Invoice
                 'defaultOrder' => [
                     'invoice_id' => SORT_DESC
                 ]
-            ]
+            ],
+            'pagination' => [
+                'pageSize' => 25,
+            ],
         ]);
 
         $this->load($params);

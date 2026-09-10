@@ -5,8 +5,8 @@ use yii\helpers\Html;
 /* @var $this yii\web\View */
 /* @var $model backend\models\SubLabel */
 
-$this->title = Yii::t('app', 'Create Sub Label');
-$this->params['breadcrumbs'][] = ['label' => Yii::t('app', 'Sub Labels'), 'url' => ['index']];
+$this->title = Yii::t('app', 'Створити партнера');
+$this->params['breadcrumbs'][] = ['label' => Yii::t('app', 'Партнери'), 'url' => ['index']];
 $this->params['breadcrumbs'][] = $this->title;
 ?>
 <div class="sub-label-create">

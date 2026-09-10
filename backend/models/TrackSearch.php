@@ -40,7 +40,19 @@ class TrackSearch extends Track
      */
     public function search($params)
     {
-        $query = Track::find();
+        $query = Track::find()
+            ->alias('t')
+            ->with([
+                'aggregator',
+            ])
+            ->select([
+                't.*',
+                'GROUP_CONCAT(ag.name) as aggregator_names'
+            ])
+            ->leftJoin(['t2a' => 'track_to_aggregator'], 't2a.track_id = t.id')
+            ->leftJoin(['ag' => 'aggregator'], 'ag.aggregator_id = t2a.aggregator_id')
+            ->groupBy('t.id');
+        ;
 
         // add conditions that should always apply here
 
@@ -80,27 +92,27 @@ class TrackSearch extends Track
         // grid filtering conditions
         $query->andFilterWhere([
           //  'id' => $this->id,
-            'track.artist_id' => $this->artist_id,
+            't.artist_id' => $this->artist_id,
             //'track.date' => $this->date,
-            'track.sharing' => $this->sharing,
-            'track.views' => $this->views,
-            'track.click' => $this->click,
-            'track.active' => $this->active,
+            't.sharing' => $this->sharing,
+            't.views' => $this->views,
+            't.click' => $this->click,
+            't.active' => $this->active,
            // 'artist.label_id' => $this->label_id,
         ]);
 
         if ($this->is_album == 1) {
-            $query->andFilterWhere(['track.is_album' => $this->is_album]);
+            $query->andFilterWhere(['t.is_album' => $this->is_album]);
         }
 
-        $query->andFilterWhere(['like', 'track.artist_name', $this->artist_name])
-            ->andFilterWhere(['like', 'track.name', '%' .$this->name.'%', false])
-            ->andFilterWhere(['like', 'track.url', $this->url])
-            ->andFilterWhere(['like', 'track.tag', $this->tag])
-            ->andFilterWhere(['like', "track.isrc", str_replace('-', '', $this->isrc), false])
-            ->andFilterWhere(['>=', 'track.date', $this->date])
+        $query->andFilterWhere(['like', 't.artist_name', $this->artist_name])
+            ->andFilterWhere(['like', 't.name', '%' .$this->name.'%', false])
+            ->andFilterWhere(['like', 't.url', $this->url])
+            ->andFilterWhere(['like', 't.tag', $this->tag])
+            ->andFilterWhere(['like', "t.isrc", str_replace('-', '', $this->isrc), false])
+            ->andFilterWhere(['>=', 't.date', $this->date])
             //->andFilterWhere(['<', 'date', '2025-01-01'])
-            ->andFilterWhere(['>=', 'track.date_added', $this->date_added]);
+            ->andFilterWhere(['>=', 't.date_added', $this->date_added]);
         ;
        //    ->andFilterWhere(['like', 'apple', $this->apple]) 
          //  ->andFilterWhere(['like', 'boom', $this->boom]) 

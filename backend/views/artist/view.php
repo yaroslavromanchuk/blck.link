@@ -1,17 +1,25 @@
 <?php
 
+use backend\models\Currency;
+use backend\models\VUnpaidIncomeByPeriod;
+use yii\data\SqlDataProvider;
+use yii\helpers\ArrayHelper;
 use yii\helpers\Html;
 use yii\widgets\DetailView;
 use  yii\helpers\Url;
 
+
 /* @var $this yii\web\View */
 /* @var $model backend\models\Artist */
+/* @var $dataProviderV */
+/* @var $searchModelV */
 
 $this->title = $model->name;
 $this->params['breadcrumbs'][] = ['label' => Yii::t('app', 'Контрагенти'), 'url' => ['index']];
 $this->params['breadcrumbs'][] = $this->title;
 use yii\grid\GridView;
 use yii\data\ActiveDataProvider;
+use yii\widgets\Pjax;
 
 $query = new \yii\db\Query();
 $invoice = new ActiveDataProvider([
@@ -60,7 +68,7 @@ $tracks = new ActiveDataProvider([
         } ?>
     </p>
     <div class="row">
-        <div class="col-xs-12 col-md-3 col-sm-3">
+        <div class="col-xs-12 col-md-3 col-sm-12">
             <div class="panel panel-default">
                 <div class="panel-heading">Превью: <?=$model->name?></div>
                 <img class="card-img-top img-rounded" src="<?=$model->getLogo()?>" alt="Card image cap">
@@ -127,7 +135,7 @@ $tracks = new ActiveDataProvider([
                     ]) ?>
             </div>
         </div>
-        <div class="col-xs-12 col-md-4 col-sm-4">
+        <div class="col-xs-12 col-md-2 col-sm-12">
             <div class="panel panel-default">
                 <div class="panel-heading">Треки</div>
                 <div class="panel-body">
@@ -157,7 +165,7 @@ $tracks = new ActiveDataProvider([
                 </div>
             </div>
         </div>
-        <div class="col-xs-12 col-md-5 col-sm-5">
+        <div class="col-xs-12 col-md-7 col-sm-12">
             <div class="panel panel-default">
                 <div class="panel-heading">Інвойси</div>
                 <div class="panel-body">
@@ -226,9 +234,121 @@ $tracks = new ActiveDataProvider([
             </div>
         </div>
     </div>
+    
+    <?php
+    
+    $sql = "
+    SELECT
+        v.artist_id,
+       # v.currency_id,
+        c.currency_name,
+        v.year,
+        v.quarter,
+        v.unpaid_total
+    FROM v_unpaid_income_by_period v
+    left join currency c on c.currency_id = v.currency_id
+    WHERE v.artist_id = :artist_id
+    ORDER BY v.year, v.quarter
+";
+    
+    $dataProvider = new SqlDataProvider([
+        'sql' => $sql,
+        'params' => [
+            ':artist_id' => $model->id,
+        ],
+        'pagination' => [
+            'pageSize' => 20,
+        ],
+    ]);
+    
+ 
+    
+    ?>
+    
+    <div class="row">
+        <div class="col-xs-12 col-md-12 col-sm-12">
+            <div class="panel panel-default">
+                <div class="panel-heading">Борги артисту <p><?php
+Html::button(
+    'Експорт в Excel',
+    [
+        'class' => 'btn btn-success mb-3',
+        'id' => 'export-grid',
+    ]
+);
+?></p></div>
+                <div class="panel-body">
+                <?php
+                Pjax::begin(['id' => 'unpaid-grid-id']);
+                echo GridView::widget([
+                    'id' => 'unpaid-grid',
+                    'dataProvider' => $dataProviderV,
+                    'filterModel'  => $searchModelV,
+                    'tableOptions' => ['class' => 'table table-bordered table-hover'],
+                    //'summary' => false,
+                    'showFooter' => true,
+                    'columns' => [
+                        [
+                            'attribute' => 'year',
+                            'label' => 'Рік',
+                            'filter' => ArrayHelper::map(
+                                VUnpaidIncomeByPeriod::find()
+                                    ->select('year')
+                                    ->distinct()
+                                    ->orderBy('year DESC')
+                                    ->asArray()
+                                    ->all(),
+                                'year',
+                                'year'
+                            ),
+                           'footer' => 'Всього:',
+                           // 'contentOptions' => ['style' => 'width:90px; text-align:center'],
+                        ],
+                        [
+                            'attribute' => 'quarter',
+                            'label' => 'Квартал',
+                            'filter' => [
+                                1 => '1кв.',
+                                2 => '2кв.',
+                                3 => '3кв.',
+                                4 => '4кв.',
+                            ],
+                            'value' => fn ($model) => 'Q' . $model->quarter,
+                           // 'contentOptions' => ['style' => 'width:90px; text-align:center'],
+                        ],
+                        [
+                            'attribute' => 'currency_id',
+                            'label' => 'Валюта',
+                            'filter' => ArrayHelper::map(
+                                Currency::find()->all(),
+                                'currency_id',
+                                'currency_name'
+                            ),
+                            'value' => fn ($model) => $model->currency->currency_name,
+                           // 'contentOptions' => ['style' => 'width:100px; text-align:center'],
+                        ],
+                        [
+                            'attribute' => 'unpaid_total',
+                            'label' => 'Невиплачено',
+                            'format' => ['decimal', 2],
+                            'footer' =>
+                                Yii::$app->formatter->asDecimal(
+                                    (clone $dataProviderV->query)->sum('unpaid_total'),
+                                    2
+                                ),
+                            
+                            // 'contentOptions' => ['class' => 'text-end fw-bold'],
+                        ],
+                    ],
+                ]);
+                Pjax::end();
+                ?>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 <?php
-
 $this->registerJs(
 "
 $('#deposit_refresh').on('click', function () {send();});
@@ -266,5 +386,29 @@ function send()
          },
      });
 }
+
+
+document.getElementById('export-grid').addEventListener('click', function () {
+    const table = document.querySelector('#unpaid-grid table');
+    let csv = [];
+
+    for (let row of table.rows) {
+        let rowData = [];
+        for (let cell of row.cells) {
+            // пропускаємо filter inputs
+            rowData.push(
+                '"' + cell.innerText.trim().replace(/"/g, '""') + '"'
+            );
+        }
+        csv.push(rowData.join(';'));
+    }
+
+    const csvFile = new Blob([csv.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+
+    link.href = URL.createObjectURL(csvFile);
+    link.download = 'unpaid_income_report.csv';
+    link.click();
+});
 
 </script>

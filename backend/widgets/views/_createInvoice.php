@@ -117,7 +117,7 @@ $years = array_combine($years, $years);
                                 <div class="col-sm-12">
                                     <div class="form-group text-center">
                                         <br>
-                                        <?= Html::submitButton(Yii::t('app', 'Створити інвойс'), ['class' => 'btn btn-success']) ?>
+                                        <?= Html::submitButton(Yii::t('app', 'Створити інвойс'), ['class' => 'btn btn-success', 'id' => 'create_invoice_btn']) ?>
                                     </div>
                                 </div>
 
@@ -135,7 +135,7 @@ $(document).on('beforeSubmit', '#create_invoice', function (e) {
     e.preventDefault();
     
     const form = $(this);
-    let btn = form.find('#invoice-artist_ids');
+    let btn = $('#create_invoice_btn');
     btn.prop('disabled', true).text('Створюємо...');
 
     // якщо є помилки валідації — не відправляємо
@@ -145,20 +145,17 @@ $(document).on('beforeSubmit', '#create_invoice', function (e) {
 
     $.ajax({
         url: form.attr('action'),
-        type: 'POST',
+        type: form.attr('method'),
         data: form.serialize(),
         success: function (response) {
-
+            console.log(response);
             if (response.success) {
-                
-                $.notify("Інвойс успішно створено", "success");
-                
                 // закрити модалку
                 $('#invoice-add-modal').modal('hide');
 
                 // відкрити інвойс
                 if (response.url) {
-                    window.open(response.url, '_blank');
+                    window.open(response.url); // , '_blank'
                 }
 
                 // очистити чекбокси (опційно)

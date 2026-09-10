@@ -11,6 +11,7 @@ use backend\models\InvoiceLog;
 use backend\models\InvoiceLogType;
 use backend\models\InvoiceStatus;
 use backend\models\User;
+use backend\models\VUnpaidIncomeByPeriodSearch;
 use backend\widgets\DateFormat;
 use backend\widgets\Str;
 use common\models\Mail;
@@ -109,8 +110,19 @@ class ArtistController extends Controller
      */
     public function actionView($id)
     {
+        $searchModel = new VUnpaidIncomeByPeriodSearch();
+        $searchModel->artist_id = $id;
+        
+        $dataProvider = $searchModel->search(
+            Yii::$app->request->queryParams
+        );
+        
+        
         return $this->render('view', [
             'model' => $this->findModel($id),
+            'searchModelV'  => $searchModel,
+            'dataProviderV' => $dataProvider,
+        
         ]);
     }
 
@@ -132,6 +144,8 @@ class ArtistController extends Controller
 			return true;
 		}
 
+        $oldModel = $model->toArray();
+
 		if ($model->load(Yii::$app->request->post())) {
             $id = Artist::find()->orderBy('id DESC')->one()->id;
             $id++;
@@ -148,7 +162,7 @@ class ArtistController extends Controller
             }
 
             if($model->validate() && $model->save()) {
-
+                $model->saveLog($oldModel, $model->toArray());
                 return $this->redirect(['view', 'id' => $model->id]);
             }
         }
@@ -221,9 +235,6 @@ class ArtistController extends Controller
         
         $currentData = $model->toArray();
         if($model->load(Yii::$app->request->post())) {
-            
-            $newData = $model->toArray();
-            
             $file = UploadedFile::getInstance($model, 'file');
 
             if ($file && $file->tempName) {
@@ -235,7 +246,11 @@ class ArtistController extends Controller
                 }
             }
 
+            $model->iban = str_replace(' ', '', $model->iban);
+
              if($model->validate() && $model->save()) {
+                 $model->saveLog($currentData, $model->toArray());
+
                  if ($iban != $model->iban) {
                      try {
                          /* @var $client Telegram */
@@ -310,12 +325,19 @@ class ArtistController extends Controller
     public function actionCreateInvoice()
     {
         $model = new Invoice();
-        
+        Yii::$app->response->format = Response::FORMAT_JSON;
         // Ajax-validate
-        if (Yii::$app->request->isAjax && $model->load(Yii::$app->request->post())) {
-            Yii::$app->response->format = Response::FORMAT_JSON;
+        if (Yii::$app->request->isAjax
+                && isset(Yii::$app->request->post()['ajax'])
+                && $model->load(Yii::$app->request->post())
+        ) {
+           // Yii::$app->response->format = Response::FORMAT_JSON;
             return \yii\widgets\ActiveForm::validate($model);
         }
+        
+       // var_dump(Yii::$app->request->post());
+        
+       // echo 'DSfasd'; die;
         
         $artistIds = explode(',', Yii::$app->request->post('Invoice')['artist_ids'] ?? '');
         
@@ -589,11 +611,10 @@ class ArtistController extends Controller
         $name = Str::transliterate($model->name);
         $filename = "report_q_{$quarter}_{$year}_{$name}.xlsx";
         
-        if (file_exists(self::$homePage . 'xls/' . $filename)) {
+        if (false /*file_exists(self::$homePage . 'xls/' . $filename)*/) {
             if ($redirect) {
                 header("Location: /xls/".$filename);
                 exit;
-                //$this->redirect("/xls/" . $filename);
             } else {
                 return $filename;
             }
@@ -651,7 +672,7 @@ class ArtistController extends Controller
         $tempData[1] = []; // 2
         
         $tempData[2] = [ // 3
-            0 => 'Фінансовий звіт за період',
+            0 => 'Фінансовий звіт',
             1 => 'Сума',
             2 => 'Валюта',
             3 => 'Сума',
@@ -678,13 +699,16 @@ class ArtistController extends Controller
         $income = $model->getIncome($quarter, $year);
         // витрати за період
         $costs = $model->getCosts($quarter, $year);
+        // витрати настпуний період
+        $nextQuarter = DateFormat::getNextQuarterYear($quarter, $year);
+        $costs_next = $model->getCosts($nextQuarter['quarter'], $nextQuarter['year']);
         
-        if (count($income) + count($costs) > 0) {
+        if (count($income) + count($costs) + count($costs_next) > 0) {
             $i++;
             $tempData[$i] = []; // 15
             $i++; // 16
             $tempData[$i] = [// 16
-                0 => 'Перелік фінансових операцій за період',
+                0 => 'Перелік фінансових операцій',
             ];
             $workSheet->getStyle('A' . $i)->getFont()->setBold(true);
             
@@ -693,30 +717,28 @@ class ArtistController extends Controller
             $tempData[$i] = [
                 0 => 'Назва',
                 1 => 'Тип',
-                2 => 'Виконавець',
-                3 => 'Трек',
-                4 => 'Сума',
-                6 => 'Валюта',
-                7 => 'Дата',
+                2 => 'Сума',
+                3 => 'Валюта',
+                4 => 'Квартал',
+                5 => 'Дата',
             ];
             
-            $workSheet->getStyle("A$i:G$i")->getFont()->setBold(true);
-            $workSheet->getStyle("A$i:G$i")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('BFBFBF');
+            $workSheet->getStyle("A$i:F$i")->getFont()->setBold(true);
+            $workSheet->getStyle("A$i:F$i")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('BFBFBF');
             
             //$workSheet->getStyle("A$i:G$i")->getBorders()->getInside()->setBorderStyle(Border::BORDER_THIN)->getColor()->setRGB('000000'); // чорний
             //$workSheet->getStyle("A$i:G$i")->getBorders()->getOutline()->setBorderStyle(Border::BORDER_THIN)->getColor()->setRGB('000000'); // чорний
-            $workSheet->getStyle("A$i:G" . ($i + count($income) + count($costs)))->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN)->getColor()->setRGB('000000'); // чорний
+            $workSheet->getStyle("A$i:F" . ($i + count($income) + count($costs) + count($costs_next)))->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN)->getColor()->setRGB('000000'); // чорний
             
             $i++; // 18
             foreach ($income as $item) {
                 $tempData[$i] = [
                     0 => $item['description'],
                     1 => $item['invoice_type_name'] == 'Баланс' ? 'Нарахування' : $item['invoice_type_name'],
-                    2 => $item['a_name'],
-                    3 => $item['t_name'],
-                    4 => number_format($item['amount'], 2, '.', ''),
-                    5 => $item['currency_name'],
-                    6 => $item['date_item'],
+                    2 => number_format($item['amount'], 2, '.', ''),
+                    3 => $item['currency_name'],
+                    4 => $quarter . ' кв.',
+                    5 => $item['date_item'],
                 ];
                 $i++;
             }
@@ -725,11 +747,22 @@ class ArtistController extends Controller
                 $tempData[$i] = [
                     0 => $item['description'],
                     1 => $item['invoice_type_name'],
-                    2 => $item['a_name'],
-                    3 => $item['t_name'],
-                    4 => number_format($item['amount'], 2, '.', ''),
-                    5 => $item['currency_name'],
-                    6 => $item['date_item'],
+                    2 => number_format($item['amount'], 2, '.', ''),
+                    3 => $item['currency_name'],
+                    4 => $quarter . ' кв.',
+                    5 => $item['date_item'],
+                ];
+                $i++;
+            }
+
+            foreach ($costs_next as $item) {
+                $tempData[$i] = [
+                    0 => $item['description'],
+                    1 => $item['invoice_type_name'],
+                    2 => number_format($item['amount'], 2, '.', ''),
+                    3 => $item['currency_name'],
+                    4 => $nextQuarter['quarter'] . ' кв.',
+                    5 => $item['date_item'],
                 ];
                 $i++;
             }

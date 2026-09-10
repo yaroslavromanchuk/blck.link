@@ -7,6 +7,7 @@ use backend\models\Artist;
 use backend\models\Invoice;
 use backend\models\InvoiceItems;
 use backend\models\InvoiceStatus;
+use backend\models\InvoiceType;
 use Yii;
 use yii\db\Exception;
 
@@ -41,18 +42,32 @@ class InvoiceService
                 throw new \Exception('Не вдалося створити інвойс:' . current($errors));
             }
             
+            $sum = 0.0;
             foreach ($artists as $artist) {
+                $amount = $artist->getDep($invoice->currency_id) ?? 0;
+                
+                if ($amount != 0.00
+                    && in_array($invoice->invoice_type, [InvoiceType::$credit, InvoiceType::$costs, InvoiceType::$advance])
+                ) {
+                    $amount *= -1;
+                }
+                
                 $row = new InvoiceItems();
                 $row->invoice_id = $invoice->invoice_id;
                 $row->artist_id = $artist->id;
-                $row->amount = $artist->getDep($invoice->currency_id) ?? 0 * -1;
+                $row->amount = $amount;
                 $row->date_item = date('Y-m-d');
+                
+                $sum += $amount;
                 
                 if (!$row->save()) {
                     $errors = $row->getErrors();
                     throw new \Exception('Помилка додаваня запису в інвойс інвойсу на виплату: ' . current($errors));
                 }
             }
+            
+            $invoice->total = $sum;
+            $invoice->save(false);
             
             $transaction->commit();
             

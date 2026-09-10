@@ -30,7 +30,7 @@ class UploadReport extends Model
             [['file'], 'file',
                 'extensions'=>'xls,xlsx,csv',
                 //'wrongType' => 'Дозволяється тільки csv.',
-                'maxSize' => 1024 * 1024 * 30, // 15MB
+                'maxSize' => 1024 * 1024 * 30 * 4, // 128MB
                 //'tooLarge' => 'Розмір файлу перевищує 15 МБ. Будь ласка, завантажте файл меншого розміру.',
                 'skipOnEmpty' => false,
             ],

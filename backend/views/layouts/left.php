@@ -19,6 +19,7 @@ use yiister\gentelella\widgets\Menu;
 
                         if(Yii::$app->user->can('label')) {
                             $items[] = ["label" => Yii::t('app', 'Контрагенти'), "url" => ['/artist'], "icon" => "files-o"];
+                            $items[] = ['label' => Yii::t('app', 'Агрегатори'), 'url' => ['/aggregator'], "icon" => "files-o"];
                             $items[] = ["label" => Yii::t('app', 'Альбоми'), "url" => ['/album'], "icon" => "files-o"];
                             $items[] = ["label" => Yii::t('app', 'Треки'), "url" => ['/track'], "icon" => "files-o"];
                             //$items[] = ['label' => Yii::t('app', 'Релізи'),  'url' => ['/release'], "icon" => "files-o"];
@@ -37,8 +38,8 @@ use yiister\gentelella\widgets\Menu;
                                         'items' => [
                                             ['label' => Yii::t('app', 'Звіти'), 'url' => ['/aggregator-report']],
                                             ['label' => Yii::t('app', 'Пошук ISRC'), 'url' => ['/aggregator/isrc']],
-                                            ['label' => Yii::t('app', 'Агрегатори'), 'url' => ['/aggregator']],
-                                            ['label' => Yii::t('app', 'Статуси звітів агрегаторів'), 'url' => ['/aggregator-report-status']],
+                                            ['label' => Yii::t('app', 'Імпорт треків'), 'url' => ['/track/import']],
+                                            ['label' => Yii::t('app', 'Статуси звітів'), 'url' => ['/aggregator-report-status']],
                                             ['label' => Yii::t('app', 'Власність'), 'url' => ['/ownership']],
                                             ['label' => Yii::t('app', 'Катеорія власності'), 'url' => ['/ownership-type']],
                                         ],
@@ -55,7 +56,7 @@ use yiister\gentelella\widgets\Menu;
                                 ],
                             ];
                             $items[] = [
-                                'label' => Yii::t('app', 'Суб Лейбли'),
+                                'label' => Yii::t('app', 'Партнери'),
                                 'url' => ['/sub-label'],
                                 "icon" => "table",
                                // 'items'=> [
@@ -76,19 +77,19 @@ use yiister\gentelella\widgets\Menu;
                         }
 
                         if(Yii::$app->user->can('manager') && isset(Yii::$app->user->identity->label->id)) {
-                            $items[] = ['label' => Yii::t('app', 'Налаштування'),  'url' => ['/sub-label/view/', 'id' => Yii::$app->user->identity->label->id], "icon" => "table"];
+                            //$items[] = ['label' => Yii::t('app', 'Налаштування'),  'url' => ['/sub-label/view/', 'id' => Yii::$app->user->identity->label->id], "icon" => "table"];
                         }
                         // $items[] = ["label" => Yii::t('app', 'Официальные ссылки'), "url" => ["/link"], "icon" => "close"];
                         // $items[] = ["label" => Yii::t('app', 'Музыкальные Сервисы'), "url" => ['/services'], "icon" => "files-o"];
-                          if(Yii::$app->user->can('admin')) {
+                          if(Yii::$app->user->can('manager')) {
                               $items[] = [
-                                        'label' => Yii::t('app', 'Конфіги'),
+                                        'label' => Yii::t('app', 'Налаштування'),
                                         'icon' => 'table',
                                         'url' => "#",
                                         'items'=> [
-                                                ['label' => Yii::t('app', 'Користувачі'),  'url' => ['/user']],
+                                                ['label' => Yii::t('app', 'Менеджери'),  'url' => ['/user']],
                                                // ['label' => Yii::t('app', 'Аналитика'),  'url' => ['/log']],
-                                                ['label' => Yii::t('app', 'Переклади'),  'url' => ['/message']],
+                                               // ['label' => Yii::t('app', 'Переклади'),  'url' => ['/message']],
 
                                                 //['label' => Yii::t('app', 'Агрегатори'),  'url' => ['/aggregator']],
                                         ],

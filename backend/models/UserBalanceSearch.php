@@ -63,8 +63,21 @@ class UserBalanceSearch extends UserBalance
             'artist_id' => $this->artist_id,
             'track_id' => $this->track_id,
             'currency_id' => $this->currency_id,
-            'is_pay' => $this->is_pay,
         ]);
+
+        if ($this->is_pay == 2 || $this->is_pay == 1) {
+
+            if ($this->is_pay > 1) {
+                $query->andWhere(['is_pay' => null]);
+                //$query->andFilterWhere(['is NULL', 'is_pay', $this->is_pay]);
+            } else {
+                $query->andFilterWhere(['is_pay' => $this->is_pay]);
+            }
+
+
+        }
+
+
 
         return $dataProvider;
     }

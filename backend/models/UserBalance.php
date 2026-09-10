@@ -19,6 +19,7 @@ use Yii;
  * @property float $amount
  * @property bool $is_pay
  * @property string $date_added
+ * @property string $date_pay
  * @property string $last_update
  *
  * @property Currency $currency
@@ -47,7 +48,7 @@ class UserBalance extends \yii\db\ActiveRecord
             [['invoice_id', 'user_id', 'currency_id', 'all_sum', 'percentage', 'amount'], 'required'],
             [['invoice_id', 'user_id', 'label_id', 'artist_id', 'track_id', 'currency_id', 'is_pay'], 'integer'],
             [['all_sum', 'percentage', 'amount'], 'number'],
-            [['date_added', 'last_update'], 'safe'],
+            [['date_added', 'date_pay', 'last_update'], 'safe'],
             [['currency_id'], 'exist', 'skipOnError' => true, 'targetClass' => Currency::class, 'targetAttribute' => ['currency_id' => 'currency_id']],
             [['user_id'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['user_id' => 'id']],
             [['track_id'], 'exist', 'skipOnError' => true, 'targetClass' => Track::class, 'targetAttribute' => ['track_id' => 'id']],
@@ -72,8 +73,9 @@ class UserBalance extends \yii\db\ActiveRecord
             'all_sum' => 'Доля лейбла',
             'percentage' => 'Відсоток',
             'amount' => 'Сума бонусу',
-            'is_pay' => 'Виплачено',
+            'is_pay' => 'Сплачено',
             'date_added' => 'Нараховано',
+            'date_pay' => 'Дата сплати',
             'last_update' => 'Last Update',
         ];
     }

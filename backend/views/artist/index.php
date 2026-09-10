@@ -40,11 +40,13 @@ $this->params['breadcrumbs'][] = $this->title;
 
     foreach($dataProvider->models as $m)
     {
-        if ($m->id !=0) {
-            $total_amount += $m->deposit_1;
-            $total_amount_uah += $m->deposit;
-            $total_amount_usd += $m->deposit_3;
+        if ($m->id ==0) {
+            continue;
         }
+        
+        $total_amount += $m->deposit_1;
+        $total_amount_uah += $m->deposit;
+        $total_amount_usd += $m->deposit_3;
     }
     
     $labelList = SubLabel::getDb()->cache(function ($db) {
@@ -66,11 +68,7 @@ $this->params['breadcrumbs'][] = $this->title;
     ?>
 
 
-    <?php Pjax::begin([
-    'timeout' => 5000,
-    'enablePushState' => false,
-    ]);
-    ?>
+    <?php //Pjax::begin(['timeout' => 5000,'enablePushState' => false,]);?>
 
     <?= GridView::widget([
         'dataProvider' => $dataProvider,
@@ -78,9 +76,16 @@ $this->params['breadcrumbs'][] = $this->title;
         'showFooter' => true,
 		'rowOptions' => function ($model, $key, $index, $grid)
 		{
-			if ($model->label_id == 0 && $model->notify && (empty($model->email) || !filter_var($model->email, FILTER_VALIDATE_EMAIL))) {
+            if ($model->id == 0) {
+                return ['class' => 'hidden'];
+            } else if ($model->label_id == 0
+                && $model->notify
+                && (empty($model->email) || !filter_var($model->email, FILTER_VALIDATE_EMAIL))
+            ) {
                 return ['class' => 'danger'];
 			}
+            
+            return [];
 		},
         'columns' => [
             ['class' => 'yii\grid\SerialColumn'],
@@ -104,7 +109,14 @@ $this->params['breadcrumbs'][] = $this->title;
                         : '';
                 },
             ],
-            'name:ntext',
+            [
+                'attribute' => 'name',
+                'format' => 'raw',
+                'value' => function ($data) {
+                    return Html::a($data->name, ['artist/view', 'id' => $data->id], ['target'=>'_blank', 'class' => 'linksWithTarget']);
+                }
+            ],
+            //'name:ntext',
             //'full_name:ntext',
             [
                 'attribute' => 'label_id',
@@ -136,37 +148,41 @@ $this->params['breadcrumbs'][] = $this->title;
                     return $data->clientType->name;
                 }
             ],
-            [ // name свойство зависимой модели owner
+            /*[ // name свойство зависимой модели owner
                 'attribute' => 'reliz',
                 'label' => Yii::t('app', 'Треків'),
                 'value' => fn($model) => $model->tracks_count,
-            ],
-           /* [
-                'attribute' => 'percentage',
-                'value' => function($data) { return $data->isSubLabel() ? 'N/A' : $data->percentage; },
             ],*/
             [
+                'attribute' => 'percentage',
+                'value' => function($data) { return $data->isArtist() ? '-' : $data->percentage; },
+            ],
+            [
+                'attribute' => 'percentage_distribution',
+                'value' => function($data) { return $data->isArtist() ? '-' : $data->percentage_distribution; },
+            ],
+            [
                 'attribute' => 'deposit',
-                'label' => 'Депозит UAH >=',
+                'label' => 'UAH',
                 'value' => function($data) { return $data->deposit; },
                 'footer' => $total_amount_uah
             ],
             [
                 'attribute' => 'deposit_1',
-                'label' => 'Депозит EURO >=',
+                'label' => 'EURO',
                 'value' => function($data) { return $data->deposit_1; },
                 'footer' => $total_amount
             ],
             [
                 'attribute' => 'deposit_3',
-                'label' => 'Депозит USD >=',
+                'label' => 'USD',
                 'value' => function($data) { return $data->deposit_3; },
                 'footer' => $total_amount_usd
             ],
             [
                     'attribute' => 'country_id',
                     'value' => function($data) { return $data->country_id ? $data->country->country_name : ''; },
-                    'filter' => ArrayHelper::map($countries, 'country_id', 'country_name')
+                   // 'filter' => ArrayHelper::map($countries, 'country_id', 'country_name')
             ],
             'notify:boolean',
             [
@@ -226,7 +242,7 @@ $this->params['breadcrumbs'][] = $this->title;
         ],
     ]); ?>
 
-    <?php Pjax::end(); ?>
+    <?php // Pjax::end(); ?>
 
 </div>
 <?=\backend\widgets\CreateInvoice::widget();?>

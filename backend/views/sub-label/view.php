@@ -10,10 +10,11 @@ use yii\widgets\DetailView;
 /* @var $model backend\models\SubLabel */
 
 $this->title = $model->name;
-$this->params['breadcrumbs'][] = ['label' => Yii::t('app', 'Sub Labels'), 'url' => ['index']];
+$this->params['breadcrumbs'][] = ['label' => Yii::t('app', 'Партнери'), 'url' => ['index']];
 $this->params['breadcrumbs'][] = $this->title;
 \yii\web\YiiAsset::register($this);
 
+/*
 $query = new \yii\db\Query();
 $invoice = new ActiveDataProvider([
     'query' => $query->from('invoice')
@@ -40,7 +41,7 @@ $invoice = new ActiveDataProvider([
     'pagination' => [
         'pageSize' => 10,
     ],
-]);
+]);*/
 
 $query = new \yii\db\Query();
 $artist = new ActiveDataProvider([
@@ -58,14 +59,14 @@ $artist = new ActiveDataProvider([
     <h1><?= Html::encode($this->title) ?></h1>
 
     <p>
-        <?= Html::a(Yii::t('app', 'Update'), ['update', 'id' => $model->id], ['class' => 'btn btn-primary']) ?>
+        <?= Html::a(Yii::t('app', 'Редагувати'), ['update', 'id' => $model->id], ['class' => 'btn btn-primary']) ?>
 
         <?php
         if (Yii::$app->user->can('admin')) {
-            echo Html::a(Yii::t('app', 'Delete'), ['delete', 'id' => $model->id], [
+            echo Html::a(Yii::t('app', 'Видалити'), ['delete', 'id' => $model->id], [
                 'class' => 'btn btn-danger',
                 'data' => [
-                    'confirm' => Yii::t('app', 'Are you sure you want to delete this item?'),
+                    'confirm' => Yii::t('app', 'Ви впевнені, що хочете видалити цього партнера?'),
                     'method' => 'post',
                 ],
             ]);
@@ -80,17 +81,17 @@ $artist = new ActiveDataProvider([
                     // 'id',
                     //'user_id',
                     'name',
-                    'url',
+                    //'url',
                     //'logo',
                     'active:boolean',
-                    'percentage',
-                    'percentage_distribution',
+                    //'percentage',
+                    //'percentage_distribution',
                     'phone',
                     'email:email',
                     'full_name',
-                    'contract',
-                    'iban',
-                    'description:text',
+                    //'contract',
+                    //'iban',
+                   // 'description:text',
                     //'date_added',
                     //'last_update',
                 ],
@@ -98,7 +99,7 @@ $artist = new ActiveDataProvider([
         </div>
         <div class="col-xs-12 col-md-4">
             <div class="panel panel-default">
-                <div class="panel-heading">Акртисти</div>
+                <div class="panel-heading"><?=Yii::t('app', 'Контрагенти')?></div>
                 <div class="panel-body">
                     <?php
                     echo GridView::widget([
@@ -106,7 +107,7 @@ $artist = new ActiveDataProvider([
                         'columns' => [
                             [
                                 'attribute' => 'name',
-                                'label' => 'Артіст',
+                                'label' => 'Контрагент',
                                 'format' => 'raw',
                                 'value' => function($data) {
                                     return Html::a($data['name'], ['artist/view', 'id' => $data['id']], ['target'=>'_blank', 'class' => 'linksWithTarget']);
@@ -130,12 +131,12 @@ $artist = new ActiveDataProvider([
                 </div>
             </div>
         </div>
-        <div class="col-xs-12 col-md-5">
+        <!--<div class="col-xs-12 col-md-5">
             <div class="panel panel-default">
                 <div class="panel-heading">Інвойси</div>
                 <div class="panel-body">
                     <?php
-                    echo GridView::widget([
+                  /*  echo GridView::widget([
                         'dataProvider' => $invoice,
                         'showFooter' => true,
                         'rowOptions' => function ($model)
@@ -159,14 +160,7 @@ $artist = new ActiveDataProvider([
                                 'attribute' => 'currency_name',
                                 'label' => 'Валюта',
                             ],
-                            /* [
-                                 'attribute' => 'track_name',
-                                 'label' => 'Трек',
-                             ],
-                             [
-                                 'attribute' => 'platform',
-                                 'label' => 'Платформа',
-                             ],*/
+                         
                             [
                                 'attribute' => 'total',
                                 'label' => 'Дебіт/Кредіт',
@@ -194,11 +188,11 @@ $artist = new ActiveDataProvider([
                                 // вы можете настроить дополнительные свойства здесь.
                             ],
                         ]
-                    ]);
+                    ]);*/
                     ?>
                 </div>
             </div>
-        </div>
+        </div>-->
     </div>
 
 

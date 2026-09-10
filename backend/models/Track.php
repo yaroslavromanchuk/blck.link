@@ -5,6 +5,7 @@ namespace backend\models;
 use common\models\Log;
 use Yii;
 use yii\db\ActiveRecord;
+use yii\db\Expression;
 
 /**
  * This is the model class for table "track".
@@ -44,6 +45,8 @@ class Track extends \yii\db\ActiveRecord
 {
     public $file;
     public array $feeds = [];
+    
+    public ?string $aggregator_names = '';
 
     /**
      * {@inheritdoc}
@@ -61,12 +64,12 @@ class Track extends \yii\db\ActiveRecord
        return [
            [['servise'], 'string'],
            [['file'], 'file', 'extensions' => 'png, jpg, jpeg',],
-           [['artist_id', 'artist_name', 'name'], 'required'],
-           ['isrc', 'required', 'when' => function ($model) {
+           [['artist_id', 'artist_name', 'name', 'isrc'], 'required'],
+           /*['isrc', 'required', 'when' => function ($model) {
                return $model->is_album == 0;
            },'whenClient' => "function (attribute, value) {
                 return $('#is_album').val() == 0;
-            }"],
+            }"],*/
            [['isrc', 'name', 'artist_name'], 'trim'],
            [['artist_id', 'release_id', 'admin_id', 'sharing', 'is_album', 'album_id', 'views', 'click', 'active'], 'integer'],
            [['date'], 'safe'],
@@ -76,6 +79,20 @@ class Track extends \yii\db\ActiveRecord
            [['deposit_uah', 'deposit_euro'], 'double'],
            [['artist_id'], 'exist', 'skipOnError' => true, 'targetClass' => Artist::class, 'targetAttribute' => ['artist_id' => 'id']],
            ['url', 'unique', 'targetClass' => self::class, 'message' => Yii::t('app', 'Це посилання вже зайняте!')],
+           ['isrc', 'unique',
+               'targetClass' => self::class,
+               'filter' => function ($query) {
+                   $query
+                       ->andWhere([
+                           'is_album' => 0,
+                       ])
+                       ->andWhere(new Expression(
+                           "REPLACE(isrc, '-', '') = REPLACE(:isrc, '-', '')",
+                           [':isrc' => $this->isrc]
+                       ));
+               },
+               
+               'message' => Yii::t('app', 'Цей isrc вже існує!')],
        ];
    }
 
@@ -144,8 +161,14 @@ class Track extends \yii\db\ActiveRecord
    public function getView() 
    { 
        return $this->hasMany(\common\models\Views::class, ['track_id' => 'id']);
-   } 
-
+   }
+    
+    public function getAggregator()
+    {
+        return $this->hasMany(TrackToAggregator::class, ['track_id' => 'id'])
+            ->leftJoin('aggregator', 'aggregator.aggregator_id = track_to_aggregator.aggregator_id');
+    }
+    
     /**
      * Gets query for [[Artist0]].
      *
@@ -393,14 +416,14 @@ class Track extends \yii\db\ActiveRecord
         if (0 == $total) {
             $result[] = [
                 'artist_id' => $this->artist_id,
-                'amount' => $total,
+                'amount' => 0,
                 'from_artist_id' => null,
-                'artist_percentage' => 0,
-                'percentage' => 0,
+                'artist_percentage' => 100,
+                'percentage' => 100,
             ];
             $result[] = [
                 'artist_id' => Artist::LABEL,
-                'amount' => $total,
+                'amount' => 0,
                 'from_artist_id' => $this->artist_id,
                 'artist_percentage' => 0,
                 'percentage' => 0,
@@ -419,8 +442,8 @@ class Track extends \yii\db\ActiveRecord
             }
             
             if ($percentageArtist > 0) {
-                $sumArtist = round($total * ($percentageArtist / 100), 4);
-                $total = round($total - $sumArtist, 4);
+                $sumArtist = round($total * ($percentageArtist / 100), 9);
+                $total = round($total - $sumArtist, 9);
             }
             
             // artist
@@ -463,7 +486,7 @@ class Track extends \yii\db\ActiveRecord
                 continue;
             }
 
-            $pSum = round($total * ($datum['percentage'] / 100), 4);
+            $pSum = round($total * ($datum['percentage'] / 100), 9);
 
             $percentageArtist = Percentage::findOne([
                 'track_id' => $this->id,
@@ -474,8 +497,8 @@ class Track extends \yii\db\ActiveRecord
             $sumArtist = 0;
             
             if ($percentageArtist > 0) {
-                $sumArtist = round($pSum * ($percentageArtist / 100), 4);
-                $pSum = round($pSum - $sumArtist, 4);
+                $sumArtist = round($pSum * ($percentageArtist / 100), 9);
+                $pSum = round($pSum - $sumArtist, 9);
             }
             // artist
             $result[] = [
@@ -509,6 +532,7 @@ class Track extends \yii\db\ActiveRecord
                  'artist_id' => Artist::LABEL,
                  'amount' => $total,
                  'from_artist_id' => $this->artist_id,
+                 'artist_percentage' => 100,
                  'percentage' => 100,
              ];
          }
@@ -563,13 +587,14 @@ class Track extends \yii\db\ActiveRecord
     
     public function saveLog(array $currentData, array $newData): void
     {
-        Yii::$app->db->createCommand()
-            ->insert('track_log', [
-                'admin_id' => Yii::$app->user->id,
-                'track_id' => $this->id,
-                'old_data' => serialize($currentData),
-                'new_data' => serialize($newData),
-            ])->execute();
-        
+        if (array_diff($currentData, $newData)) {
+            Yii::$app->db->createCommand()
+                ->insert('track_log', [
+                    'admin_id' => Yii::$app->user->id,
+                    'track_id' => $this->id,
+                    'old_data' => serialize($currentData),
+                    'new_data' => serialize($newData),
+                ])->execute();
+        }
     }
 }

@@ -24,6 +24,21 @@ $this->params['breadcrumbs'][] = $this->title;
                 'method' => 'post',
             ],
         ]) ?>
+        <?php if (false) {
+
+         echo Html::a(
+            '<i class="glyphicon glyphicon-refresh"></i> ' . Yii::t('app', 'Перерахувати інвойси'),
+            ['recalculate-invoices', 'id' => $model->id],
+            [
+                'class' => 'btn btn-warning',
+                'data'  => [
+                    'confirm' => Yii::t('app', 'Перерахувати всі попередні нарахування по цьому треку відповідно до поточних відсотків? Ця дія змінить суми у вже розрахованих інвойсах.'),
+                    'method'  => 'post',
+                ],
+            ]
+        );
+        }
+        ?>
     </p>
 
     <?= DetailView::widget([

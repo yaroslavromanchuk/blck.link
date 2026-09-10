@@ -25,9 +25,9 @@ use yii\widgets\ActiveForm;
                             <div class="col-sm-2">
                             <?= $form->field($model, 'active')->checkbox([ 'value' => 1,  'checked ' => true ]) ?>
                              </div>
-                            <div class="col-sm-2">
-                                <?= $form->field($model, 'records')->checkbox([ 'value' => 1,  'checked ' => false ]) ?>
-                            </div>
+                            <!--<div class="col-sm-2">
+                                <?php //$form->field($model, 'records')->checkbox([ 'value' => 1,  'checked ' => false ]) ?>
+                            </div>-->
                             <div class="col-sm-2">
                                 <?= $form->field($model, 'notify')->checkbox([ 'value' => 1,  'checked ' => false ]) ?>
                             </div>
@@ -169,3 +169,47 @@ use yii\widgets\ActiveForm;
         </div>
     </div>
 </div>
+
+<?php
+$script = <<< JS
+jQuery(function($) {
+$('#artist-iban').on('input', function () {
+/*
+ let raw = $(this).val().toUpperCase();
+
+    // ✅ залишаємо тільки букви і цифри
+    raw = raw.replace(/[^A-Z0-9]/g, '');
+
+    // ✅ гарантуємо UA
+    if (!raw.startsWith('UA')) {
+        raw = 'UA' + raw.replace(/^UA/, '');
+    }
+
+    // ✅ ЖОРСТКО: 29 символів БЕЗ пробілів
+    raw = raw.slice(0, 29);
+
+
+ // ✅ кастомне форматування: 2-2-6-5-14
+    let formatted = raw;
+
+    if (raw.length > 4) {
+        formatted =
+            raw.slice(0, 4) + ' ' +
+            raw.slice(4, 6);
+    }
+    if (raw.length > 6) {
+        formatted += ' ' + raw.slice(6, 12);
+    }
+    if (raw.length > 12) {
+        formatted += ' ' + raw.slice(12, 17);
+    }
+    if (raw.length > 17) {
+        formatted += ' ' + raw.slice(17, 31);
+    }
+
+    $(this).val(formatted.trim());*/
+    
+});
+});
+JS;
+$this->registerJs($script);

@@ -1,5 +1,7 @@
 <?php
 
+use backend\models\OwnershipType;
+use yii\helpers\ArrayHelper;
 use yii\helpers\Html;
 use yii\grid\GridView;
 use yii\widgets\Pjax;
@@ -43,15 +45,42 @@ $this->params['breadcrumbs'][] = $this->title;
                     return $data->ownershipType->name;
                 },
             ],
-            'description',
+            [
+                'attribute' => 'ownership_types',
+                'value' => function($data) {
+        
+        $ids = array_column(
+            $data->aggregatorToOwnershipTypes,
+            'ownership_type_id'
+        );
+                    $d = OwnershipType::find()
+                        ->select('name')
+                        ->where(['in', 'id', $ids])
+                        ->column();
+                    return implode(', ', $d);
+                }
+            ],
+            //'description',
+            [
+                    'attribute' => 'type_use_id',
+                'value' => function($data) {
+                        return $data->type->name;
+                }
+            ],
+            [
+                'attribute' => 'service_id',
+                'value' => function($data) {
+                    return $data->service->name;
+                }
+            ],
             [
                 'attribute' => 'currency_id',
                 'value' => function($data) {
                     return $data->currency->getName();
                 },
             ],
-            'date_add:date',
-            'last_update:date',
+            //'date_add:date',
+           // 'last_update:date',
 
             ['class' => 'yii\grid\ActionColumn'],
         ],

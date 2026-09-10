@@ -2,6 +2,8 @@
 
 use backend\models\Currency;
 use backend\models\InvoiceType;
+use backend\models\SubLabel;
+use yii\helpers\ArrayHelper;
 use yii\jui\DatePicker;
 use yii\helpers\Html;
 use yii\helpers\Url;
@@ -27,15 +29,21 @@ $years = array_combine($years, $years);
 
 <div class="invoice-form row">
     <?php $form = ActiveForm::begin([
-        'id' => 'create_invoice',
+        'id' => 'up_invoice',
         //'enableClientValidation' => true,
         'enableAjaxValidation' => true,
         // 'action' => ['artist/create-invoice'],
-        'validationUrl' => Url::to('create'),
+        //'validationUrl' => Url::to('update'),
     ]); ?>
     <?= $form->field($model, 'user_id')
         ->hiddenInput(['value'=>$model->user_id])
         ->label(false)?>
+    <div class="col-sm-12 col-md-6 col-lg-2">
+        <?= $form->field($model, 'label_id')->dropDownList(
+            ArrayHelper::map(SubLabel::find()->all(), 'id', 'name'),
+        ) ?>
+    </div>
+    
     <div class="col-sm-12 col-md-6 col-lg-2">
         <?= $form->field($model, 'exchange')
             ->textInput() ?>
@@ -63,7 +71,7 @@ $years = array_combine($years, $years);
             ])?>
     </div>
 
-    <?php if ($model->invoice_type == 2) { ?>
+    <?php if ($model->invoice_type == 2 || $model->invoice_type == 4) { ?>
         <div class="col-sm-12 col-md-6 col-lg-2">
            <?= $form->field($model, 'date_pay')->widget(DatePicker::class, [
                'language' => 'uk',

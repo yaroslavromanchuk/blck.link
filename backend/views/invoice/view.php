@@ -325,7 +325,7 @@ $this->params['breadcrumbs'][] = $this->title;
                 'value' => function ($data) use ($model) {
                         return number_format(abs($data->amount), 2, ',', '');
                     },
-                'footer' => number_format(round(abs($total['total']), 4), 4, ',', ''),
+                'footer' => number_format(abs($total['total']), 2, ',', ''),
             ],
         ]);
 
@@ -335,9 +335,9 @@ $this->params['breadcrumbs'][] = $this->title;
                 'attribute' => 'amount_uah',
                 'label' => 'UAH',
                 'value' => function($data) use ($model) {
-                    return number_format(round(round(abs($data->amount), 2) * $model->exchange, 2), 2,',', '');
+                    return number_format(abs($data->amount) * $model->exchange, 2,',', '');
                 },
-                'footer' => number_format(round(round(abs($total['total']), 2) * $model->exchange, 3), 3, ',', '')
+                'footer' => number_format(abs($total['total']) * $model->exchange, 2, ',', '')
             ],
         ]);
     }
@@ -524,8 +524,10 @@ $this->params['breadcrumbs'][] = $this->title;
                     'template'=> $model->invoice_type == 2
                     && in_array($model->invoice_status_id, [InvoiceStatus::InProgress, InvoiceStatus::Calculated])
                         ? '{pdf-act} {export-act} {delete}'
-                        : (in_array($model->invoice_type, [2,3,4,5]) && $model->invoice_status_id == InvoiceStatus::Generated
-                            ? '{delete}' : ''
+                        : ($model->invoice_type == 4 ? '{pdf-act} {delete}'
+                            : (in_array($model->invoice_type, [2,3,5]) && $model->invoice_status_id == InvoiceStatus::Generated ? '{delete}'
+                                : ($model->invoice_type == 1 && !empty($model->aggregator_report_id) ? '{recalculate-track}' : '')
+                            )
                         ),
                     'buttons' => [
                             'delete' => function ($url, $item, $key) {
@@ -537,6 +539,18 @@ $this->params['breadcrumbs'][] = $this->title;
                                     'data-toggle'=>'tooltip',
                                     'data-placement'=>'right',
                                     'pjax-container' => 'invoice_items',
+                                ]);
+                            },
+                            'recalculate-track' => function ($url, $item, $key) {
+                                if (empty($item->track_id) || $item->artist_id == 0) {
+                                    return '';
+                                }
+                                return Html::a('<span class="glyphicon glyphicon-refresh"></span>', $url, [
+                                    'title'          => Yii::t('yii', 'Перерахувати трек за поточними відсотками'),
+                                    'data-method'    => 'post',
+                                    'data-confirm'   => Yii::t('yii', 'Перерахувати цей трек в інвойсі за поточними відсотками? Суми будуть змінені.'),
+                                    'data-toggle'    => 'tooltip',
+                                    'data-placement' => 'top',
                                 ]);
                             },
                         'pdf-act' => function ($url, $item, $key) {
@@ -575,6 +589,8 @@ $this->params['breadcrumbs'][] = $this->title;
                     'urlCreator' => function ($action, $item, $key, $index) {
                         if ($action === 'delete') {
                             return Url::to(['invoice-items/'.$action, 'id' => $item->id, 'url' =>  Url::to(['invoice/view/', 'id' => $item->invoice_id])]);
+                        } else if ($action === 'recalculate-track') {
+                            return Url::to(['invoice-items/recalculate-track', 'invoiceId' => $item->invoice_id, 'trackId' => $item->track_id]);
                         } else if ($action === 'pdf-act'
                             || $action === 'pdf-balance'
                             || $action === 'export'

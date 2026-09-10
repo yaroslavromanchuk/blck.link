@@ -84,7 +84,7 @@ class Artist extends \yii\db\ActiveRecord
             [['deposit', 'deposit_1', 'deposit_3'], 'number'],
             //['ipn', 'is10NumbersOnly'],
             [['name', 'bank', 'description', 'full_name',], 'string', 'max' => 150],
-            [['iban'], 'string', 'length' => 29],
+            [['iban'], 'validateUaIban'],
             [['telegram_code'], 'string', 'length' => 10],
             [['ipn'], 'string', 'length' => 10],
             [['address'], 'string', 'max' => 250],
@@ -98,6 +98,64 @@ class Artist extends \yii\db\ActiveRecord
             [['date_last_payment'], 'safe'],
         ];
     }
+
+    public function validateUaIban($attribute)
+    {
+        $iban = strtoupper(trim($this->$attribute));
+        $iban = str_replace(' ', '', $iban);
+
+        // ✅ має починатися з UA
+        if (!str_starts_with($iban, 'UA')) {
+            $this->addError($attribute, 'Рахунок має починатися з UA');
+            return;
+        }
+
+        // ✅ точна довжина
+        if (strlen($iban) !== 29) {
+            $this->addError($attribute, 'Невірна довжина рахунку');
+            return;
+        }
+
+        // ✅ тільки латиниця і цифри
+        if (!preg_match('/^[A-Z0-9]+$/', $iban)) {
+            $this->addError($attribute, 'Недопустимі символи');
+            return;
+        }
+
+        // ✅ checksum (MOD97)
+        if (!$this->validateIbanChecksum($iban)) {
+            $this->addError($attribute, 'Невірний рахунок');
+        }
+    }
+
+    private function validateIbanChecksum($iban): bool
+    {
+        // перенос перших 4 символів
+        $rearranged = substr($iban, 4) . substr($iban, 0, 4);
+
+        $numeric = '';
+        foreach (str_split($rearranged) as $char) {
+            if (ctype_alpha($char)) {
+                $numeric .= ord($char) - 55;
+            } else {
+                $numeric .= $char;
+            }
+        }
+
+        return $this->mod97($numeric) === 1;
+    }
+
+    private function mod97($number): int
+    {
+        $checksum = 0;
+
+        foreach (str_split($number, 7) as $part) {
+            $checksum = (int)($checksum . $part) % 97;
+        }
+
+        return $checksum;
+    }
+
 
     public function is10NumbersOnly($attribute)
     {
@@ -114,6 +172,11 @@ class Artist extends \yii\db\ActiveRecord
     public function isClient(): bool
     {
         return $this->type_id == 2;
+    }
+    
+    public function isArtist(): bool
+    {
+        return $this->type_id == 1;
     }
 
     /**
@@ -148,9 +211,9 @@ class Artist extends \yii\db\ActiveRecord
             'percentage' => Yii::t('app', 'Публішинг %'),
             'percentage_distribution' => Yii::t('app', 'Дистрибуція %'),
             'file' => Yii::t('app', 'Лого'),
-            'deposit' => Yii::t('app', 'Депозит UAH'),
-            'deposit_1' => Yii::t('app', 'Депозит EURO'),
-            'deposit_3' => Yii::t('app', 'Депозит USD'),
+            'deposit' => Yii::t('app', 'UAH'),
+            'deposit_1' => Yii::t('app', 'EURO'),
+            'deposit_3' => Yii::t('app', 'USD'),
             'telegram_id' => Yii::t('app', 'ТелеграмID'),
             'last_payment_invoice' => Yii::t('app', 'Останій інвойс на виплата'),
             'date_last_payment' => Yii::t('app', 'Остання виплата'),
@@ -642,7 +705,6 @@ class Artist extends \yii\db\ActiveRecord
             ->bindValue(':currency_id', $currency_id)
             ->bindValue(':quarter', $quarter)
             ->bindValue(':year', $year)
-			//->bindValue(':last_invoice', $lastPay['invoice_id'] ?? 0)
             ->queryOne();
 
         $balance = $balance['dep'] ?? 0;
@@ -664,28 +726,29 @@ class Artist extends \yii\db\ActiveRecord
                     and i.invoice_type in (1, 3, 5)
                     and i.currency_id =:currency_id
                     AND ii.artist_id =:artist_id
-                    and CONCAT(i.year, i.quarter) = CONCAT(:year, :quarter)
+                    and i.year = :year
+                    and i.quarter = :quarter
                    ";
 
         $query .= " group BY ii.invoice_id";
-		
+
         $all = Yii::$app->db->createCommand($query)
             ->bindValue(':artist_id', $artist_id)
             ->bindValue(':currency_id', $currency_id)
 			->bindValue(':quarter', $quarter)
 			->bindValue(':year', $year);
-        
+
 
         $all = $all->queryAll();
         $qq = [
             1 => 0, // нарахування
             3 => 0,  // витрати
-            4 => 0,  // аванс
+            6 => 0,  // витрати за майбктній період
             5 => 0,  // баланс
         ];
         $mapping = [
             3 => 2, // Витрати
-            4 => 3, // Аванс
+            6 => 3, // витрати за майбутній квартал
             5 => 12, // Баланс
         ];
 
@@ -698,6 +761,31 @@ class Artist extends \yii\db\ActiveRecord
                 $temp_sum += $value;
                 $result[$mapping[$key]]['value'] = $value;
             }
+        }
+
+        $query_2 = "SELECT sum(ii.amount) as amount
+                 FROM `invoice_items` ii
+                    LEFT JOIN invoice i ON i.invoice_id = ii.invoice_id
+                 WHERE i.invoice_status_id = 2
+                    and i.invoice_type = 3
+                    and i.currency_id =:currency_id
+                    AND ii.artist_id =:artist_id
+                    and i.year = :year
+                    and i.quarter = :quarter
+                   ";
+
+        $nextQuarter = DateFormat::getNextQuarterYear($quarter, $year);
+
+        $nextQuarterData = Yii::$app->db->createCommand($query_2)
+            ->bindValue(':artist_id', $artist_id)
+            ->bindValue(':currency_id', $currency_id)
+            ->bindValue(':quarter', $nextQuarter['quarter'])
+            ->bindValue(':year', $nextQuarter['year'])
+            ->queryScalar();
+
+        if ($nextQuarterData) {
+            $temp_sum += $nextQuarterData;
+            $result[3]['value'] = $nextQuarterData;
         }
 
         $q2 = "SELECT ii2.artist_id, ii2.from_artist_id, ii2.amount, inv.avtor, if(inv.t_a_id=ii2.artist_id, 1 ,0) as avtor2
@@ -903,11 +991,11 @@ class Artist extends \yii\db\ActiveRecord
     
     /**
      * отримати доп. дохід артиста за період
+     * $invoiceId - для виплат, якщо null - то для мінусових артистів
      */
-    public function getIncome(int $quarter, int $year): array
+    public function getIncome(int $quarter, int $year, int $invoiceId = null): array
     {
-       return Yii::$app->db->createCommand(
-            "SELECT it.invoice_type_name, ii.date_item, a.name as a_name, t.name as t_name, ii.description, ii.amount, c.currency_name
+        $query = "SELECT it.invoice_type_name, ii.date_item, a.name as a_name, t.name as t_name, ii.description, ii.amount, c.currency_name
                     FROM `invoice_items` ii
                         INNER JOIN invoice i ON i.invoice_id = ii.invoice_id
                         LEFT JOIN artist a ON a.id = ii.artist_id
@@ -915,13 +1003,22 @@ class Artist extends \yii\db\ActiveRecord
                         LEFT JOIN currency c ON c.currency_id = i.currency_id
                         left join invoice_type it ON it.invoice_type_id = i.invoice_type
                     WHERE i.invoice_status_id in (2, 4)
-                      and i.invoice_type = 5 #баланс
-                      and ii.payment_invoice_id is null
-                      and ii.artist_id =:artist_id
+                      and i.invoice_type = 5"; // #баланс
+
+                if ($invoiceId !== null) {
+                    $query .= " AND ii.payment_invoice_id = {$invoiceId}";
+                } else {
+                    $query .= " AND ii.payment_invoice_id IS NULL";
+                }
+
+               $query .=" and ii.artist_id =:artist_id
                     and i.quarter = :quarter
                     and i.year = :year
                     ORDER BY ii.date_item, i.currency_id
-            ")->bindValue(':artist_id', $this->id)
+            ";
+
+       return Yii::$app->db->createCommand($query)
+           ->bindValue(':artist_id', $this->id)
             ->bindValue(':quarter', $quarter)
             ->bindValue(':year', $year)
             ->queryAll();
@@ -978,5 +1075,18 @@ class Artist extends \yii\db\ActiveRecord
             3 => $this->deposit_3, // USD
             default  => 0.0,
         };
+    }
+
+    public function saveLog(array $currentData, array $newData): void
+    {
+        if (array_diff($currentData, $newData)) {
+            Yii::$app->db->createCommand()
+                ->insert('artist_logging', [
+                    'admin_id' => Yii::$app->user->id,
+                    'artist_id' => $this->id,
+                    'old_data' => serialize($currentData),
+                    'new_data' => serialize($newData),
+                ])->execute();
+        }
     }
 }

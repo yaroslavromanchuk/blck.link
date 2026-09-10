@@ -20,8 +20,8 @@ $total = number_format($total,2, '.', '');
 $totalAmount = number_format($amount, 2, '.', '');
 ?>
 
-<div class="header-page">
-    <div style="text-align: center">
+<div class="header-page" style="padding-top: 15px">
+    <div style="text-align: center;">
         <img src="/img/blackbeats.png" style="width: 200px;"alt="BLACKBEATS" />
     </div>
     <h3 style="text-align: center;"><b>Акт-Звіт № <?=$artist->id . '/' . $invoice_id?></b></h3>
@@ -32,10 +32,16 @@ $totalAmount = number_format($amount, 2, '.', '');
         </tr>
     </table>
     <br>
-    <p style="text-align: justify">до Договору про передачу виключних авторських і суміжних прав № <?=$artist->contract?> p.</p>
+    <p style="text-align: center">до Ліцензійного Договору № <?=$artist->contract?> p.</p>
     <p style="text-align: justify"><b>ТОВАРИСТВО З ОБМЕЖЕНОЮ ВІДПОВІДАЛЬНІСТЮ «БЛЕК БІТС»</b>, в особі директора Комара А.С., який діє на підставі Статуту, іменований надалі - «Ліцензіат», з одного боку, і</p>
     <?php if ($artist->artist_type_id == 1) { ?>
-        <p style="text-align: justify"><b>Громадянин України <?=$artist->full_name?></b>, <?php if(!empty($artist->ipn)) { echo 'РНОКПП: ' . $artist->ipn . ', ';} ?>надалі - «Ліцензіар» з іншого боку, далі спільно іменовані «Сторони», а кожна окремо – «Сторона»</p>
+        <p style="text-align: justify"><b>Громадянин України <?=$artist->full_name?></b>, <?php
+            if ($artist->id == 387) {
+                echo 'паспорт серії СТ No 227500, виданий Васильківським МВ ГО ГУ МВС України в Київській обл. від 10.11.2010 року, ';
+            } else if(!empty($artist->ipn)) {
+                echo 'РНОКПП: ' . $artist->ipn . ', ';
+            }
+            ?>надалі - «Ліцензіар» з іншого боку, далі спільно іменовані «Сторони», а кожна окремо – «Сторона»</p>
    <?php } else { ?>
         <p><b>ТОВАРИСТВО З ОБМЕЖЕНОЮ ВІДПОВІДАЛЬНІСТЮ «<?=$artist->tov_name?>»</b>, в особі директора <?=$artist->full_name?>, яка діє на підставі Статуту, іменоване надалі - «Ліцензіар» з іншого боку, далі спільно іменовані «Сторони», а кожна окремо – «Сторона»</p>
     <?php } ?>
@@ -67,7 +73,7 @@ if (isset($words[2])) {
     <?php } ?>
     <p>Сума, яка підлягає виплаті Ліцензіару складає <b><?=$artist->artist_type_id == 1 ? $total : $totalAmount?> грн. <span>(<?=Number::num2str($artist->artist_type_id == 1 ? $total : $totalAmount)?>)</span></b>, без ПДВ, згідно ст.196 п.196.1.6. ПКУ.</p>
     <p>Сторони претензій одна до одної не мають.</p>
-    <p>Даний Акт-Звіт № <?=$artist->id . '/' . $invoice_id?> є невід'ємною частиною Договору № <?=$artist->contract?> р., має рівнозначну з ним юридичну силу, укладений в двох екземплярах, по одному для кожної із Сторін.</p>
+    <p>Даний Акт-Звіт № <?=$artist->id . '/' . $invoice_id?> є невід'ємною частиною Ліцензійного Договору № <?=$artist->contract?> р., має рівнозначну з ним юридичну силу, укладений в двох екземплярах, по одному для кожної із Сторін.</p>
     <br>
     <?php if ($artist->artist_type_id == 1) { ?>
         <table style="width: 100%">

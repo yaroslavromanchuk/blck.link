@@ -24,6 +24,7 @@ use Yii;
  * @property string $period_from
  * @property string $period_to
  * @property int $paid
+ * @property int $allocated
  * @property string $date_added
  * @property string $last_update
  *
@@ -61,7 +62,7 @@ class Invoice extends \yii\db\ActiveRecord
             }, 'whenClient' => "function (attribute, value) {
                 return $('#country_id').val() == 1;
             }"],
-            [['invoice_type', 'label_id', 'aggregator_id', 'user_id', 'currency_id', 'quarter', 'year', 'paid'], 'integer'],
+            [['invoice_type', 'label_id', 'aggregator_id', 'user_id', 'currency_id', 'quarter', 'year', 'paid', 'allocated'], 'integer'],
             [['exchange'], 'number'],
             ['quarter', 'in', 'allowArray' => true,  'range' => [1, 2, 3, 4]],
             ['year', 'in', 'allowArray' => true,  'range' => range(2024, (int) date('Y'), 1)],
@@ -83,7 +84,7 @@ class Invoice extends \yii\db\ActiveRecord
         return [
             'invoice_id' => Yii::t('app', '№'),
             'label_id' => Yii::t('app', 'Лейбл'),
-            'user_id' => Yii::t('app', 'Додав'),
+            'user_id' => Yii::t('app', 'Менеджер'),
             'invoice_type' => Yii::t('app', 'Тип інвойсу'),
             'invoice_status_id' => Yii::t('app', 'Статус інвойсу'),
             'aggregator_id' => Yii::t('app', 'Агрегатор'),
@@ -100,6 +101,7 @@ class Invoice extends \yii\db\ActiveRecord
             'ownership_type' => Yii::t('app', 'Тип Ввласності'),
             'description' => Yii::t('app', 'Коментар'),
             'paid' => Yii::t('app', 'Оплату завершено'),
+            'allocated' => Yii::t('app', 'Розподілено'),
         ];
     }
 
@@ -235,8 +237,10 @@ class Invoice extends \yii\db\ActiveRecord
     {
         return Yii::$app->db->createCommand("SELECT
                         a.name,
-                        ROUND(sum(abs(ii.amount)), 2) as sum,
-                        c.currency_name
+                        sum(abs(ii.amount)) as sum,
+                        c.currency_name,
+                        i.exchange,
+                        sum(abs(ii.amount)) * i.exchange as total
                     FROM `invoice_items` ii
                         INNER JOIN invoice i ON i.invoice_id = ii.invoice_id
                         LEFT join artist a ON a.id = ii.artist_id
@@ -271,7 +275,8 @@ class Invoice extends \yii\db\ActiveRecord
                         ) as art ON art.artist_id = ii.from_artist_id
                     WHERE ii.invoice_id =:invoice_id
                         AND ii.artist_id = 0
-                    GROUP BY ii.from_artist_id")
+                    GROUP BY ii.from_artist_id
+                    HAVING all_sum > 0")
             ->bindValue(':invoice_id', $this->invoice_id)
             ->queryAll();
 
@@ -374,16 +379,10 @@ class Invoice extends \yii\db\ActiveRecord
             $usersFromLabel = UserBonus::getUserToLabel($labelId);
             
             if ($usersFromLabel) {
-                echo 'Users for label ID ' . $labelId . ': ' . count($usersFromLabel) . "\n";
-                
                 $sumLabel = $this->getLabelSumFromLabel($labelId);
-                
-                echo "Label Sum: " . $sumLabel . "\n";
-                
                 if ($sumLabel > 0) {
                     /* @var UserBonus $user */
                     foreach ($usersFromLabel as $user) {
-                        echo 'Processing user ID: ' . $user->user_id . ' with percentage: ' . $user->percentage . "\n";
                         $b = UserBalance::findOne([
                             'invoice_id' => $this->invoice_id,
                             'currency_id' => $this->currency_id,
@@ -393,8 +392,7 @@ class Invoice extends \yii\db\ActiveRecord
                         
                         // Якщо відсотки вже нараховано, то пропускаємо
                         if ($b) {
-                            echo 'User ID: ' . $user->user_id . ' already has balance entry. Skipping.' . "\n";
-                            continue;
+                          continue;
                         }
                         
                         $res = UserBalance::add([
@@ -414,18 +412,16 @@ class Invoice extends \yii\db\ActiveRecord
                 }
             }
         }
-        
-        
+
         // Розрахунок по артистах
         /* @var InvoiceItems $item */
         foreach ($this->getInvoiceItems()->all() as $item) {
             $usersFromArtist = UserBonus::getUserToArtist($item->artist_id);
             
             if ($usersFromArtist) {
-                echo 'Users for artist ID ' . $item->artist_id . ': ' . count($usersFromArtist) . "\n";
-                $sumLabel = $item->getLabelSumFromArtist();
+               $sumLabel = $item->getLabelSumFromArtist();
                 if ($sumLabel > 0 ) {
-                    echo "Artist Sum: " . $sumLabel . "\n";
+
                     /* @var UserToArtist $user */
                     foreach ($usersFromArtist as $user) {
                         $b = UserBalance::findOne([

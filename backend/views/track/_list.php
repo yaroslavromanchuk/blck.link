@@ -107,5 +107,15 @@ use yii\helpers\Html;
            . '</nav>'
             ?>
         </div>
+        <div class="col-md-3">
+            <p> Агрегатори: <br>
+                <?php
+                $ar = explode(',', $model->aggregator_names);
+                foreach ($ar as $item) {
+                    echo '<span class="badge" style="padding: 5px">' . $item . '</span></br>';
+                }
+                ?>
+            </p>
+        </div>
     </div>
 </div>

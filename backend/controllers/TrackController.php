@@ -2,12 +2,20 @@
 
 namespace backend\controllers;
 
+use backend\helpers\InvoiceAllocationService;
+use backend\helpers\Isrc;
+use backend\models\AggregatorReportItem;
+use backend\models\Invoice;
+use backend\models\InvoiceItems;
+use backend\models\InvoiceStatus;
+use backend\models\InvoiceType;
 use backend\models\Perc;
 use backend\models\Percentage;
 use backend\models\PercentageSearch;
 use backend\models\ReleaseSearch;
 use backend\models\SubLabel;
 use backend\models\UploadReport;
+use backend\models\UserBalance;
 use common\models\t;
 use PhpOffice\PhpSpreadsheet\Reader\Xlsx;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -50,6 +58,7 @@ class TrackController extends Controller
                 'class' => VerbFilter::class,
                 'actions' => [
                     'delete' => ['POST'],
+                    'recalculate-invoices' => ['POST'],
                    // 'percentage-update' => ['POST', 'GET'],
                 ],
             ],
@@ -72,7 +81,7 @@ class TrackController extends Controller
                     // Створення/оновлення тільки для залогінених
                     [
                         'allow' => true,
-                        'actions' => ['view', 'create', 'update', 'copy', 'import', 'analytics', 'percentage', 'percentage-create', 'percentage-update', 'load-modal', 'percentage-delete', 'export-track'],
+                        'actions' => ['view', 'create', 'update', 'copy', 'import', 'analytics', 'percentage', 'percentage-create', 'percentage-update', 'load-modal', 'percentage-delete', 'export-track', 'recalculate-invoices'],
                         'roles' => ['moder'],
                     ],
                     // Видалення лише для ролі 'admin'
@@ -149,6 +158,13 @@ class TrackController extends Controller
                     $model->servise = serialize($model->servise);
                 }
                 
+                if (empty($model->url)) {
+                    $model->url = trim(Yii::$app->translit->t($model->name));
+                    if ($model->validate(['url'])) {
+                        $model->url = '';
+                    }
+                }
+                
             	Yii::$app->response->format = Response::FORMAT_JSON;
 
         	    return ActiveForm::validate($model);
@@ -187,19 +203,21 @@ class TrackController extends Controller
                     $model->url = trim(Yii::$app->translit->t($model->name));//     Yii::$app->getSecurity()->generateRandomString(8);
                 }
                 
-                $model->isrc = str_replace("-", "", trim($model->isrc));
+
+                $isrcObject = new Isrc(str_replace("-", "", trim($model->isrc)));
+                $model->isrc = $isrcObject->getIsrc(false);
                 $model->servise = serialize($model->servise);
                 
                 if ($model->validate() && $model->save()) {
-                    $client = $model->artist->isClient();
+                    $isArtist = $model->artist->isArtist();
                     
-                    if (!$model->is_album && !$client) {
+                    if (!$model->is_album && $isArtist) {
                         $model->addArtistPercentage();
                     }
                     
                     $feeds = Yii::$app->request->post('Track')['feeds'] ?? [];
                     
-                    if (!empty($feeds) && is_array($feeds) && !$client) {
+                    if (!empty($feeds) && is_array($feeds) && $isArtist) {
                         $model->saveFeeds(Yii::$app->request->post('Track')['feeds'] ?? []);
                     }
                     
@@ -364,6 +382,9 @@ class TrackController extends Controller
                 } else {
                     $model->servise = serialize([]);
                 }
+
+                $isrcObject = new Isrc(str_replace("-", "", trim($model->isrc)));
+                $model->isrc = $isrcObject->getIsrc(false);
                 
                 $model->admin_id = $oldAdmin;
                 
@@ -556,7 +577,7 @@ class TrackController extends Controller
             }
 
 
-        $res = '';
+        $res = "";
 
         foreach ($Percentage as $sub) {
             foreach ($sub as $form) {
@@ -572,7 +593,7 @@ class TrackController extends Controller
 
                         $model->percentage = $percentage;
                         if($model->save()) {
-                            $res .= implode(",", $temp) . "\n";
+                            $res .= "{$temp['id']} :<s>{$temp['old']}</s> => {$temp['new']}\n";
                         }
                     }
                 }
@@ -581,7 +602,7 @@ class TrackController extends Controller
 
         if (!empty($res)) {
             $track =  $this->findModel($trackId);
-            t::log(Yii::$app->user->identity->getFullName() . "\nОнеовлено % для треку. ISRC: {$track->isrc}\n" .  $res);
+            t::log(Yii::$app->user->identity->getFullName() . "\nОнеовлено % для треку.\n $track->artist_name:$track->name ({$track->isrc})\n" .  $res);
         }
     }
 
@@ -670,6 +691,8 @@ class TrackController extends Controller
 
             foreach ($importResults as $item) {
                 $isrc = str_replace("-", "", trim($item[0]));
+
+                $isrcObject = new Isrc($isrc);
                 $temp = [
                     'isrc' => $isrc,
                     'track_name' => trim($item[1]),
@@ -678,6 +701,14 @@ class TrackController extends Controller
                     'sub_label' => $item[4],
                     'import_status' => [],
                 ];
+
+                if (!$isrcObject->isValid(true)) {
+                    $temp['import_status'][] = 'invalid isrc';
+                    $result[] = $temp;
+                    continue;
+                }
+
+                $isrc = $isrcObject->getIsrc(false);
                 
                 $track = Track::getTrackByIsrc($isrc);
 
@@ -690,8 +721,10 @@ class TrackController extends Controller
                     $foundTrack++;
                     continue;
                 }
-                
-                if ($item[4] > 0) {
+
+                if ($item[5] > 0) {
+                    $artist = Artist::findOne(['id' => (int)$item[5], 'active'=> 1]);
+                } else if ($item[4] > 0) {
                     $artist = Artist::findOne(['label_id' => (int)$item[4], 'active'=> 1]);
                 } else {
                     $artist = Artist::getArtistByName(trim($item[3]), $item[4]);
@@ -716,6 +749,7 @@ class TrackController extends Controller
 
                    // $addedArtist++;
                 }
+
                 if (is_null($artist)) {
                     $temp['import_status'][] = 'error add artist';
                     $result[] = $temp;
@@ -750,19 +784,6 @@ class TrackController extends Controller
                     $track->addArtistPercentage();
                 }
             }
-
-          /*  echo '<pre>';
-            echo 'Added artist:' . $addedArtist. PHP_EOL;
-            echo 'Added track:' . $addedTrack . PHP_EOL;
-
-            echo 'Error Artist:' . PHP_EOL;
-            print_r($errorArtist);
-            echo 'Error Track:' . PHP_EOL;
-            print_r($errorTrack);
-            echo 'Found Track:' . PHP_EOL;
-            print_r($foundTrack);
-            echo '</pre>';
-            exit;*/
         }
 
         return $this->render(
@@ -778,6 +799,138 @@ class TrackController extends Controller
 
     }
     #endregion load track
+
+    /**
+     * Перерахунок всіх попередніх нарахувань по інвойсам для конкретного треку
+     * відповідно до поточних відсотків артиста.
+     *
+     * @param int $id Track ID
+     * @return \yii\web\Response
+     * @throws NotFoundHttpException
+     */
+    public function actionRecalculateInvoices(int $id): \yii\web\Response
+    {
+        $track = $this->findModel($id);
+
+        // Знаходимо всі debit-інвойси (тип 1 = Нарахування), що мають items для цього треку
+        // і мають статус Calculated (2) або InProgress (4)
+        $invoices = Invoice::find()
+            ->innerJoin('invoice_items', 'invoice_items.invoice_id = invoice.invoice_id')
+            ->where(['invoice_items.track_id' => $id])
+            ->andWhere(['invoice.invoice_type' => InvoiceType::$debit])
+            ->andWhere(['not', ['invoice.aggregator_report_id' => null]])
+            ->andWhere(['in', 'invoice.invoice_status_id', [InvoiceStatus::Calculated, InvoiceStatus::InProgress]])
+            ->groupBy('invoice.invoice_id')
+            ->orderBy('invoice.invoice_id ASC')
+            ->all();
+
+        if (empty($invoices)) {
+            Yii::$app->session->setFlash('warning', 'Не знайдено розрахованих інвойсів для цього треку');
+            return $this->redirect(['view', 'id' => $id]);
+        }
+
+        $db = Yii::$app->db;
+        $transaction = $db->beginTransaction();
+
+        try {
+            $recalcCount = 0;
+
+            foreach ($invoices as $invoice) {
+                // Отримуємо суму з агрегаторського звіту для цього треку в цьому інвойсі
+                $reportAmount = (new \yii\db\Query())
+                    ->from(AggregatorReportItem::tableName())
+                    ->select('SUM(amount) as amount')
+                    ->where([
+                        'report_id' => $invoice->aggregator_report_id,
+                        'track_id'  => $id,
+                    ])
+                    ->scalar();
+
+                if ($reportAmount === null || $reportAmount === false) {
+                    continue; // цей трек не входить у звіт — пропускаємо
+                }
+
+                $reportAmount = (float) $reportAmount;
+
+                // Видаляємо старі розподілення для items цього треку в інвойсі
+                $oldItemIds = (new \yii\db\Query())
+                    ->from(InvoiceItems::tableName())
+                    ->select('id')
+                    ->where(['invoice_id' => $invoice->invoice_id, 'track_id' => $id])
+                    ->column();
+
+                if (!empty($oldItemIds)) {
+                    InvoiceAllocationService::deleteAllocation($oldItemIds);
+                }
+
+                // Видаляємо UserBalance для цього інвойсу — буде перераховано нижче
+                UserBalance::deleteAll(['invoice_id' => $invoice->invoice_id]);
+
+                // Видаляємо старі invoice_items для цього треку
+                InvoiceItems::deleteAll(['invoice_id' => $invoice->invoice_id, 'track_id' => $id]);
+
+                // Рахуємо за поточними відсотками
+                $calculation = $track->getCalculation($invoice->aggregator_id, $reportAmount);
+
+                foreach ($calculation as $value) {
+                    $invoiceItem = new InvoiceItems();
+                    $invoiceItem->invoice_id        = $invoice->invoice_id;
+                    $invoiceItem->track_id          = $track->id;
+                    $invoiceItem->isrc              = $track->isrc;
+                    $invoiceItem->artist_id         = $value['artist_id'];
+                    $invoiceItem->date_item         = date('Y-m-d');
+                    $invoiceItem->percentage        = $value['percentage'];
+
+                    if (isset($value['artist_percentage'])) {
+                        $invoiceItem->artist_percentage = $value['artist_percentage'];
+                    }
+
+                    if (!empty($value['from_artist_id'])) {
+                        $invoiceItem->from_artist_id = $value['from_artist_id'];
+                    }
+
+                    $invoiceItem->amount = $value['amount'];
+
+                    if (!$invoiceItem->save()) {
+                        throw new \RuntimeException(
+                            'Помилка збереження item інвойсу ' . $invoice->invoice_id . ': '
+                            . current(current($invoiceItem->getErrors()))
+                        );
+                    }
+                }
+
+                // Перераховуємо загальну суму інвойсу
+                $invoice->calculate();
+
+                // Requeue invoice for allocation rebuild after track-level changes.
+                if ($invoice->allocated != 0) {
+                    $invoice->allocated = 0;
+                    $invoice->save(false, ['allocated']);
+                }
+
+                // Якщо статус Calculated — оновлюємо баланси користувачів
+                if ($invoice->invoice_status_id == InvoiceStatus::Calculated) {
+                    $invoice->calculateUser();
+                }
+
+                $recalcCount++;
+            }
+
+            // Перераховуємо депозити всіх артистів
+            Artist::calculationDeposit();
+
+            $transaction->commit();
+            Yii::$app->session->setFlash(
+                'success',
+                "Перераховано {$recalcCount} інвойс(ів) для треку «{$track->name}»"
+            );
+        } catch (\Throwable $e) {
+            $transaction->rollBack();
+            Yii::$app->session->setFlash('error', 'Помилка при перерахунку: ' . $e->getMessage());
+        }
+
+        return $this->redirect(['view', 'id' => $id]);
+    }
 
     /**
      * Finds the Track model based on its primary key value.

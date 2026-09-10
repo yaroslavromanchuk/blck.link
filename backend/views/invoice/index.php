@@ -53,7 +53,7 @@ $this->params['breadcrumbs'][] = $this->title;
 					return $data->aggregator_report_id;
 				}
             ],
-            [
+           /* [
                 'attribute' => 'label_id',
                 'format' => 'raw',
                 'filter' => ArrayHelper::map(SubLabel::find()->where(['active' => 1])->asArray()->all(), 'id', 'name'),
@@ -61,18 +61,18 @@ $this->params['breadcrumbs'][] = $this->title;
                 'value' => function($data) {
                     return $data->label->name;
                 },
-            ],
+            ],*/
             //'invoice_type',
             [
                 'attribute' => 'invoice_type',
-                'filter'=> [1 => 'Надходження', 2 =>'Виплата', 3 => 'Витрати', 5 => 'Баланс'],
+                'filter'=> [1 => 'Надходження', 2 =>'Виплата', 3 => 'Витрати', 4 => 'Аванс', 5 => 'Баланс'],
                 'value' => function($data) {
                     return $data->invoiceType->invoice_type_name;
                 },
             ],
             [
                 'attribute' => 'invoice_status_id',
-                'filter'=> [1 => 'Новий', 2 =>"Проведений", 3=>"Помилка", 4=>'В процесі виплати'],
+                'filter' => [1 => 'Новий', 2 => "Проведений", 3 => "Помилка", 4 => 'В процесі виплати'],
                 'value' => function($data) {
                     return $data->invoiceStatus->invoice_status_name;
                 },
@@ -101,7 +101,6 @@ $this->params['breadcrumbs'][] = $this->title;
             'date_added:date',
             [
                 'attribute' => 'quarter',
-               // 'label' => 'Квартал',
                 'filter'=> [1 => '1 кв.', 2 =>'2 кв.', 3 => '3 кв.', 4 => '4 кв.'],
                 'value' => function($data) {
                     return $data->quarter . ' кв.'; //DateFormat::getQuarterText($data->date_added);

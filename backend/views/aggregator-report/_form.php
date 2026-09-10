@@ -15,14 +15,11 @@ use yii\widgets\ActiveForm;
     <?= $form->field($model, 'aggregator_id')->textInput() ?>
 
     <?= $form->field($model, 'report_status_id')->textInput() ?>
+    <?= $form->field($model, 'quarter')->textInput() ?>
+    
+    <?= $form->field($model, 'year')->textInput() ?>
 
     <?= $form->field($model, 'total')->textInput(['maxlength' => true]) ?>
-
-    <?= $form->field($model, 'user_id')->textInput() ?>
-
-    <?= $form->field($model, 'date_added')->textInput() ?>
-
-    <?= $form->field($model, 'last_update')->textInput() ?>
 
     <div class="form-group">
         <?= Html::submitButton(Yii::t('app', 'Save'), ['class' => 'btn btn-success']) ?>

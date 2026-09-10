@@ -56,11 +56,11 @@ class UserBonus extends \yii\db\ActiveRecord
             'id' => 'ID',
             'user_id' => 'User ID',
             'label_id' => 'Label ID',
-            'artist_id' => 'Artist ID',
-            'track_id' => 'Track ID',
-            'percentage' => 'Percentage',
-            'date_added' => 'Date Added',
-            'last_update' => 'Last Update',
+            'artist_id' => 'Контрагент',
+            'track_id' => 'Трек',
+            'percentage' => 'Відсоток',
+            'date_added' => 'Додано',
+            'last_update' => 'Оновлено',
         ];
     }
     

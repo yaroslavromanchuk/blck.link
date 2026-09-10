@@ -68,9 +68,9 @@ class User extends ActiveRecord
             'label_id' => 'Лейбл',
             'username' => Yii::t('app', 'Логін'),
             'email' => 'Email',
-            'lastName' => Yii::t('app', 'Фамілія'),
+            'lastName' => Yii::t('app', 'Прізвище'),
             'firstName' => Yii::t('app', 'Ім\'я'),
-            'middleName' => Yii::t('app', 'по батькові'),
+            'middleName' => Yii::t('app', 'По батькові'),
             'sex' => Yii::t('app', 'Стать'),
             'logo' => Yii::t('app', 'Лого'),
             'auth_key' => 'Auth Key',
@@ -152,8 +152,8 @@ class User extends ActiveRecord
 
     public function getUserBalances()
     {
-        return $this->hasMany(UserBalance::class, ['user_id' => 'id']);
-            //->andOnCondition(['is ','is_pay', NULL]);
+        return $this->hasMany(UserBalance::class, ['user_id' => 'id'])
+            ->andOnCondition(['is ','is_pay', NULL]);
     }
 
     /**
@@ -164,6 +164,11 @@ class User extends ActiveRecord
     public function getUserToTracks()
     {
         return $this->hasMany(UserToTrack::class, ['user_id' => 'id']);
+    }
+    
+    public function getUserToBonus(): array
+    {
+        return $this->hasMany(UserBonus::class, ['user_id' => 'id'])->all();
     }
 
     public  function getBalance(): array

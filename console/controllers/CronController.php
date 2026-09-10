@@ -2,19 +2,36 @@
 
 namespace console\controllers;
 
+use backend\controllers\InvoiceItemsController;
 use backend\models\Artist;
 use backend\models\Invoice;
+use backend\models\InvoiceItems;
 use backend\models\InvoiceStatus;
 use backend\models\InvoiceType;
 use backend\models\SubLabel;
 use backend\models\Track;
 use common\models\User;
+use Exception;
+use Throwable;
 use Yii;
 use yii\console\Controller;
 use yii\console\ExitCode;
+use yii\db\Query;
 
 class CronController extends Controller
 {
+    public function actionReport($id) {
+        echo $id . "\n";
+        $c = new InvoiceItemsController('invoice-items', Yii::$app);
+        try {
+            $c->actionExportAct($id, false);
+        } catch (Throwable $e) {
+            echo $e->getMessage();
+            exit(1);
+        }
+
+        return ExitCode::OK;
+    }
     /**
      * List cron.
      * This is used for shell completion.
@@ -172,4 +189,304 @@ class CronController extends Controller
         echo 'Ok' . PHP_EOL;
         exit(0);
     }
+    
+    public function actionFix()
+    {
+        Yii::$app->db->beginTransaction();
+        
+        $overAllocated = Yii::$app->db->createCommand("
+            SELECT
+                ia.payout_item_id,
+                ABS(ii.amount) AS payout_amount,
+                SUM(ia.amount) AS allocated_amount
+            FROM invoice_allocation ia
+            JOIN invoice_items ii ON ii.id = ia.payout_item_id
+            GROUP BY ia.payout_item_id
+            HAVING allocated_amount > payout_amount
+        ")->queryAll();
+        
+        if (empty($overAllocated)) {
+            echo "✅ No over-allocated payout items found\n";
+            return;
+        }
+        
+        echo "⚠ Found " . count($overAllocated) . " payout items with over-allocation\n";
+        
+        foreach ($overAllocated as $row) {
+            $payoutItemId   = (int)$row['payout_item_id'];
+            $payoutAmount   = (float)$row['payout_amount'];
+            
+            echo "\n▶ Fixing payout_item_id = {$payoutItemId}, amount = {$payoutAmount}\n";
+            
+            // ✅ Отримуємо payout_item
+            $payoutItem = InvoiceItems::findOne($payoutItemId);
+            if (!$payoutItem) {
+                echo "  ❌ payout item not found\n";
+                continue;
+            }
+            
+            $artistId = $payoutItem->artist_id;
+            
+            Yii::$app->db->createCommand()
+                ->delete('invoice_allocation', [
+                    'payout_item_id' => $payoutItemId
+                ])->execute();
+            
+            echo "  🧹 allocations deleted\n";
+            
+            $incomeItems = Yii::$app->db->createCommand("
+                SELECT ii.id, ii.amount, i.year, i.quarter
+                FROM invoice_items ii
+                JOIN invoice i ON i.invoice_id = ii.invoice_id
+                WHERE ii.artist_id = :artist_id
+                  AND ii.amount > 0
+                  AND i.invoice_type IN (1,5)
+                ORDER BY i.year ASC, i.quarter ASC, ii.id ASC
+            ")->bindValue(':artist_id', $artistId)->queryAll();
+            
+            $remaining = $payoutAmount;
+            foreach ($incomeItems as $incomeRow) {
+                
+                if ($remaining <= 0) {
+                    break;
+                }
+                
+                $incomeItemId = (int)$incomeRow['id'];
+                
+                // ✅ unpaid income
+                $unpaidIncome = (float) Yii::$app->db->createCommand("
+            SELECT ii.amount - IFNULL(SUM(ia.amount), 0)
+            FROM invoice_items ii
+            LEFT JOIN invoice_allocation ia
+              ON ia.income_item_id = ii.id
+            WHERE ii.id = :id
+            GROUP BY ii.amount
+        ")->bindValue(':id', $incomeItemId)->queryScalar();
+                
+                if ($unpaidIncome <= 0) {
+                    continue;
+                }
+                
+                $allocAmount = min($unpaidIncome, $remaining);
+                
+                Yii::$app->db->createCommand()
+                    ->insert('invoice_allocation', [
+                    'income_item_id' => $incomeItemId,
+                    'payout_item_id' => $payoutItemId,
+                    'amount'         => $allocAmount,
+                ])->execute();
+                
+                echo "  ✔ allocated {$allocAmount} from income_item {$incomeItemId}\n";
+                
+                $remaining -= $allocAmount;
+            }
+            
+            if ($remaining > 0) {
+                echo "  ⚠ WARNING: payout_item {$payoutItemId} still has {$remaining} unallocated\n";
+            } else {
+                echo "  ✅ payout_item {$payoutItemId} fixed successfully\n";
+            }
+        }
+        
+        Yii::$app->db->transaction->commit();
+    }
+    
+    
+    public function actionMig()
+    {
+        echo "🚀 Rebuilding invoice_allocation with strict FIFO logic\n";
+        
+        Yii::$app->db->beginTransaction();
+        
+        // 1️⃣ Отримуємо ВСІ payout_items
+        $payoutItems = (new Query())
+            ->select([
+                'ii.id',
+                'ii.artist_id',
+                'ABS(ii.amount) AS payout_amount',
+            ])
+            ->from('invoice_items ii')
+            ->innerJoin('invoice i', 'i.invoice_id = ii.invoice_id')
+            ->where(['i.invoice_type' => [2, 3]])
+            ->andWhere(['<', 'ii.amount', 0])
+            ->orderBy(['ii.id' => SORT_ASC])
+            ->all();
+        
+        echo "🔍 Found " . count($payoutItems) . " payout items\n";
+        
+        foreach ($payoutItems as $payout) {
+            
+            $payoutItemId = (int)$payout['id'];
+            $artistId     = (int)$payout['artist_id'];
+            $remaining    = (float)$payout['payout_amount'];
+            
+            echo "\n▶ Payout item {$payoutItemId}, artist {$artistId}, amount {$remaining}\n";
+            
+            // 2️⃣ Видаляємо стару allocation для цього payout_item
+            $deleted = Yii::$app->db->createCommand()
+                ->delete('invoice_allocation', [
+                    'payout_item_id' => $payoutItemId
+                ])->execute();
+            echo "  🧹 Deleted {$deleted} old allocation rows\n";
+            
+            // 3️⃣ Income items FIFO
+            $incomeItems = (new Query())
+                ->select([
+                    'ii.id',
+                    'ii.amount',
+                    'i.year',
+                    'i.quarter',
+                ])
+                ->from('invoice_items ii')
+                ->innerJoin('invoice i', 'i.invoice_id = ii.invoice_id')
+                ->where([
+                    'ii.artist_id' => $artistId,
+                    'i.invoice_type' => [1,5],
+                ])
+                ->andWhere(['>', 'ii.amount', 0])
+                ->orderBy([
+                    'i.year' => SORT_ASC,
+                    'i.quarter' => SORT_ASC,
+                    'ii.id' => SORT_ASC,
+                ])
+                ->all();
+            
+            foreach ($incomeItems as $income) {
+                
+                if ($remaining <= 0) {
+                    break;
+                }
+                
+                $incomeItemId = (int)$income['id'];
+                
+                // 4️⃣ unpaid income
+                $unpaidIncome = (float) (new Query())
+                    ->select(['ii.amount - COALESCE(SUM(ia.amount),0)'])
+                    ->from('invoice_items ii')
+                    ->leftJoin(
+                        'invoice_allocation ia',
+                        'ia.income_item_id = ii.id'
+                    )
+                    ->where(['ii.id' => $incomeItemId])
+                    ->scalar();
+                
+                if ($unpaidIncome <= 0) {
+                    continue;
+                }
+                
+                $allocAmount = min($unpaidIncome, $remaining);
+                
+                // 5️⃣ Insert allocation
+                Yii::$app->db->createCommand()
+                    ->insert('invoice_allocation', [
+                        'income_item_id' => $incomeItemId,
+                        'payout_item_id' => $payoutItemId,
+                        'amount'         => $allocAmount,
+                    ])->execute();
+                
+                echo "    ✔ Allocated {$allocAmount} from income_item {$incomeItemId}\n";
+                
+                $remaining -= $allocAmount;
+            }
+            
+            if ($remaining > 0) {
+                echo "  ⚠ WARNING: payout_item {$payoutItemId} still unallocated {$remaining}\n";
+            } else {
+                echo "  ✅ payout_item {$payoutItemId} allocated successfully\n";
+            }
+        }
+        Yii::$app->db->transaction->commit();
+        
+        echo "\n✅ Allocation rebuild completed successfully\n";
+    }
+    
+    public function actionPay() {
+        
+        
+            $db = Yii::$app->db;
+            
+            $transaction = $db->beginTransaction();
+            try {
+                
+                // 1️⃣ Беремо всі нерозподілені payout / advance
+                $payoutItems = $db->createCommand("
+                SELECT
+                    v_unallocated_payout_items.payout_item_id,
+                    v_unallocated_payout_items.artist_id,
+                    v_unallocated_payout_items.currency_id,
+                    v_unallocated_payout_items.invoice_type,
+                    v_unallocated_payout_items.unallocated_amount,
+                    ii.invoice_id,
+                    i.quarter, i.year
+                FROM v_unallocated_payout_items
+                inner join invoice_items ii ON ii.id = payout_item_id
+                left join invoice i ON i.invoice_id = ii.invoice_id
+                WHERE unallocated_amount > 0
+                ORDER BY ii.invoice_id, artist_id, currency_id, payout_item_id
+            ")->queryAll();
+                
+                foreach ($payoutItems as $payout) {
+                    $payoutItemId   = (int) $payout['payout_item_id'];
+                    $artistId       = (int) $payout['artist_id'];
+                    $currencyId     = (int) $payout['currency_id'];
+                    $remaining      = (float) $payout['unallocated_amount'];
+                    $invoice_id      = (int) $payout['invoice_id'];
+                    $quarter      = (int) $payout['quarter'];
+                    $year     = (int) $payout['year'];
+                    
+                    // 2️⃣ FIFO income тільки цього артиста і валюти
+                    $incomeItems = $db->createCommand("
+                    SELECT
+                        income_item_id,
+                        unpaid_amount,
+                        invoice_id
+                    FROM v_income_balance
+                    WHERE artist_id = :artist_id
+                      AND currency_id = :currency_id
+                      AND unpaid_amount > 0
+                        and year <= :year
+                    and quarter <= :quarter
+                    ORDER BY year, quarter, income_item_id
+                ")->bindValues([
+                        ':artist_id'   => $artistId,
+                        ':currency_id' => $currencyId,
+                        ':year' => $year,
+                        ':quarter' => $quarter,
+                    ])->queryAll();
+                    
+                    foreach ($incomeItems as $income) {
+                        
+                        if ($remaining <= 0) {
+                            break;
+                        }
+                        
+                        $incomeItemId = (int) $income['income_item_id'];
+                        $unpaidIncome = (float) $income['unpaid_amount'];
+                        
+                        if ($unpaidIncome <= 0) {
+                            continue;
+                        }
+                        
+                        $allocAmount = min($remaining, $unpaidIncome);
+                        
+                        // 3️⃣ Робимо allocation
+                        $db->createCommand()
+                            ->insert('invoice_allocation', [
+                            'income_item_id' => $incomeItemId,
+                            'payout_item_id' => $payoutItemId,
+                            'amount'         => $allocAmount,
+                        ])->execute();
+                        
+                        $remaining -= $allocAmount;
+                    }
+                }
+                
+                $transaction->commit();
+                
+            } catch (\Throwable $e) {
+                $transaction->rollBack();
+                throw new Exception('Allocation failed: ' . $e->getMessage(), 0, $e);
+            }
+    }
+    
 }

@@ -24,7 +24,8 @@ $this->params['breadcrumbs'][] = Yii::t('app', 'Імпорт треків');
                 <th>Назва треку</th>
                 <th>ПІБ артиста</th>
                 <th>Псевдонім артиста</th>
-                <th>СублейблІД</th>
+                <th>Лейбл ІД</th>
+                <th>Артист ІД</th>
                 </thead>
             </table>
         </div>

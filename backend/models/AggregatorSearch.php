@@ -2,6 +2,7 @@
 
 namespace backend\models;
 
+use Yii;
 use yii\base\Model;
 use yii\data\ActiveDataProvider;
 use backend\models\Aggregator;
@@ -58,6 +59,7 @@ class AggregatorSearch extends Aggregator
 
         // grid filtering conditions
         $query->andFilterWhere([
+            'label_id' => Yii::$app->user->identity->label_id,
             'aggregator_id' => $this->aggregator_id,
             'currency_id' => $this->currency_id,
             'date_add' => $this->date_add,

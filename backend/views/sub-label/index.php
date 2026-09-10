@@ -7,7 +7,7 @@ use yii\widgets\Pjax;
 /* @var $searchModel backend\models\SubLabelSearch */
 /* @var $dataProvider yii\data\ActiveDataProvider */
 
-$this->title = Yii::t('app', 'Sub Labels');
+$this->title = Yii::t('app', 'Партнери');
 $this->params['breadcrumbs'][] = $this->title;
 ?>
 <div class="sub-label-index">
@@ -15,7 +15,7 @@ $this->params['breadcrumbs'][] = $this->title;
     <h1><?= Html::encode($this->title) ?></h1>
 
     <p>
-        <?= Html::a(Yii::t('app', 'Create Sub Label'), ['create'], ['class' => 'btn btn-success']) ?>
+        <?= Html::a(Yii::t('app', 'Додати партнера'), ['create'], ['class' => 'btn btn-success']) ?>
     </p>
 
     <?php Pjax::begin(); ?>
@@ -25,8 +25,15 @@ $this->params['breadcrumbs'][] = $this->title;
         'dataProvider' => $dataProvider,
        // 'filterModel' => $searchModel,
         'columns' => [
-                ['class' => 'yii\grid\SerialColumn'],
+               // ['class' => 'yii\grid\SerialColumn'],
             'id',
+            [
+                    'attribute' => 'name',
+                    'format' => 'raw',
+                    'value' => function ($data) {
+                        return Html::a($data->name, ['sub-label/view', 'id' => $data->id], ['target'=>'_blank', 'class' => 'linksWithTarget']);
+                    }
+            ],
             'name',
            // 'percentage',
             //'percentage_distribution',
@@ -35,7 +42,7 @@ $this->params['breadcrumbs'][] = $this->title;
             //'logo',
             'active:boolean',
             'date_added:date',
-            'last_update:date',
+            //'last_update:date',
 
             [
                 'class' => 'yii\grid\ActionColumn',
