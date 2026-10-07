@@ -3,29 +3,24 @@
 namespace backend\controllers;
 
 use backend\helpers\Isrc;
-use backend\models\AggregatorToOwnershipType;
-use backend\models\ImportFile;
-use backend\models\Track;
-use backend\models\UploadReport;
-use InvalidArgumentException;
-use PhpOffice\PhpSpreadsheet\Reader\Exception as ReaderException;
-use RuntimeException;
-use Throwable;
-use Yii;
 use backend\models\Aggregator;
 use backend\models\AggregatorReport;
 use backend\models\AggregatorReportItem;
 use backend\models\AggregatorSearch;
-use yii\bootstrap\ActiveForm;
-use yii\db\Connection;
-use yii\db\Query;
+use backend\models\AggregatorToOwnershipType;
+use backend\models\ImportFile;
+use backend\models\UploadReport;
+use InvalidArgumentException;
+use RuntimeException;
+use Throwable;
+use Yii;
+use yii\filters\VerbFilter;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
-use yii\filters\VerbFilter;
 use yii\web\Response;
 use yii\web\UploadedFile;
-use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Reader\Xlsx;
+use yii\db\Query;
 
 /**
  * AggregatorController implements the CRUD actions for Aggregator model.
@@ -346,9 +341,157 @@ class AggregatorController extends Controller
             $total = 0;
             $map = [];
             $mapLimit = 5000;
+            $criticalWarnings = [];
+            $nonCriticalWarnings = [];
+            $warningSeen = ['critical' => [], 'non_critical' => []];
+
+            $addWarning = static function (array &$target, array &$seen, string $message) {
+                $clean = trim($message);
+                if ($clean === '') {
+                    return;
+                }
+
+                if (isset($seen[$clean])) {
+                    return;
+                }
+
+                $seen[$clean] = true;
+                $target[] = $clean;
+            };
+
+            $rawIsrcForWarning = static function ($value): string {
+                $raw = trim((string)($value ?? ''));
+                return preg_replace('/\s+/', ' ', $raw);
+            };
+
+            $warningFromIsrc = static function ($value, string $prefix): string {
+                $raw = trim((string)($value ?? ''));
+                if ($raw === '') {
+                    return $prefix . ' (порожнє значення)';
+                }
+
+                return $prefix . ' (' . preg_replace('/\s+/', ' ', $raw) . ')';
+            };
+
+            $hasValidIsrc = static function ($value): bool {
+                $raw = trim((string)($value ?? ''));
+                if ($raw === '') {
+                    return false;
+                }
+
+                return preg_match('/^[A-Z0-9]{12}$/i', preg_replace('/[^A-Z0-9]/i', '', $raw)) === 1;
+            };
+
+            $resolveWarnings = function () use ($modelReport, $addWarning, &$criticalWarnings, &$nonCriticalWarnings, &$warningSeen, $warningFromIsrc, $rawIsrcForWarning, $hasValidIsrc) {
+                $critical = $this->getMissingTrackWarnings((int)$modelReport->id);
+                foreach ($critical as $item) {
+                    $addWarning($criticalWarnings, $warningSeen['critical'], $item);
+                }
+
+                $nonCritical = [];
+                $rows = Yii::$app->db->createCommand('SELECT DISTINCT isrc FROM aggregator_report_item WHERE report_id = :reportId AND isrc IS NOT NULL AND isrc <> :empty')
+                    ->bindValue(':reportId', $modelReport->id)
+                    ->bindValue(':empty', '')
+                    ->queryColumn();
+
+                foreach ($rows as $raw) {
+                    $value = $rawIsrcForWarning($raw);
+                    if ($value === '') {
+                        $nonCritical[] = $warningFromIsrc($value, 'Порожній ISRC');
+                        continue;
+                    }
+
+                    if (!$hasValidIsrc($value)) {
+                        $nonCritical[] = $warningFromIsrc($value, 'Некоректний ISRC');
+                        continue;
+                    }
+                }
+
+                foreach ($nonCritical as $item) {
+                    $addWarning($nonCriticalWarnings, $warningSeen['non_critical'], $item);
+                }
+            };
+
+            $flushMap = function () use (&$map, $modelReport) {
+                if (empty($map)) {
+                    return;
+                }
+
+                $rows = array_values($map);
+                $this->saveBatch($rows);
+                $map = [];
+                gc_collect_cycles();
+            };
+
+            $foundBroma = [];
+            if ($cache['aggregator_id'] == 2) {
+                $foundBroma = (new \yii\db\Query())
+                    ->select(['isrc', 'number'])
+                    ->from('broma')
+                    ->indexBy('number')
+                    ->column();
+            }
+
+            $normalizeRecord = function (array $row) use ($cache, $readColumn, $parseDate, $parseNumber, $foundBroma) {
+                $rawIsrc = trim((string) $readColumn($row, 'isrc'));
+                $isr = preg_replace('/[^a-zA-Z0-9]/u', '', $rawIsrc);
+                if ($isr === '') {
+                    return null;
+                }
+
+                if ($cache['aggregator_id'] == 2) {
+                    $isr = $foundBroma[$isr] ?? $isr;
+                }
+
+                $isrcObj = new Isrc($isr);
+                $isr = $isrcObj->getIsrc(false);
+
+                if ($isr === '') {
+                    return null;
+                }
+
+                $country = trim((string)$readColumn($row, 'country', ''));
+                $platform = trim((string)$readColumn($row, 'platform', '')) ?: 'Загальний';
+                $date = $parseDate($readColumn($row, 'date_report'));
+                $count = $parseNumber($readColumn($row, 'count', 0), true);
+                $amount = $parseNumber($readColumn($row, 'amount', 0));
+
+                return [
+                    'country' => $country,
+                    'platform' => $platform,
+                    'date_report' => $date,
+                    'count' => $count,
+                    'amount' => $amount,
+                    'isrc' => $isr,
+                ];
+            };
+
+            $appendNormalizedRow = function (array $row) use (&$map, &$total, $modelReport, $normalizeRecord) {
+                $normalized = $normalizeRecord($row);
+                if ($normalized === null) {
+                    return;
+                }
+
+                $key = $normalized['date_report'] . '|' . $normalized['country'] . '|' . $normalized['platform'] . '|' . $normalized['isrc'];
+
+                if (!isset($map[$key])) {
+                    $map[$key] = [
+                        'report_id' => $modelReport->id,
+                        'isrc' => $normalized['isrc'],
+                        'platform' => $normalized['platform'],
+                        'date_report' => $normalized['date_report'],
+                        'country' => $normalized['country'],
+                        'count' => 0,
+                        'amount' => 0,
+                    ];
+                }
+
+                $map[$key]['count'] += $normalized['count'];
+                $map[$key]['amount'] += $normalized['amount'];
+                $total += $normalized['amount'];
+            };
 
             // Broma cache
-            $foundBroma = [];
             if ($cache['aggregator_id'] == 2) {
                 $foundBroma = (new \yii\db\Query())
                     ->select(['isrc', 'number'])
@@ -359,51 +502,20 @@ class AggregatorController extends Controller
 
             if ($cache['file_extension'] === 'csv') {
                 $handle = fopen($path, 'r');
-                fgetcsv($handle);
+                if ($handle === false) {
+                    throw new RuntimeException('Не вдалося відкрити CSV файл для імпорту.');
+                }
+
+                $header = fgetcsv($handle);
+                if ($header === false) {
+                    fclose($handle);
+                    throw new RuntimeException('Файл CSV порожній або пошкоджений.');
+                }
 
                 while (($row = fgetcsv($handle)) !== false) {
-                    $isr = preg_replace('/[^a-zA-Z0-9]/u', '', (string)$readColumn($row, 'isrc'));
-                    if ($isr === '') {
-                        continue;
-                    }
-
-                    if ($cache['aggregator_id'] == 2) {
-                        $isr = $foundBroma[$isr] ?? $isr;
-                    }
-
-                    $isrcObj = new Isrc($isr);
-                    $isr = $isrcObj->getIsrc(false);
-
-                    $_country = trim((string)$readColumn($row, 'country', ''));
-                    $platforma = trim((string)$readColumn($row, 'platform', '')) ?: 'Загальний';
-                    $date_r = $parseDate($readColumn($row, 'date_report'));
-
-                    $c = $parseNumber($readColumn($row, 'count', 0), true);
-                    $a = $parseNumber($readColumn($row, 'amount', 0));
-
-                    $key = $date_r . '|' . $_country . '|' . $platforma . '|' . $isr;
-
-                    if (!isset($map[$key])) {
-                        $map[$key] = [
-                            'report_id' => $modelReport->id,
-                            'isrc' => $isr,
-                            'platform' => $platforma,
-                            'date_report' => $date_r,
-                            'country' => $_country,
-                            'count' => 0,
-                            'amount' => 0,
-                        ];
-                    }
-
-                    $map[$key]['count'] += $c;
-                    $map[$key]['amount'] += $a;
-
-                    $total += $a;
-
-                    // ✅ Flush якщо карта росте
+                    $appendNormalizedRow($row);
                     if (count($map) >= $mapLimit) {
-                        $this->saveBatch(array_values($map));
-                        $map = [];
+                        $flushMap();
                     }
                 }
 
@@ -414,61 +526,30 @@ class AggregatorController extends Controller
                 $spreadsheet = $reader->load($path);
                 $worksheet = $spreadsheet->getActiveSheet();
 
-                $importResults = $worksheet->toArray(null, true, true, false);
-
-                unset($importResults[0]);
-                foreach ($importResults as $row) {
-                    $row = array_values($row);
-                    $isr = preg_replace('/[^a-zA-Z0-9]/u', '', (string)$readColumn($row, 'isrc'));
-                    if ($isr === '') {
+                foreach ($worksheet->getRowIterator() as $rowIterator) {
+                    $rowIndex = $rowIterator->getRowIndex();
+                    if ($rowIndex === 1) {
                         continue;
                     }
 
-                    if ($cache['aggregator_id'] == 2) {
-                        $isr = $foundBroma[$isr] ?? $isr;
+                    $cellIterator = $rowIterator->getCellIterator();
+                    $cellIterator->setIterateOnlyExistingCells(false);
+                    $values = [];
+                    foreach ($cellIterator as $cell) {
+                        $values[] = $cell->getValue();
                     }
 
-                    $isrcObj = new Isrc($isr);
-                    $isr = $isrcObj->getIsrc(false);
-
-                    $_country = trim((string)$readColumn($row, 'country', ''));
-                    $platforma = trim((string)$readColumn($row, 'platform', '')) ?: 'Загальний';
-                    $date_r = $parseDate($readColumn($row, 'date_report'));
-
-                    $c = $parseNumber($readColumn($row, 'count', 0), true);
-                    $a = $parseNumber($readColumn($row, 'amount', 0));
-
-                    $key = $date_r . '|' . $_country . '|' . $platforma . '|' . $isr;
-
-                    if (!isset($map[$key])) {
-                        $map[$key] = [
-                            'report_id' => $modelReport->id,
-                            'isrc' => $isr,
-                            'platform' => $platforma,
-                            'date_report' => $date_r,
-                            'country' => $_country,
-                            'count' => 0,
-                            'amount' => 0,
-                        ];
-                    }
-
-                    $map[$key]['count'] += $c;
-                    $map[$key]['amount'] += $a;
-
-                    $total += $a;
-
-                    // ✅ Flush якщо карта росте
+                    $appendNormalizedRow(array_values($values));
                     if (count($map) >= $mapLimit) {
-                        $this->saveBatch(array_values($map));
-                        $map = [];
+                        $flushMap();
                     }
                 }
+
+                unset($worksheet, $spreadsheet);
+                gc_collect_cycles();
             }
 
-            // ✅ останній flush
-            if (!empty($map)) {
-                $this->saveBatch(array_values($map));
-            }
+            $flushMap();
 
             Yii::$app->db->createCommand("
                 UPDATE aggregator_report_item a
@@ -481,6 +562,9 @@ class AggregatorController extends Controller
             $modelReport->total = round($total, 4);
             $modelReport->save(false);
 
+            // Класифікація помилок
+            $resolveWarnings();
+
             $tx->commit();
 
             unlink($path);
@@ -489,6 +573,11 @@ class AggregatorController extends Controller
             return $this->asJson([
                 'success' => true,
                 'message' => 'Імпорт завершено успішно.',
+                'warning_message' => empty($criticalWarnings) ? '' : 'Не знайдено ' . count($criticalWarnings) . ' трек(ів) у системі.',
+                'warnings' => array_merge($criticalWarnings, $nonCriticalWarnings),
+                'critical_warnings' => $criticalWarnings,
+                'non_critical_warnings' => $nonCriticalWarnings,
+                'missing_tracks' => $criticalWarnings,
                 'redirect_url' => Yii::$app->urlManager->createUrl(['/aggregator-report/view', 'id' => $modelReport->id]),
             ]);
 
@@ -516,87 +605,6 @@ class AggregatorController extends Controller
             )->execute();
     }
 
-    /**
-     * завантаження звіту в кеш, пред подготовка до імпорту
-     *
-     */
-    public function actionUploadReport1()
-    {
-        $model = new UploadReport();
-
-        if (Yii::$app->request->isPost) {
-            $model->load(Yii::$app->request->post());
-            $model->file = UploadedFile::getInstance($model, 'file');
-
-            if (is_null($model->file)) {
-                throw new RuntimeException('Please Select CSV File');
-            }
-
-            $path = Yii::getAlias('@backend/uploads/' . uniqid() . '.' . $model->file->extension);
-            $model->file->saveAs($path);
-
-            Yii::$app->cache->set('file_meta', [
-                'path' => $path,
-                'aggregator_id' => $model->aggregatorId,
-                'quarter' => $model->quarter,
-                'year' => $model->year,
-            ], 600);
-
-
-            try {
-                if ($model->file->extension === 'csv') {
-                    if (($file_data = fopen($model->file->tempName, "r")) !== FALSE) {
-                        $file_header = fgetcsv($file_data);
-                        $importResults = [];
-
-                        while (($row = fgetcsv($file_data)) !== FALSE) {
-                            $importResults[] = $row;
-                        }
-
-                        fclose($file_data);
-                    } else {
-                        throw new InvalidArgumentException('Only <b>.csv</b> file allowed');
-                    }
-                } else {
-                    $reader = new Xlsx();
-                    $spreadsheet = $reader->load($model->file->tempName);
-                    $worksheet = $spreadsheet->getActiveSheet();
-                    $importResults = $worksheet->toArray();
-
-                    $file_header = $importResults[0] ?? [];
-
-                    unset($importResults[0]);
-                }
-
-                if (empty($importResults)) {
-                    throw new InvalidArgumentException('Не вдалось прочитати файл');
-                }
-
-               Yii::$app->cache->set('file_data', [
-                    'aggregator_id' => $model->aggregatorId,
-                    'quarter' => $model->quarter,
-                    'year' => $model->year,
-                    'data' => $importResults,
-                ], 600);
-
-
-            } catch (Throwable $e) {
-                throw new RuntimeException($e->getMessage());
-           }
-
-            if (count($importResults) > 10) {
-                $importResults = array_slice($importResults, 0, 10);
-            }
-
-            return $this->renderAjax('temp-upload', [
-                'count_header' => count($file_header),
-                'file_header' => $file_header,
-                'file_data' => $importResults,
-            ]);
-        }
-
-        return $this->render('upload', ['model' => $model]);
-    }
 
     /**
      * Завантаження звіту в БД
@@ -797,20 +805,21 @@ class AggregatorController extends Controller
             try {
                 if ($model->file->extension === 'csv') {
                     if (($file_data = fopen($model->file->tempName, "r")) !== FALSE) {
-                        $file_header = fgetcsv($file_data);
+                        fgetcsv($file_data);
 
                         while (($row = fgetcsv($file_data)) !== FALSE) {
                             $importResults[] = $row;
                         }
 
                         fclose($file_data);
+                    } else {
+                        throw new InvalidArgumentException('Only <b>.csv</b> file allowed');
                     }
                 } else {
                     $reader = new Xlsx();
                     $spreadsheet = $reader->load($model->file->tempName);
                     $worksheet = $spreadsheet->getActiveSheet();
                     $importResults = $worksheet->toArray();
-                    $file_header = $importResults[0] ?? '';
                 }
 
                 if (empty($importResults)) {
@@ -823,10 +832,6 @@ class AggregatorController extends Controller
                         ]);
                 }
 
-
-               // unset($importResults[0]);
-
-              //  Yii::$app->cache->set('import_data', $importResults, 600);
             } catch (Throwable $e) {
                 Yii::$app->session->setFlash('error', $e->getMessage());
 
@@ -900,42 +905,6 @@ class AggregatorController extends Controller
 
                     $i++;
                 }
-
-          //  var_dump($importResults);
-
-            //@unlink('uploads/' . $model->file->baseName . '.' . $model->file->extension);
-
-           // if (count($importResults) > 10) {
-            //    $importResults = array_slice($importResults, 0, 10);
-           // }
-          //  exit;
-            if (false) {
-               // $spreadSheet = new Spreadsheet();
-               // $workSheet = $spreadSheet->getActiveSheet();
-               // $workSheet->setTitle('Баланс');
-                //$tempData = [];
-               // $tempData[] = $file_header;
-
-                header("Content-Type:application/csv");
-                header("Content-Disposition:attachment;filename={$model->file->baseName}_2.csv");
-                $file = fopen("php://output", 'r+');
-               // fputcsv($file, $file_header, ',');
-
-                foreach ($importResults as $key => $row) {
-                   // $tempData[] = $row;
-                    fputcsv($file, $row, ',', '"');
-                }
-               /* $workSheet->fromArray($tempData, null, 'A1');
-                $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadSheet);
-
-                header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-                header("Content-Disposition: attachment;filename={$model->file->baseName}_2" . time() . ".xlsx");
-                header('Cache-Control: max-age=0');
-                exit($writer->save('php://output'));*/
-              //  rewind($file);
-               // $csv = fgets($outstream);
-                fclose($file);
-            }
         }
 
 
@@ -978,6 +947,31 @@ class AggregatorController extends Controller
         }
 
         return '';
+    }
+
+    private function getMissingTrackWarnings(int $reportId): array
+    {
+        $rows = AggregatorReportItem::find()
+            ->select(['isrc'])
+            ->where(['report_id' => $reportId, 'track_id' => null])
+            ->andWhere(['not', ['isrc' => null]])
+            ->andWhere(['<>', 'isrc', ''])
+            ->groupBy(['isrc'])
+            ->asArray()
+            ->all();
+
+        $warnings = [];
+
+        foreach ($rows as $row) {
+            $isrc = trim((string)($row['isrc'] ?? ''));
+            if ($isrc === '') {
+                continue;
+            }
+
+            $warnings[] = (new \backend\helpers\Isrc($isrc))->getIsrc(true, true) . ' (' . $isrc . ')';
+        }
+
+        return array_values(array_unique($warnings));
     }
     #endregion
 }
