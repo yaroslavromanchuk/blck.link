@@ -225,9 +225,9 @@ $this->params['breadcrumbs'][] = 'Фінанси';
                                         where f.currency_id = 1
                                         group by ag.internal_type, f.year, f.quarter
                                         ORDER BY f.year asc, f.quarter asc, f.aggregator_id asc',
-                                'totalCount' => 1,
+                                //'totalCount' => 1,
                                 'pagination' => [
-                                    'pageSize' => 20,
+                                    'pageSize' => 30,
                                 ],
                             ]);
                             $i = 0;
@@ -295,9 +295,9 @@ $this->params['breadcrumbs'][] = 'Фінанси';
                                         group by ag.internal_type, f.year, f.quarter
                                         ORDER BY f.year asc, f.quarter asc, f.aggregator_id asc',
                                 //'params' => [':status' => 1],
-                                'totalCount' => 1,
+                                //'totalCount' => 1,
                                 'pagination' => [
-                                    'pageSize' => 20,
+                                    'pageSize' => 30,
                                 ],
                             ]);
                             
@@ -364,9 +364,9 @@ $this->params['breadcrumbs'][] = 'Фінанси';
                                         group by ag.internal_type, f.year, f.quarter
                                         ORDER BY f.year asc, f.quarter asc, f.aggregator_id asc',
                                 //'params' => [':status' => 1],
-                                'totalCount' => 1,
+                                //'totalCount' => 1,
                                 'pagination' => [
-                                    'pageSize' => 20,
+                                    'pageSize' => 30,
                                 ],
                             ]);
                             
@@ -427,7 +427,7 @@ $this->params['breadcrumbs'][] = 'Фінанси';
                                             group by v_p.year, v_p.quarter,  v_p.currency_id
                                             ',
                                 //'params' => [':status' => 1],
-                                'totalCount' => 1,
+                                //'totalCount' => 1,
                                 'pagination' => [
                                     'pageSize' => 20,
                                 ],

@@ -524,7 +524,7 @@ $this->params['breadcrumbs'][] = $this->title;
                     'template'=> $model->invoice_type == 2
                     && in_array($model->invoice_status_id, [InvoiceStatus::InProgress, InvoiceStatus::Calculated])
                         ? '{pdf-act} {export-act} {delete}'
-                        : ($model->invoice_type == 4 ? '{pdf-act} {delete}'
+                        : ($model->invoice_type == 3 ? '{pdf-act} {delete}'
                             : (in_array($model->invoice_type, [2,3,5]) && $model->invoice_status_id == InvoiceStatus::Generated ? '{delete}'
                                 : ($model->invoice_type == 1 && !empty($model->aggregator_report_id) ? '{recalculate-track}' : '')
                             )

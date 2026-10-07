@@ -2023,6 +2023,32 @@ class InvoiceItemsController extends Controller
 	
     private function getReportData(int $invoice_id, int $artist_id, bool $groupBy = false): \yii\db\DataReader|array
     {
+        if ($groupBy) {
+            $queryGroupBy = ",
+            	sum(ari.count) as count,
+               	ROUND(sum(IF(IFNULL(ii2.artist_percentage, t2p.percentage) != 100, IFNULL(ii2.artist_percentage, t2p.percentage)/ 100 * ari.amount, ari.amount)), 5) as amount,
+               	ROUND(sum(IF(IFNULL(ii2.artist_percentage, t2p.percentage) != 100, IFNULL(ii2.artist_percentage, t2p.percentage) / 100 * ari.amount, ari.amount) * (IFNULL(ii2.percentage, t2p2.percentage) / 100)), 5) as amount_2
+			";
+
+            $queryGroupBy2 = "
+             GROUP BY ari.track_id
+             HAVING amount_2 > 0
+             ORDER BY ari.track_id ASC
+            ";
+        } else {
+            $queryGroupBy = ",
+            	ari.count,
+             	ROUND(IF(IFNULL(ii2.artist_percentage, t2p.percentage) != 100, IFNULL(ii2.artist_percentage, t2p.percentage) / 100 * ari.amount, ari.amount), 5) as amount,
+                ROUND(IF(IFNULL(ii2.artist_percentage, t2p.percentage) != 100, IFNULL(ii2.artist_percentage, t2p.percentage) / 100 * ari.amount, ari.amount) * (IFNULL(ii2.percentage, t2p2.percentage) / 100), 5) as amount_2
+             ";
+
+            $queryGroupBy2 = "
+            HAVING amount_2 > 0
+            #GROUP BY ari.track_id, ari.platform, ari.country, ari.date_report
+            ORDER BY ari.track_id ASC, ari.date_report ASC
+        ";
+        }
+
         $query = "SELECT  a.name as artist_name,
                     t.name as track_name,
                     IFNULL(ii2.artist_percentage, t2p.percentage) as percentage,
@@ -2033,23 +2059,7 @@ class InvoiceItemsController extends Controller
                     ari.date_report,
                     ari.country,
                     c.currency_name
-                    ";
-
-        if ($groupBy) {
-            $query .= ",
-            	sum(ari.count) as count,
-               	ROUND(sum(IF(IFNULL(ii2.artist_percentage, t2p.percentage) != 100, IFNULL(ii2.artist_percentage, t2p.percentage)/ 100 * ari.amount, ari.amount)), 5) as amount,
-               	ROUND(sum(IF(IFNULL(ii2.artist_percentage, t2p.percentage) != 100, IFNULL(ii2.artist_percentage, t2p.percentage) / 100 * ari.amount, ari.amount) * (IFNULL(ii2.percentage, t2p2.percentage) / 100)), 5) as amount_2
-			";
-        } else {
-            $query .= ",
-            	ari.count,
-             	ROUND(IF(IFNULL(ii2.artist_percentage, t2p.percentage) != 100, IFNULL(ii2.artist_percentage, t2p.percentage) / 100 * ari.amount, ari.amount), 5) as amount,
-                ROUND(IF(IFNULL(ii2.artist_percentage, t2p.percentage) != 100, IFNULL(ii2.artist_percentage, t2p.percentage) / 100 * ari.amount, ari.amount) * (IFNULL(ii2.percentage, t2p2.percentage) / 100), 5) as amount_2
-             ";
-        }
-
-        $query .= "
+                    $queryGroupBy
         	FROM `invoice_items` ii
         		INNER JOIN invoice i2 ON i2.invoice_id = ii.invoice_id
                 INNER JOIN invoice_items ii2 ON ii2.payment_invoice_id = ii.invoice_id
@@ -2088,22 +2098,8 @@ class InvoiceItemsController extends Controller
                   AND ii2.artist_id =:artist_id
                   and i2.quarter = i.quarter
                   and i2.year = i.year
+                $queryGroupBy2
                   ";
-
-        if ($groupBy) {
-            $query .= "
-             GROUP BY ari.track_id
-             HAVING amount_2 > 0
-             ORDER BY ari.track_id ASC
-            ";
-        } else {
-            $query .= "
-            HAVING amount_2 > 0
-            #GROUP BY ari.track_id, ari.platform, ari.country, ari.date_report
-            ORDER BY ari.track_id ASC, ari.date_report ASC
-        ";
-        }
-        
 
         return Yii::$app->db->createCommand($query)
             ->bindValue(':invoice_id', $invoice_id)

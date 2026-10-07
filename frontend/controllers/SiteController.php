@@ -392,9 +392,10 @@ class SiteController extends Controller
         if (Yii::$app->request->isPost) {
             $data = Yii::$app->request->getRawBody();
             $update = json_decode($data, true);
+
+           // Yii::info($update, 'telegram');
             
-            
-            if (isset($update['callback_query'])) {
+            if (false /*isset($update['callback_query'])*/) {
                 $chatId = $update['callback_query']['message']['chat']['id'];
                 $callbackData = $update['callback_query']['data'];
                 
@@ -405,7 +406,7 @@ class SiteController extends Controller
                         if ($admin) {
                             Yii::$app->cache->delete('await_manager_code_' . $chatId);
                             $text = "<b>Привіт {$admin->getFullName()}!</b>\n\n"
-                            . "<i>Функціонал для менеджерів покищо в розробці</i>\n\n"
+                            . "<i>Функції для менеджерів наразі знаходяться на стадії розробки</i>\n\n"
                             . "Але не переживай, я продовжу надсилати тобі повідомлення як і раніше";
                             
                             
@@ -497,14 +498,84 @@ class SiteController extends Controller
                         }
                         
                         break;
+                    case 'confirm_artist_id':
+                        break;
+                    case 'cancel_confirm_artist_id':
+                        break;
                 }
             }
             
             // Обробка текстових повідомлень
-            if (isset($update['message'])) {
+            if (false /*isset($update['message'])*/) {
                 $chatId = $update['message']['chat']['id'];
                 $text = trim($update['message']['text']);
-                
+
+                // Deep-link format: /start <artist_id>
+
+               // preg_match('/^\/start(?:\s+(.+))?$/', $text, $matches);
+
+              //  $this->sendMessage($chatId, $text);
+              //  exit;
+                if (false /*isset($matches[1])*/) {
+                    $payload = isset($matches[1]) ? trim($matches[1]) : '';
+
+                    if (!empty($payload)) {
+
+                        if (!ctype_digit($payload)) {
+                            $this->sendMessage($chatId, "Некоректний ідентифікатор артиста.");
+                            exit;
+                        }
+
+                        $artistId = (int)$payload;
+                        $artist = Artist::findOne(['id' => $artistId]);
+
+                        if (!$artist) {
+                            $this->sendMessage($chatId, "Артиста не знайдено за вказаним посиланням.");
+                            exit;
+                        }
+
+                        // Prevent binding one chat to different artists.
+                        $alreadyLinkedArtist = Artist::find()
+                            ->where(['telegram_id' => $chatId])
+                            ->andWhere(['<>', 'id', $artist->id])
+                            ->one();
+
+                        if ($alreadyLinkedArtist) {
+                            $this->sendMessage(
+                                $chatId,
+                                "Цей Telegram вже прив'язаний до іншого артиста ({$alreadyLinkedArtist->name})."
+                            );
+                            exit;
+                        }
+
+                        if (!empty($artist->telegram_id) && (string)$artist->telegram_id !== (string)$chatId) {
+                            $this->sendMessage($chatId, "Цей артист вже прив'язаний до іншого Telegram акаунта.");
+                            exit;
+                        }
+
+                        $artist->telegram_id = $chatId;
+                        $artist->save(false, ['telegram_id']);
+
+                        $keyboard = [
+                            'inline_keyboard' => [
+                                [
+                                    ['text' => 'Звіт по трекам', 'callback_data' => 'get_track_info'],
+                                    ['text' => 'Звіт по балансу', 'callback_data' => 'get_balance_info']
+                                ],
+                            ]
+                        ];
+
+                        $welcomeText = "<b>Привіт {$artist->name}!</b>\n"
+                            . "Твій Telegram успішно прив'язано.\n\n"
+                            . "<b>Я можу надати тобі таку інформацію:</b>\n"
+                            . "• <code>Звіт по трекам</code>\n"
+                            . "• <code>Звіт по балансу</code>\n";
+
+                        $this->sendMessage($chatId, $welcomeText, $keyboard, 'HTML');
+                        exit;
+                    }
+                }
+
                 // Якщо бот чекає email
                 if (Yii::$app->cache->get('await_artist_code_' . $chatId)) {
                     if (filter_var($text, FILTER_SANITIZE_ADD_SLASHES) && strlen($text) == 10) {
@@ -550,7 +621,7 @@ class SiteController extends Controller
                             $this->sendMessage($chatId, "Артист не знайдений.\n Будь ласка, введи корректний код",);
                         }
                     } else {
-                        Yii::$app->cache->delete('await_artist_email_' . $chatId);
+                        Yii::$app->cache->delete('await_artist_code_' . $chatId);
                         $this->sendMessage($chatId, "Невірний код. Спробуй спочатку.");
                     }
                     exit;
@@ -566,13 +637,36 @@ class SiteController extends Controller
                     exit;
                 }
             }
-            
+
             Command::run("/start", function($telegram) {
 
                 $data = [
                     'from' => get_object_vars($telegram->input->message->from),
                     'chat' => get_object_vars($telegram->input->message->chat),
                 ];
+
+
+                $text = $telegram->input->text;
+                $code_1 = preg_replace('/\D+/', '', $text);
+
+
+
+                if (preg_match('/^\/start\s+(\d+)$/', trim($text), $m)) {
+                    $code = $m[1]; // "12345"
+                } else {
+                    $code = null; // формат не підійшов
+                }
+
+                $this->sendMessage($telegram->input->message->chat->id, $code_1. ' - ' .$code);
+                exit();
+
+                if ($code) {
+                    $artist = Artist::findOne(['telegram_code' => $code]);
+                    if ($artist) {
+                        $this->sendMessage($telegram->input->message->chat->id, $code, null, 'HTML');
+                        exit();
+                    }
+                }
 
                 file_put_contents(
                     'test.txt',
@@ -608,7 +702,7 @@ class SiteController extends Controller
                             'inline_keyboard'=>[
                                 [
                                     ['text' => 'Ввести код', 'callback_data' => 'is_artist'],
-                                    //['text' => 'Я менеджер', 'callback_data' => 'is_manager'],
+                                   // ['text' => 'Я менеджер', 'callback_data' => 'is_manager'],
                                     //['text' => 'Відправити email', 'callback_data' => 'enter_email'],
                                 ]
                             ]

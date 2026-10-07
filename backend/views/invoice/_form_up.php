@@ -71,7 +71,7 @@ $years = array_combine($years, $years);
             ])?>
     </div>
 
-    <?php if ($model->invoice_type == 2 || $model->invoice_type == 4) { ?>
+    <?php if ($model->invoice_type == 2 || $model->invoice_type == 3) { ?>
         <div class="col-sm-12 col-md-6 col-lg-2">
            <?= $form->field($model, 'date_pay')->widget(DatePicker::class, [
                'language' => 'uk',
