@@ -1,0 +1,101 @@
+/* Minimal safe overrides only for the Gentelella layout */
+
+body .main_container {
+    background: #f5f7fb !important;
+}
+
+body .container.body {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+}
+
+body .main_container .top_nav {
+    height: 58px !important;
+    min-height: 58px !important;
+    background: linear-gradient(135deg, #5a5fe6 0%, #4f46e5 100%) !important;
+    border-bottom: 1px solid rgba(255,255,255,0.14) !important;
+    box-shadow: 0 8px 24px rgba(79, 70, 229, 0.18) !important;
+}
+
+body .nav_menu {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    margin-bottom: 0 !important;
+}
+
+body .left_col,
+body .left_col .scroll-view {
+    background: #111827 !important;
+    border-right: 1px solid rgba(255,255,255,0.08) !important;
+}
+
+body .nav_title,
+body .nav_title a,
+body .nav_title .site_title {
+    background: #111827 !important;
+    color: #ffffff !important;
+}
+
+body .nav.side-menu > li > a {
+    color: rgba(255,255,255,0.82) !important;
+    margin: 4px 10px !important;
+    padding: 11px 12px !important;
+    border-radius: 10px !important;
+    border-left: 3px solid transparent !important;
+}
+
+body .nav.side-menu > li > a:hover,
+body .nav.side-menu > li.active > a {
+    background: rgba(99, 102, 241, 0.18) !important;
+    color: #ffffff !important;
+    border-left-color: #8b5cf6 !important;
+}
+
+body .nav.child_menu {
+    background: rgba(17,24,39,0.95) !important;
+    border-radius: 0 12px 12px 0 !important;
+}
+
+body .nav.child_menu li a {
+    color: rgba(255,255,255,0.82) !important;
+}
+
+body .right_col {
+    background: #f5f7fb !important;
+    padding: 18px 20px 0 !important;
+}
+
+body .x_panel,
+body .panel,
+body .card,
+body .x_title {
+    border-radius: 12px !important;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06) !important;
+}
+
+body .btn-primary {
+    background: linear-gradient(135deg, #5a5fe6 0%, #4f46e5 100%) !important;
+    border-color: #4f46e5 !important;
+}
+
+body .btn-success {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+    border-color: #059669 !important;
+}
+
+body .table > thead > tr > th {
+    background: rgba(99, 102, 241, 0.04) !important;
+    color: #1f2937 !important;
+    font-weight: 700 !important;
+}
+
+body .alert {
+    border-radius: 12px !important;
+}
+
+body .dropdown-menu {
+    border-radius: 12px !important;
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12) !important;
+}

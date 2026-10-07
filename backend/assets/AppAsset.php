@@ -30,4 +30,3 @@ class AppAsset extends AssetBundle
         'yiister\gentelella\assets\Asset',
     ];
 }
-
