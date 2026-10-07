@@ -11,11 +11,11 @@ body .container.body {
 }
 
 body .main_container .top_nav {
-    height: 58px !important;
-    min-height: 58px !important;
     background: linear-gradient(135deg, #5a5fe6 0%, #4f46e5 100%) !important;
     border-bottom: 1px solid rgba(255,255,255,0.14) !important;
     box-shadow: 0 8px 24px rgba(79, 70, 229, 0.18) !important;
+    height: 58px !important;
+    min-height: 58px !important;
 }
 
 body .nav_menu {
@@ -23,12 +23,96 @@ body .nav_menu {
     border: none !important;
     box-shadow: none !important;
     margin-bottom: 0 !important;
+    width: 100% !important;
+}
+
+body .nav_menu nav {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    height: 58px !important;
+}
+
+body .navbar-right {
+    float: right !important;
+    margin: 0 !important;
+    width: auto !important;
+    display: flex !important;
+    align-items: center !important;
+}
+
+body .navbar-right > li {
+    float: none !important;
+    display: flex !important;
+    align-items: center !important;
+}
+
+body .top_nav .user-profile {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    color: #ffffff !important;
+    padding: 6px 12px !important;
+    border-radius: 12px !important;
+    background: rgba(255,255,255,0.08) !important;
+    border: 1px solid rgba(255,255,255,0.12) !important;
+}
+
+body .top_nav .user-profile img {
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 50% !important;
+    border: 2px solid rgba(255,255,255,0.22) !important;
+    object-fit: cover !important;
+}
+
+body .top_nav .user-profile .fa-angle-down {
+    color: rgba(255,255,255,0.9) !important;
+    font-size: 12px !important;
+}
+
+body .dropdown-usermenu {
+    margin-top: 8px !important;
+    right: 0 !important;
+    left: auto !important;
+    min-width: 220px !important;
+    border-radius: 12px !important;
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12) !important;
+}
+
+body .dropdown-usermenu li a {
+    color: #374151 !important;
+    padding: 10px 16px !important;
+}
+
+body .dropdown-usermenu li a:hover {
+    background: rgba(99, 102, 241, 0.06) !important;
+    color: #111827 !important;
+}
+
+body .top_nav .nav.toggle {
+    float: left !important;
+    display: flex !important;
+    align-items: center !important;
+    height: 58px !important;
+}
+
+body .top_nav #menu_toggle {
+    color: #ffffff !important;
+    font-size: 18px !important;
+    padding: 10px 12px !important;
+    border-radius: 10px !important;
+    background: rgba(255,255,255,0.08) !important;
+    border: 1px solid rgba(255,255,255,0.12) !important;
+}
+
+body .top_nav #menu_toggle:hover {
+    background: rgba(255,255,255,0.14) !important;
 }
 
 body .left_col,
 body .left_col .scroll-view {
     background: #111827 !important;
-    border-right: 1px solid rgba(255,255,255,0.08) !important;
 }
 
 body .nav_title,
@@ -40,9 +124,6 @@ body .nav_title .site_title {
 
 body .nav.side-menu > li > a {
     color: rgba(255,255,255,0.82) !important;
-    margin: 4px 10px !important;
-    padding: 11px 12px !important;
-    border-radius: 10px !important;
     border-left: 3px solid transparent !important;
 }
 
@@ -55,7 +136,6 @@ body .nav.side-menu > li.active > a {
 
 body .nav.child_menu {
     background: rgba(17,24,39,0.95) !important;
-    border-radius: 0 12px 12px 0 !important;
 }
 
 body .nav.child_menu li a {
@@ -64,15 +144,6 @@ body .nav.child_menu li a {
 
 body .right_col {
     background: #f5f7fb !important;
-    padding: 18px 20px 0 !important;
-}
-
-body .x_panel,
-body .panel,
-body .card,
-body .x_title {
-    border-radius: 12px !important;
-    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06) !important;
 }
 
 body .btn-primary {
@@ -91,11 +162,11 @@ body .table > thead > tr > th {
     font-weight: 700 !important;
 }
 
-body .alert {
-    border-radius: 12px !important;
-}
-
 body .dropdown-menu {
     border-radius: 12px !important;
     box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12) !important;
+}
+
+body .dropdown-usermenu li a {
+    color: #374151 !important;
 }
