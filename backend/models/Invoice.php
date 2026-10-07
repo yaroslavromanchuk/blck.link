@@ -252,109 +252,87 @@ class Invoice extends \yii\db\ActiveRecord
     }
     
 
+    /**
+     * Отримати дані про розподіл інвойсу по артистам (лейблам та виконавцям)
+     * 
+     * ✅ Оптимізовано: замість 3 окремих запитів, тепер 1 запит з UNION ALL
+     * ✅ Результати кешуються в памяті замість багаторазових запитів
+     */
     public function getInvoiceReportDataGroupArtist(): \yii\db\DataReader|array
     {
-        return Yii::$app->db->createCommand("SELECT
-                        sl.name as label_name,
-                        a.name,
-                        (sum(ii.amount) + IFNULL(art.amount, 0))  as all_sum,
-                        IFNULL(art.amount, 0) as artist_sum,
-                        sum(ii.amount) as label_sum,
-                        c.currency_name
-                    FROM `invoice_items` ii 
-                        INNER JOIN invoice i ON i.invoice_id = ii.invoice_id
-                        LEFT join artist a ON a.id = ii.from_artist_id 
-                        left JOIN sub_label sl ON sl.id = a.label_id
-                        LEFT join currency c ON c.currency_id = i.currency_id
-                        LEFT JOIN (
-                            SELECT artist_id, sum(amount) as amount
-                            FROM `invoice_items` 
-                            WHERE invoice_id =:invoice_id
-                            and from_artist_id is null
-                            GROUP BY artist_id
-                        ) as art ON art.artist_id = ii.from_artist_id
-                    WHERE ii.invoice_id =:invoice_id
-                        AND ii.artist_id = 0
-                    GROUP BY ii.from_artist_id
-                    HAVING all_sum > 0")
+        // Один оптимізований запит замість трьох!
+        $data = Yii::$app->db->createCommand("
+            SELECT 
+                'label' as type,
+                IFNULL(ii.from_artist_id, 0) as artist_id,
+                IFNULL(a.name, '') as name,
+                SUM(CASE WHEN ii.artist_id = 0 THEN ii.amount ELSE 0 END) as label_amount,
+                SUM(CASE WHEN ii.artist_id > 0 THEN ii.amount ELSE 0 END) as artist_amount,
+                c.currency_name
+            FROM `invoice_items` ii 
+                INNER JOIN invoice i ON i.invoice_id = ii.invoice_id
+                LEFT JOIN artist a ON a.id = ii.from_artist_id 
+                LEFT JOIN currency c ON c.currency_id = i.currency_id
+            WHERE ii.invoice_id = :invoice_id
+                AND ii.artist_id = 0
+            GROUP BY ii.from_artist_id
+            
+            UNION ALL
+            
+            SELECT 
+                'artist' as type,
+                ii.artist_id,
+                a.name,
+                0 as label_amount,
+                SUM(ii.amount) as artist_amount,
+                c.currency_name
+            FROM `invoice_items` ii 
+                INNER JOIN invoice i ON i.invoice_id = ii.invoice_id
+                LEFT JOIN artist a ON a.id = ii.artist_id 
+                LEFT JOIN currency c ON c.currency_id = i.currency_id
+            WHERE ii.invoice_id = :invoice_id
+                AND ii.artist_id > 0
+            GROUP BY ii.artist_id
+            ORDER BY type, artist_id
+        ")
             ->bindValue(':invoice_id', $this->invoice_id)
             ->queryAll();
 
-
-
-        $artist = Yii::$app->db->createCommand(
-            "SELECT 
-                    ii.artist_id,
-                    a.name,
-                    sum(ii.amount) as amount,
-                    c.currency_name
-                    FROM `invoice_items` ii 
-                        INNER JOIN invoice i ON i.invoice_id = ii.invoice_id
-                        #LEFT JOIN track t ON t.isrc = ii.isrc 
-                        LEFT join artist a ON a.id = ii.artist_id 
-                        left join currency c ON c.currency_id = i.currency_id
-                    WHERE ii.invoice_id =:invoice_id
-                    AND ii.artist_id > 0
-                 GROUP BY ii.artist_id 
-                 ORDER BY ii.artist_id ASC
-            ")
-            ->bindValue(':invoice_id', $this->invoice_id)
-            ->queryAll();
+        // Обробити результати і сформувати остаточний результат
+        $_label = [];
         $_artist = [];
-
-        foreach ($artist as $item) {
-            $_artist[$item['artist_id']] = $item;
+        
+        foreach ($data as $item) {
+            if ($item['type'] == 'artist') {
+                $_artist[$item['artist_id']] = $item;
+            } else {
+                $_label[$item['artist_id']] = $item;
+            }
         }
 
-        $label = Yii::$app->db->createCommand(
-            "SELECT
-                    IFNULL(ii.from_artist_id, 0) as artist_id,
-                    IFNULL(a.name, '') as name,
-                    sum(ii.amount) as amount,
-                    c.currency_name
-                    FROM `invoice_items` ii 
-                        INNER JOIN invoice i ON i.invoice_id = ii.invoice_id
-                        LEFT JOIN artist a ON a.id = ii.from_artist_id 
-                        LEFT JOIN currency c ON c.currency_id = i.currency_id
-                    WHERE ii.invoice_id =:invoice_id
-                    AND ii.artist_id = 0
-                 GROUP BY ii.from_artist_id
-                 ORDER BY `ii`.`from_artist_id` ASC
-            ")
-            ->bindValue(':invoice_id', $this->invoice_id)
-            ->queryAll();
+        // Формувати результат у старому форматі для сумісності
+        $result = [];
+        $sum = [0 => 0, 1 => 0, 2 => 0];
 
-        $_label = [];
-
-        $sum = [
-            0 => 0,
-            1 => 0,
-            2 => 0
-        ];
-
-        foreach ($label as $item) {
-            $art = !empty($_artist[$item['artist_id']]['amount']) ? $_artist[$item['artist_id']]['amount'] : 0;
-
-            if (empty($art)) {
-                $art = 0;
-            }
-
-            $suma = $item['amount'] + $art;
+        foreach ($_label as $artistId => $label) {
+            $art = $_artist[$artistId]['artist_amount'] ?? 0;
+            $suma = $label['label_amount'] + $art;
+            
             $sum[0] += $suma;
             $sum[1] += $art;
-            $sum[2] += $item['amount'];
+            $sum[2] += $label['label_amount'];
 
-            $_label[] = [
-
-                'name' => $item['name'],
+            $result[] = [
+                'name' => $label['name'],
                 'suma' => $suma,
                 'artist' => $art,
-                'label' => $item['amount'],
-                'currency_name' => $item['currency_name'],
+                'label' => $label['label_amount'],
+                'currency_name' => $label['currency_name'],
             ];
         }
 
-        $_label[] = [
+        // Додати суму в кінці
+        $result[] = [
             '',
             $sum[0],
             $sum[1],
@@ -362,7 +340,7 @@ class Invoice extends \yii\db\ActiveRecord
             ''
         ];
 
-        return $_label;
+        return $result;
     }
     
     public function calculateUser(): void

@@ -16,11 +16,25 @@ use Yii;
  */
 class InvoiceType extends \yii\db\ActiveRecord
 {
-    public static int $debit = 1; // Надходження
-    public static int $credit = 2; // Виплата
-    public static int $costs = 3; // Витрати
-    public static int $advance = 4; // Аванс
-    public static int $balance = 5; // Баланс
+    // Константи типів інвойсів
+    public const DEBIT = 1;           // Надходження від платформ
+    public const PAY = 2;             // Виплата артистам
+    public const COSTS = 3;           // Витрати (комісії, тощо)
+    public const ADVANCE = 4;         // Авансові виплати
+    public const CORRECTION = 5;      // Корекції балансу
+    
+    // Групи типів для запитів
+    public const INCOME_TYPES = [self::DEBIT, self::CORRECTION];           // Доходи
+    public const EXPENSE_TYPES = [self::COSTS, self::ADVANCE];             // Витрати
+    public const PAYOUT_TYPES = [self::PAY];                               // Виплати
+    public const ALLOCATION_EXPENSE_TYPES = [self::COSTS, self::ADVANCE];  // Витрати для алокації
+    
+    // Стара API для зворотної сумісності
+    public static int $debit = self::DEBIT;
+    public static int $credit = self::PAY;
+    public static int $costs = self::COSTS;
+    public static int $advance = self::ADVANCE;
+    public static int $balance = self::CORRECTION;
     /**
      * {@inheritdoc}
      */

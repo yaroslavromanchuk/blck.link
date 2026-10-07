@@ -14,6 +14,11 @@ use yii\db\Exception;
 class InvoiceService
 {
     /**
+     * Створює інвойс виплати на основі депозитів артистів
+     * 
+     * @param array $artistIds - ID артистів для виплати
+     * @param array $data - Дані інвойсу (quarter, year, currency_id, invoice_type, user_id, label_id)
+     * @return int - ID створеного інвойсу
      * @throws \Throwable
      * @throws Exception
      */
@@ -22,8 +27,8 @@ class InvoiceService
         $transaction = Yii::$app->db->beginTransaction();
         
         try {
+            // Отримати всіх художників
             $artists = Artist::find()
-                //->where(['id' => $artistIds])
                 ->where(['in', 'id', $artistIds])
                 ->all();
             
@@ -31,21 +36,24 @@ class InvoiceService
                 throw new \Exception('Артисти не знайдені');
             }
             
+            // Створити інвойс
             $invoice = new Invoice();
             $invoice->load($data);
             $invoice->date_added = date('Y-m-d');
             $invoice->invoice_status_id = InvoiceStatus::Generated;
-            $invoice->description = 'Виплата за ' .$invoice->quarter . 'кв ' . $invoice->year;
+            $invoice->description = 'Виплата за ' . $invoice->quarter . 'кв ' . $invoice->year;
             
             if (!$invoice->save()) {
                 $errors = $invoice->getErrors();
-                throw new \Exception('Не вдалося створити інвойс:' . current($errors));
+                throw new \Exception('Не вдалося створити інвойс: ' . current($errors));
             }
             
+            // Додати позиції в інвойс
             $sum = 0.0;
             foreach ($artists as $artist) {
                 $amount = $artist->getDep($invoice->currency_id) ?? 0;
                 
+                // Для витрат, авансів та кредитів робити суму від'ємною
                 if ($amount != 0.00
                     && in_array($invoice->invoice_type, [InvoiceType::$credit, InvoiceType::$costs, InvoiceType::$advance])
                 ) {
@@ -62,10 +70,11 @@ class InvoiceService
                 
                 if (!$row->save()) {
                     $errors = $row->getErrors();
-                    throw new \Exception('Помилка додаваня запису в інвойс інвойсу на виплату: ' . current($errors));
+                    throw new \Exception('Помилка додавання запису в інвойс: ' . current($errors));
                 }
             }
             
+            // Оновити загальну суму інвойсу
             $invoice->total = $sum;
             $invoice->save(false);
             
