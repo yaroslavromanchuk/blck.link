@@ -255,6 +255,7 @@ class AggregatorController extends Controller
                 'count_header' => count($file_header),
                 'file_header' => $file_header,
                 'file_data' => $importResults,
+                'aggregator_id' => (int)$model->aggregatorId,
             ]);
         }
 

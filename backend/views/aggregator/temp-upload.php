@@ -3,6 +3,7 @@
 /** @var $count_header int */
 /** @var $file_header array */
 /** @var $file_data array */
+/** @var $aggregator_id int|null */
 
 $requiredFields = [
     'country' => 'Країна',
@@ -13,9 +14,10 @@ $requiredFields = [
     'amount' => 'Сума',
 ];
 $requiredCount = count($requiredFields);
+$aggregatorId = isset($aggregator_id) ? (int)$aggregator_id : 0;
 ?>
 
-<div class="upload-mapping-shell" data-required-count="<?= (int)$requiredCount ?>">
+<div class="upload-mapping-shell" data-required-count="<?= (int)$requiredCount ?>" data-aggregator-id="<?= $aggregatorId ?>">
     <div class="upload-mapping-header">
         <div>
             <span class="upload-step-badge">Крок 2</span>
@@ -413,9 +415,111 @@ $requiredCount = count($requiredFields);
 
 <script>
     (function () {
+        var shell = $('.upload-mapping-shell');
         var requiredFields = ['country', 'date_report', 'platform', 'isrc', 'count', 'amount'];
         var requiredFieldsCount = requiredFields.length;
         var animatedCounterValue = 0;
+
+        function getAggregatorId() {
+            var idFromShell = parseInt(shell.data('aggregator-id'), 10);
+            if (!isNaN(idFromShell) && idFromShell > 0) {
+                return idFromShell;
+            }
+
+            var fallback = parseInt($('#uploadreport-aggregatorid').val(), 10);
+            return isNaN(fallback) ? 0 : fallback;
+        }
+
+        function getStorageKey() {
+            return 'aggregator_upload_mapping_' + getAggregatorId();
+        }
+
+        function saveMappingToStorage() {
+            var aggregatorId = getAggregatorId();
+            if (!aggregatorId || typeof window.localStorage === 'undefined') {
+                return;
+            }
+
+            var mapping = {};
+            $('.set_column_data').each(function () {
+                var value = $(this).val();
+                var column = String($(this).data('column_number'));
+                if (value) {
+                    mapping[column] = value;
+                }
+            });
+
+            var payload = {
+                version: 1,
+                aggregator_id: aggregatorId,
+                mapping: mapping,
+                updated_at: Date.now()
+            };
+
+            try {
+                window.localStorage.setItem(getStorageKey(), JSON.stringify(payload));
+            } catch (e) {
+                // ignore storage errors
+            }
+        }
+
+        function clearMappingStorage() {
+            if (typeof window.localStorage === 'undefined') {
+                return;
+            }
+
+            try {
+                window.localStorage.removeItem(getStorageKey());
+            } catch (e) {
+                // ignore storage errors
+            }
+        }
+
+        function applyStoredMapping() {
+            if (typeof window.localStorage === 'undefined') {
+                return false;
+            }
+
+            var raw;
+            try {
+                raw = window.localStorage.getItem(getStorageKey());
+            } catch (e) {
+                return false;
+            }
+
+            if (!raw) {
+                return false;
+            }
+
+            var parsed;
+            try {
+                parsed = JSON.parse(raw);
+            } catch (e) {
+                return false;
+            }
+
+            if (!parsed || !parsed.mapping || typeof parsed.mapping !== 'object') {
+                return false;
+            }
+
+            var assignedFields = {};
+            var hasAny = false;
+
+            $('.set_column_data').each(function () {
+                var columnKey = String($(this).data('column_number'));
+                var value = parsed.mapping[columnKey] || '';
+
+                if (value && requiredFields.indexOf(value) !== -1 && !assignedFields[value]) {
+                    $(this).val(value);
+                    assignedFields[value] = true;
+                    hasAny = true;
+                } else {
+                    $(this).val('');
+                }
+            });
+
+            return hasAny;
+        }
 
         function normalizeHeader(value) {
             return String(value || '')
@@ -556,9 +660,11 @@ $requiredCount = count($requiredFields);
             $('#import').prop('disabled', !ready);
             setAnimatedCounter(count);
             updateColumnHighlights();
+            saveMappingToStorage();
         }
 
         $(document).on('click', '#mapping_reset', function () {
+            clearMappingStorage();
             $('.set_column_data').val('');
             $('.set_column_data').trigger('change');
         });
@@ -576,7 +682,10 @@ $requiredCount = count($requiredFields);
         });
 
         $(function () {
-            autoMapColumnsByHeaders();
+            var restored = applyStoredMapping();
+            if (!restored) {
+                autoMapColumnsByHeaders();
+            }
             updateMappingProgress();
         });
     })();
