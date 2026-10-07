@@ -352,7 +352,7 @@ class Invoice extends \yii\db\ActiveRecord
             ->innerJoin(Artist::tableName() . ' a', 'a.id = ii.artist_id')->andFilterWhere(['!=', 'a.label_id', 0])
             ->where(['invoice_id' => $this->invoice_id])
             ->column();
-        
+            
         foreach ($labelIds as $labelId) {
             $usersFromLabel = UserBonus::getUserToLabel($labelId);
             
@@ -361,6 +361,7 @@ class Invoice extends \yii\db\ActiveRecord
                 if ($sumLabel > 0) {
                     /* @var UserBonus $user */
                     foreach ($usersFromLabel as $user) {
+                        // ✅ ВИПРАВЛЕНО: Перевіряємо дублікати ДО обробки
                         $b = UserBalance::findOne([
                             'invoice_id' => $this->invoice_id,
                             'currency_id' => $this->currency_id,
@@ -368,10 +369,12 @@ class Invoice extends \yii\db\ActiveRecord
                             'label_id' => $user->label_id,
                         ]);
                         
-                        // Якщо відсотки вже нараховано, то пропускаємо
                         if ($b) {
-                          continue;
+                            // Запис вже існує, пропускаємо
+                            continue;
                         }
+                        
+                        $amount = round($sumLabel * ($user->percentage / 100), 3);
                         
                         $res = UserBalance::add([
                             'invoice_id' => $this->invoice_id,
@@ -380,58 +383,114 @@ class Invoice extends \yii\db\ActiveRecord
                             'percentage' => $user->percentage,
                             'user_id' => $user->user_id,
                             'label_id' => $user->label_id,
-                            'amount' => round($sumLabel * ($user->percentage / 100), 3),
+                            'amount' => $amount,
                         ]);
                         
                         if (!$res) {
-                            echo 'Failed to add balance for user ID: ' . $user->user_id . "\n";
+                            throw new \Exception("Failed to add label bonus for user {$user->user_id}");
                         }
                     }
                 }
             }
         }
 
-        // Розрахунок по артистах
-        /* @var InvoiceItems $item */
-        foreach ($this->getInvoiceItems()->all() as $item) {
-            $usersFromArtist = UserBonus::getUserToArtist($item->artist_id);
-            
-            if ($usersFromArtist) {
-               $sumLabel = $item->getLabelSumFromArtist();
-                if ($sumLabel > 0 ) {
+        // ============================================
+        // РОЗРАХУНОК ПО АРТИСТАХ (ВИПРАВЛЕНО)
+        // ============================================
 
-                    /* @var UserToArtist $user */
-                    foreach ($usersFromArtist as $user) {
-                        $b = UserBalance::findOne([
+        // ✅ Крок 1: Розраховуємо суми по артистах один раз
+        $artistSums = [];
+        $artistItems = [];
+
+        foreach ($this->getInvoiceItems()->all() as $item) {
+            if ($item->artist_id > 0) {
+                if (!isset($artistSums[$item->artist_id])) {
+                    $artistSums[$item->artist_id] = 0;
+                    $artistItems[$item->artist_id] = $item;
+                }
+            }
+        }
+
+        // ✅ Крок 2: Для кожного унікального артиста розраховуємо суму один раз
+        $processedBonuses = [];  // Трекуємо оброблені комбінації
+
+        foreach ($artistSums as $artistId => $dummy) {
+            $item = $artistItems[$artistId];
+            $sumLabel = $item->getLabelSumFromArtist();
+
+            if ($sumLabel <= 0) {
+                continue;
+            }
+
+            $usersFromArtist = UserBonus::getUserToArtist($artistId);
+
+            if (!$usersFromArtist) {
+                continue;
+            }
+
+            // ✅ Крок 3: Обробляємо кожного користувача
+            foreach ($usersFromArtist as $user) {
+                $bonusKey = "{$this->invoice_id}_{$artistId}_{$user->user_id}";
+
+                // Перевіряємо чи вже обробили цей бонус
+                if (isset($processedBonuses[$bonusKey])) {
+                    Yii::warning("Duplicate bonus detected for invoice {$this->invoice_id}, artist {$artistId}, user {$user->user_id}");
+                    continue;
+                }
+
+                // Двічі перевіряємо БД
+                $existingBalance = UserBalance::findOne([
+                    'invoice_id' => $this->invoice_id,
+                    'currency_id' => $this->currency_id,
+                    'user_id' => $user->user_id,
+                    'artist_id' => $artistId,
+                ]);
+
+                if ($existingBalance) {
+                    Yii::warning("Balance already exists for invoice {$this->invoice_id}, artist {$artistId}, user {$user->user_id}");
+                    $processedBonuses[$bonusKey] = true;
+                    continue;
+                }
+
+                $amount = round($sumLabel * ($user->percentage / 100), 3);
+
+                try {
+                    $result = UserBalance::add([
+                        'invoice_id' => $this->invoice_id,
+                        'currency_id' => $this->currency_id,
+                        'all_sum' => $sumLabel,
+                        'percentage' => $user->percentage,
+                        'user_id' => $user->user_id,
+                        'artist_id' => $artistId,
+                        'amount' => $amount,
+                    ]);
+
+                    if ($result) {
+                        $processedBonuses[$bonusKey] = true;
+
+                        // 📝 Логування
+                        Yii::info([
+                            'action' => 'artist_bonus_added',
                             'invoice_id' => $this->invoice_id,
-                            'currency_id' => $this->currency_id,
+                            'artist_id' => $artistId,
                             'user_id' => $user->user_id,
-                            'artist_id' => $item->artist_id,
-                        ]);
-                        
-                        // Якщо відсотки вже нараховано, то пропускаємо
-                        if ($b) {
-                            continue;
-                        }
-                        
-                        try {
-                            UserBalance::add([
-                                'invoice_id' => $this->invoice_id,
-                                'currency_id' => $this->currency_id,
-                                'all_sum' => $sumLabel,
-                                'percentage' => $user->percentage,
-                                'user_id' => $user->user_id,
-                                'artist_id' => $user->artist_id,
-                                'amount' => round($sumLabel * ($user->percentage / 100), 3),
-                            ]);
-                        } catch (\Throwable $e) {
-                            echo $e->getMessage();
-                            echo $e->getLine();
-                            echo $e->getTraceAsString();
-                            continue;
-                        }
-                        
+                            'all_sum' => $sumLabel,
+                            'percentage' => $user->percentage,
+                            'amount' => $amount,
+                        ], 'royalty');
+                    } else {
+                        throw new \Exception("Failed to add artist bonus for user {$user->user_id}");
                     }
+                } catch (\Throwable $e) {
+                    Yii::error([
+                        'action' => 'artist_bonus_error',
+                        'invoice_id' => $this->invoice_id,
+                        'artist_id' => $artistId,
+                        'user_id' => $user->user_id,
+                        'error' => $e->getMessage(),
+                    ], 'royalty');
+
+                    throw $e;
                 }
             }
         }

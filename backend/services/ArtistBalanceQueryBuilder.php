@@ -63,6 +63,9 @@ class ArtistBalanceQueryBuilder
 
     /**
      * Отримати основний доход артиста за період (фізичні переслухування його треків)
+     *
+     * ВИПРАВЛЕНО: Тепер правильно розраховує тільки прямий дохід артиста (ii.artist_id = :artist_id)
+     * Не включає дохід лейбу (ii.from_artist_id)
      */
     public static function getArtistDirectIncome(int $artistId, int $currencyId, int $quarter, int $year): float
     {
@@ -70,14 +73,14 @@ class ArtistBalanceQueryBuilder
             SELECT SUM(ii.amount) as amount
             FROM `invoice_items` ii
             INNER JOIN `invoice` i ON i.invoice_id = ii.invoice_id
-            INNER JOIN `track` t ON t.id = ii.track_id
+            LEFT JOIN `track` t ON t.id = ii.track_id
             WHERE i.invoice_status_id = 2
               AND i.invoice_type IN (" . implode(',', InvoiceType::INCOME_TYPES) . ")
               AND i.currency_id = :currency_id
               AND i.quarter = :quarter
               AND i.year = :year
               AND ii.artist_id = :artist_id
-              AND t.artist_id = ii.artist_id
+              AND ii.from_artist_id IS NULL
         ")
             ->bindValue(':artist_id', $artistId)
             ->bindValue(':currency_id', $currencyId)
@@ -86,8 +89,14 @@ class ArtistBalanceQueryBuilder
             ->queryScalar() ?? 0;
     }
 
+
     /**
-     * Отримати дохід артиста з фітів (його участь в чужих треках)
+     * ✅ ПАТЧ: Отримати дохід артиста з фітів (feature income) з LEFT JOIN
+     *
+     * Розраховує дохід де артист виступає у якості фітчу (не автор)
+     * Зміни:
+     * - INNER JOIN `track` → LEFT JOIN `track`
+     * - Додано обробка коли t.id IS NULL (трек видалено)
      */
     public static function getArtistFeatureIncome(int $artistId, int $currencyId, int $quarter, int $year): float
     {
@@ -95,14 +104,14 @@ class ArtistBalanceQueryBuilder
             SELECT SUM(ii.amount) as amount
             FROM `invoice_items` ii
             INNER JOIN `invoice` i ON i.invoice_id = ii.invoice_id
-            INNER JOIN `track` t ON t.id = ii.track_id
+            LEFT JOIN `track` t ON t.id = ii.track_id
             WHERE i.invoice_status_id = 2
               AND i.invoice_type IN (" . implode(',', InvoiceType::INCOME_TYPES) . ")
               AND i.currency_id = :currency_id
               AND i.quarter = :quarter
               AND i.year = :year
               AND ii.artist_id = :artist_id
-              AND t.artist_id != ii.artist_id
+              AND (t.artist_id != ii.artist_id OR t.id IS NULL)
         ")
             ->bindValue(':artist_id', $artistId)
             ->bindValue(':currency_id', $currencyId)
@@ -112,7 +121,73 @@ class ArtistBalanceQueryBuilder
     }
 
     /**
-     * Отримати дохід лейбла від артиста (його доля від переслухань)
+     * Отримати Partner (Client) за період
+     *
+     * Partner розраховується як прямий дохід на основі artist.percentage або artist.percentage_distribution
+     * залежно від типу агрегатора
+     *
+     * @param int $partnerId ID Partner артиста
+     * @param int $currencyId ID валюти
+     * @param int $quarter Квартал
+     * @param int $year Рік
+     * @return float Загальний дохід для Partner (до розділення на паблішинг/дистрибуцію)
+     */
+    public static function getPartnerTotalIncome(int $partnerId, int $currencyId, int $quarter, int $year): float
+    {
+        return (float) Yii::$app->db->createCommand("
+            SELECT SUM(ii.amount) as amount
+            FROM `invoice_items` ii
+            INNER JOIN `invoice` i ON i.invoice_id = ii.invoice_id
+            WHERE i.invoice_status_id = 2
+              AND i.invoice_type IN (" . implode(',', InvoiceType::INCOME_TYPES) . ")
+              AND i.currency_id = :currency_id
+              AND i.quarter = :quarter
+              AND i.year = :year
+              AND ii.artist_id = :partner_id
+              AND ii.from_artist_id IS NULL
+        ")
+            ->bindValue(':partner_id', $partnerId)
+            ->bindValue(':currency_id', $currencyId)
+            ->bindValue(':quarter', $quarter)
+            ->bindValue(':year', $year)
+            ->queryScalar() ?? 0;
+    }
+
+    /**
+     * Отримати дохід лейбу (label income) від Partner за період
+     *
+     * Коли Partner отримує дохід, лейбл (контрагент) також отримує свою частку
+     * Це записується як: artist_id = 0, from_artist_id = partner_id
+     *
+     * @param int $partnerId ID Partner артиста
+     * @param int $currencyId ID валюти
+     * @param int $quarter Квартал
+     * @param int $year Рік
+     * @return float Дохід лейбу від Partner
+     */
+    public static function getLabelIncomeFromPartner(int $partnerId, int $currencyId, int $quarter, int $year): float
+    {
+        return (float) Yii::$app->db->createCommand("
+            SELECT SUM(ii.amount) as amount
+            FROM `invoice_items` ii
+            INNER JOIN `invoice` i ON i.invoice_id = ii.invoice_id
+            WHERE i.invoice_status_id = 2
+              AND i.invoice_type IN (" . implode(',', InvoiceType::INCOME_TYPES) . ")
+              AND i.currency_id = :currency_id
+              AND i.quarter = :quarter
+              AND i.year = :year
+              AND ii.artist_id = 0
+              AND ii.from_artist_id = :partner_id
+        ")
+            ->bindValue(':partner_id', $partnerId)
+            ->bindValue(':currency_id', $currencyId)
+            ->bindValue(':quarter', $quarter)
+            ->bindValue(':year', $year)
+            ->queryScalar() ?? 0;
+    }
+
+    /**
+     * {@inheritdoc}
      */
     public static function getLabelIncomeFromArtist(int $artistId, int $currencyId, int $quarter, int $year): float
     {
@@ -136,7 +211,10 @@ class ArtistBalanceQueryBuilder
     }
 
     /**
-     * Отримати загальний дохід артиста (персональний + феатури + лейбл)
+     * Отримати загальний дохід артиста (персональний + феатури)
+     *
+     * ВИПРАВЛЕНО: Тепер не включає дохід лейбу (ii.from_artist_id)
+     * Тільки безпосередньо дохід артиста (ii.artist_id = :artist_id)
      */
     public static function getTotalIncomeForArtist(int $artistId, int $currencyId, int $quarter, int $year): float
     {
@@ -149,7 +227,8 @@ class ArtistBalanceQueryBuilder
               AND i.currency_id = :currency_id
               AND i.quarter = :quarter
               AND i.year = :year
-              AND (ii.artist_id = :artist_id OR ii.from_artist_id = :artist_id)
+              AND ii.artist_id = :artist_id
+              AND ii.from_artist_id IS NULL
         ")
             ->bindValue(':artist_id', $artistId)
             ->bindValue(':currency_id', $currencyId)

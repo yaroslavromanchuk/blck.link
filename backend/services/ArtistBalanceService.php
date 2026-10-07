@@ -26,6 +26,8 @@ class ArtistBalanceService
 
     /**
      * Розрахувати повний баланс артиста за період
+     *
+     * ВИПРАВЛЕНО: Тепер правильно розраховує для обох типів Artist та Partner
      */
     public function calculateBalance(
         int $artistId,
@@ -40,12 +42,29 @@ class ArtistBalanceService
         $currency = Currency::findOne(['currency_id' => $currencyId]);
         $balance->currencyName = $currency?->currency_name ?? '';
 
+        // Отримати тип артиста
+        $artist = Artist::findOne($artistId);
+        $isPartner = $artist && $artist->artist_type_id == 2;  // 2 = Partner
+
         // Розрахувати всі суми
         $balance->previousBalance = $this->queryBuilder::getPreviousBalance($artistId, $currencyId, $quarter, $year);
-        $balance->directIncome = $this->queryBuilder::getArtistDirectIncome($artistId, $currencyId, $quarter, $year);
-        $balance->featureIncome = $this->queryBuilder::getArtistFeatureIncome($artistId, $currencyId, $quarter, $year);
-        $balance->labelIncome = $this->queryBuilder::getLabelIncomeFromArtist($artistId, $currencyId, $quarter, $year);
-        $balance->totalIncome = $this->queryBuilder::getTotalIncomeForArtist($artistId, $currencyId, $quarter, $year);
+
+        if ($isPartner) {
+            // Для Partner: простий розрахунок
+            $balance->directIncome = $this->queryBuilder::getPartnerTotalIncome($artistId, $currencyId, $quarter, $year);
+            $balance->featureIncome = 0;  // Partner не має фітів
+            $balance->labelIncome = $this->queryBuilder::getLabelIncomeFromPartner($artistId, $currencyId, $quarter, $year);
+            $balance->totalIncome = $balance->directIncome;
+        } else {
+            // Для Artist: складний розрахунок з фітами
+            $directIncome = $this->queryBuilder::getArtistDirectIncome($artistId, $currencyId, $quarter, $year);
+            $totalIncome = $this->queryBuilder::getTotalIncomeForArtist($artistId, $currencyId, $quarter, $year);
+
+            $balance->directIncome = $directIncome;
+            $balance->featureIncome = $totalIncome - $directIncome;  // Feature = Total - Direct
+            $balance->labelIncome = $this->queryBuilder::getLabelIncomeFromArtist($artistId, $currencyId, $quarter, $year);
+            $balance->totalIncome = $totalIncome;
+        }
 
         // Витрати
         $expenses = $this->queryBuilder::getExpensesByType($artistId, $currencyId, $quarter, $year);
