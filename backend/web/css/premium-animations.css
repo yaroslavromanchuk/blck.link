@@ -500,3 +500,37 @@ a,
         transform: none !important;
     }
 }
+
+/* Safe page-load animations for Gentelella
+ * Do not hide structural layout elements. Only animate content blocks.
+ */
+
+.main_container,
+.right_col,
+.top_nav {
+    opacity: 1;
+    transform: none;
+    transition: opacity 0.45s ease, transform 0.45s ease;
+}
+
+.left_col,
+.nav_menu {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+}
+
+.page-loaded {
+    opacity: 1 !important;
+    transform: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .main_container,
+    .right_col,
+    .top_nav {
+        transition: none !important;
+        opacity: 1 !important;
+        transform: none !important;
+    }
+}
