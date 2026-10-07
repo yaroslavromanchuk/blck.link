@@ -14,12 +14,14 @@ class AppAsset extends AssetBundle
         'https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css',
         'css/site.css',
         'css/custom.css',
-        'css/premium-enhancements.css'
+        'css/premium-enhancements.css',
+        'css/premium-animations.css'
     ];
 
     public $js = [
         'js/chartjs/chart.min.js',
-        'js/echart/echarts-all.js'
+        'js/echart/echarts-all.js',
+        'js/page-animations.js'
     ];
 
     public $depends = [

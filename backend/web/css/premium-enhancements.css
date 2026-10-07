@@ -11,9 +11,9 @@ body .container.body {
 }
 
 body .main_container .top_nav {
-    background: linear-gradient(135deg, #5a5fe6 0%, #4f46e5 100%) !important;
-    border-bottom: 1px solid rgba(255,255,255,0.14) !important;
-    box-shadow: 0 8px 24px rgba(79, 70, 229, 0.18) !important;
+    background: linear-gradient(135deg, #6e7ff7 0%, #4d77ec 100%) !important;
+    border-bottom: 1px solid rgba(255,255,255,0.18) !important;
+    box-shadow: 0 10px 22px rgba(87, 104, 225, 0.18) !important;
     height: 58px !important;
     min-height: 58px !important;
 }
@@ -50,44 +50,67 @@ body .navbar-right > li {
 body .top_nav .user-profile {
     display: flex !important;
     align-items: center !important;
-    gap: 8px !important;
+    gap: 10px !important;
     color: #ffffff !important;
-    padding: 6px 12px !important;
+    padding: 6px 12px 6px 8px !important;
     border-radius: 12px !important;
-    background: rgba(255,255,255,0.08) !important;
-    border: 1px solid rgba(255,255,255,0.12) !important;
+    background: rgba(255,255,255,0.12) !important;
+    border: 1px solid rgba(255,255,255,0.18) !important;
+    transition: all 0.2s ease !important;
+}
+
+body .top_nav .user-profile:hover {
+    background: rgba(255,255,255,0.18) !important;
+    box-shadow: 0 4px 12px rgba(17,24,39,0.12) !important;
 }
 
 body .top_nav .user-profile img {
     width: 32px !important;
     height: 32px !important;
     border-radius: 50% !important;
-    border: 2px solid rgba(255,255,255,0.22) !important;
+    border: 2px solid rgba(255,255,255,0.26) !important;
     object-fit: cover !important;
+    box-shadow: 0 0 0 2px rgba(255,255,255,0.08) !important;
 }
 
 body .top_nav .user-profile .fa-angle-down {
-    color: rgba(255,255,255,0.9) !important;
+    color: rgba(255,255,255,0.92) !important;
     font-size: 12px !important;
 }
 
 body .dropdown-usermenu {
-    margin-top: 8px !important;
+    margin-top: 10px !important;
     right: 0 !important;
     left: auto !important;
     min-width: 220px !important;
     border-radius: 12px !important;
-    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12) !important;
+    box-shadow: 0 14px 30px rgba(15, 23, 42, 0.14) !important;
+    border: 1px solid rgba(148, 163, 184, 0.2) !important;
 }
 
 body .dropdown-usermenu li a {
     color: #374151 !important;
     padding: 10px 16px !important;
+    transition: background 0.2s ease, color 0.2s ease !important;
 }
 
 body .dropdown-usermenu li a:hover {
     background: rgba(99, 102, 241, 0.06) !important;
     color: #111827 !important;
+}
+
+body .user-header {
+    background: linear-gradient(135deg, #f8faff 0%, #eef2ff 100%) !important;
+    padding: 18px 16px !important;
+}
+
+body .user-header p {
+    margin: 0 !important;
+}
+
+body .user-header .user-role {
+    color: #5d6bf6 !important;
+    font-size: 12px !important;
 }
 
 body .top_nav .nav.toggle {
@@ -102,12 +125,14 @@ body .top_nav #menu_toggle {
     font-size: 18px !important;
     padding: 10px 12px !important;
     border-radius: 10px !important;
-    background: rgba(255,255,255,0.08) !important;
+    background: rgba(255,255,255,0.10) !important;
     border: 1px solid rgba(255,255,255,0.12) !important;
+    transition: all 0.2s ease !important;
 }
 
 body .top_nav #menu_toggle:hover {
-    background: rgba(255,255,255,0.14) !important;
+    background: rgba(255,255,255,0.16) !important;
+    box-shadow: 0 4px 12px rgba(17,24,39,0.10) !important;
 }
 
 body .left_col,
@@ -147,13 +172,13 @@ body .right_col {
 }
 
 body .btn-primary {
-    background: linear-gradient(135deg, #5a5fe6 0%, #4f46e5 100%) !important;
-    border-color: #4f46e5 !important;
+    background: linear-gradient(135deg, #6e7ff7 0%, #526de8 100%) !important;
+    border-color: #526de8 !important;
 }
 
 body .btn-success {
-    background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
-    border-color: #059669 !important;
+    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%) !important;
+    border-color: #16a34a !important;
 }
 
 body .table > thead > tr > th {

@@ -470,3 +470,33 @@ a,
     }
 }
 
+/* ============================
+   Fade-in on Page Load
+   ============================ */
+
+.main_container,
+.right_col,
+.top_nav,
+.left_col,
+.nav_menu {
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 0.45s ease, transform 0.45s ease;
+}
+
+.page-loaded {
+    opacity: 1 !important;
+    transform: translateY(0) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .main_container,
+    .right_col,
+    .top_nav,
+    .left_col,
+    .nav_menu {
+        transition: none !important;
+        opacity: 1 !important;
+        transform: none !important;
+    }
+}
