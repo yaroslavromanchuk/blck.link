@@ -186,6 +186,16 @@ class AggregatorController extends Controller
                 $path = Yii::getAlias('@backend/uploads/');
                 $extension = strtolower((string)$model->file->extension);
 
+                if (!is_dir($path)) {
+                    if (!mkdir($path, 0777, true) && !is_dir($path)) {
+                        throw new RuntimeException('Не вдалося створити папку для завантажених файлів.');
+                    }
+                }
+
+                if (!is_writable($path)) {
+                    throw new RuntimeException('Папка для завантажених файлів не доступна для запису.');
+                }
+
                 $filePath = $path . uniqid('upload_') . '.' . $extension;
 
                 if (!$model->file->saveAs($filePath)) {
