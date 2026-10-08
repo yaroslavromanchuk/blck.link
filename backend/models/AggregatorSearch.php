@@ -18,7 +18,7 @@ class AggregatorSearch extends Aggregator
     public function rules()
     {
         return [
-            [['aggregator_id', 'currency_id'], 'integer'],
+            [['aggregator_id', 'service_type_id', 'ownership_type', 'type_use_id', 'service_id', 'currency_id'], 'integer'],
             [['name', 'description', 'date_add', 'last_update'], 'safe'],
         ];
     }
@@ -41,7 +41,14 @@ class AggregatorSearch extends Aggregator
      */
     public function search($params)
     {
-        $query = Aggregator::find();
+        $query = Aggregator::find()->with([
+            'serviceType',
+            'ownershipType',
+            'aggregatorToOwnershipTypes',
+            'type',
+            'service',
+            'currency',
+        ]);
 
         // add conditions that should always apply here
 
@@ -61,6 +68,10 @@ class AggregatorSearch extends Aggregator
         $query->andFilterWhere([
             'label_id' => Yii::$app->user->identity->label_id,
             'aggregator_id' => $this->aggregator_id,
+            'service_type_id' => $this->service_type_id,
+            'ownership_type' => $this->ownership_type,
+            'type_use_id' => $this->type_use_id,
+            'service_id' => $this->service_id,
             'currency_id' => $this->currency_id,
             'date_add' => $this->date_add,
             //'last_update' => $this->last_update,

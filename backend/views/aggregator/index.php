@@ -35,14 +35,14 @@ $this->params['breadcrumbs'][] = $this->title;
             [
                 'attribute' => 'service_type_id',
                 'value' => function($data) {
-                    return $data->serviceType->name;
+                    return $data->serviceType ? $data->serviceType->name : '';
                 },
             ],
             //'ownership_type',
             [
                 'attribute' => 'ownership_type',
                 'value' => function($data) {
-                    return $data->ownershipType->name;
+                    return $data->ownershipType ? $data->ownershipType->name : '';
                 },
             ],
             [
@@ -64,19 +64,19 @@ $this->params['breadcrumbs'][] = $this->title;
             [
                     'attribute' => 'type_use_id',
                 'value' => function($data) {
-                        return $data->type->name;
+                        return $data->type ? $data->type->name : '';
                 }
             ],
             [
                 'attribute' => 'service_id',
                 'value' => function($data) {
-                    return $data->service->name;
+                    return $data->service ? $data->service->name : '';
                 }
             ],
             [
                 'attribute' => 'currency_id',
                 'value' => function($data) {
-                    return $data->currency->getName();
+                    return $data->currency ? $data->currency->getName() : '';
                 },
             ],
             //'date_add:date',
