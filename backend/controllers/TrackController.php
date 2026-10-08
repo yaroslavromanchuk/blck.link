@@ -722,9 +722,9 @@ class TrackController extends Controller
                     continue;
                 }
 
-                if ($item[5] > 0) {
+                if (!empty($item[5]) && $item[5] > 0) {
                     $artist = Artist::findOne(['id' => (int)$item[5], 'active'=> 1]);
-                } else if ($item[4] > 0) {
+                } else if (!empty($item[4]) && $item[4] > 0) {
                     $artist = Artist::findOne(['label_id' => (int)$item[4], 'active'=> 1]);
                 } else {
                     $artist = Artist::getArtistByName(trim($item[3]), $item[4]);
