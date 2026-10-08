@@ -100,20 +100,26 @@ body .dropdown-usermenu {
 }
 
 /* Keep Bootstrap modals above the fade overlay after UI stacking changes. */
+body.modal-open .main_container,
+body.modal-open .container.body,
+body.modal-open .right_col {
+    z-index: auto !important;
+}
+
 body.modal-open .modal-backdrop,
 body .modal-backdrop {
     position: fixed !important;
-    z-index: 1040 !important;
+    z-index: 10040 !important;
 }
 
 body.modal-open .modal,
 body .modal {
     position: fixed !important;
-    z-index: 1050 !important;
+    z-index: 10050 !important;
 }
 
 body .modal-dialog {
-    z-index: 1051 !important;
+    z-index: 10051 !important;
 }
 
 body .dropdown-usermenu li a {
@@ -232,7 +238,7 @@ body .nav.child_menu li a {
 body .right_col {
     background: #f5f7fb !important;
     position: relative;
-    z-index: 1;
+    z-index: auto !important;
 }
 
 body .btn-primary {
