@@ -612,6 +612,53 @@ $aggregatorId = isset($aggregator_id) ? (int)$aggregator_id : 0;
             }
         }
 
+        function syncSelectOptions() {
+            var used = {};
+
+            $('.set_column_data').each(function () {
+                var current = $(this).val();
+                if (current) {
+                    used[current] = true;
+                }
+            });
+
+            $('.set_column_data').each(function () {
+                var current = $(this).val();
+
+                $(this).find('option').each(function () {
+                    var optionValue = $(this).val();
+                    if (!optionValue) {
+                        return;
+                    }
+
+                    var disableOption = !!used[optionValue] && optionValue !== current;
+                    $(this).prop('disabled', disableOption);
+                });
+            });
+        }
+
+        function normalizeUniqueFieldAssignments() {
+            var used = {};
+            var changed = false;
+
+            $('.set_column_data').each(function () {
+                var value = $(this).val();
+                if (!value) {
+                    return;
+                }
+
+                if (used[value]) {
+                    $(this).val('');
+                    changed = true;
+                    return;
+                }
+
+                used[value] = true;
+            });
+
+            return changed;
+        }
+
         function updateColumnHighlights() {
             $('.set_column_data').each(function () {
                 var value = $(this).val();
@@ -626,6 +673,9 @@ $aggregatorId = isset($aggregator_id) ? (int)$aggregator_id : 0;
         }
 
         function updateMappingProgress() {
+            normalizeUniqueFieldAssignments();
+            syncSelectOptions();
+
             var chosen = {};
             var count = 0;
 
@@ -678,6 +728,8 @@ $aggregatorId = isset($aggregator_id) ? (int)$aggregator_id : 0;
         });
 
         $(document).on('change', '.set_column_data', function () {
+            normalizeUniqueFieldAssignments();
+            syncSelectOptions();
             updateMappingProgress();
         });
 
@@ -686,6 +738,7 @@ $aggregatorId = isset($aggregator_id) ? (int)$aggregator_id : 0;
             if (!restored) {
                 autoMapColumnsByHeaders();
             }
+            syncSelectOptions();
             updateMappingProgress();
         });
     })();
