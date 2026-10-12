@@ -2315,9 +2315,19 @@ body,html {
     background: rgba(0,0,0,.8);
     height: 100%;
     left: 0;
-    position: absolute;
+    position: fixed;
     top: 0;
+    z-index: 10040 !important;
     width: 100%
+}
+
+.modal {
+    position: fixed !important;
+    z-index: 10050 !important;
+}
+
+.modal-dialog {
+    z-index: 10051 !important;
 }
 
 input::-webkit-inner-spin-button,input::-webkit-outer-spin-button {

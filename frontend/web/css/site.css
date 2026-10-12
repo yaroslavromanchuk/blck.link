@@ -154,6 +154,25 @@ a.desc:after {
     max-width: calc(100% - 40px);
     margin: 0 auto;
 } 
+
+/* Keep Bootstrap modals above the site fade layers and backdrop overrides. */
+body.modal-open .modal-backdrop,
+body .modal-backdrop {
+    position: fixed !important;
+    z-index: 10040 !important;
+}
+
+body.modal-open .modal,
+body .modal {
+    position: fixed !important;
+    z-index: 10050 !important;
+}
+
+body .modal-dialog {
+    position: relative;
+    z-index: 10051 !important;
+}
+
 .wrap .wrapper .release{
         line-height: 0;
     position: relative;
