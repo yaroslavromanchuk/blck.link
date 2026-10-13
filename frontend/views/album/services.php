@@ -146,6 +146,3 @@ if (!empty($services)) { ?>
         </div>
     </div>
 <?php }
-
-
-
