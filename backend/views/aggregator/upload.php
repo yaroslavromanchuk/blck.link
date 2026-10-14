@@ -468,6 +468,42 @@ $(function() {
         });
     }
 
+    function renderInvalidRowsTable(data) {
+        var invalidRows = Array.isArray(data && data.invalid_rows) ? data.invalid_rows : [];
+        if (!invalidRows.length) {
+            return;
+        }
+
+        $('#message').find('.invalid-rows-panel').remove();
+
+        var rowsHtml = '';
+        $.each(invalidRows, function(index, row) {
+            var issue = row && row.issue ? row.issue : 'Невідома помилка';
+            var symbol = row && row.symbol ? row.symbol : '—';
+            var value = row && row.value ? row.value : '—';
+            var rowNumber = row && row.row !== undefined && row.row !== null ? row.row : '';
+
+            rowsHtml += '<tr>' +
+                '<td>' + $('<div>').text(String(rowNumber)).html() + '</td>' +
+                '<td>' + $('<div>').text(String(value)).html() + '</td>' +
+                '<td>' + $('<div>').text(String(issue)).html() + '</td>' +
+                '<td>' + $('<div>').text(String(symbol)).html() + '</td>' +
+                '</tr>';
+        });
+
+        var html = '<div class="invalid-rows-panel" style="margin-top:20px;">' +
+            '<h4 class="mt-0 mb-15">Невалідні ISRC рядки</h4>' +
+            '<div class="table-responsive">' +
+            '<table class="table table-bordered table-striped table-hover" style="margin-bottom:0;">' +
+            '<thead><tr><th>Рядок</th><th>Значення</th><th>Опис помилки</th><th>Зайвий / неправильний символ</th></tr></thead>' +
+            '<tbody>' + rowsHtml + '</tbody>' +
+            '</table>' +
+            '</div>' +
+        '</div>';
+
+        $('#message').append(html);
+    }
+
     function hideImportStatus() {
         $('#import_status').hide();
         $('#process_area').removeClass('is-loading');
@@ -620,6 +656,9 @@ $(function() {
                     }
                 } else {
                     setMessage('danger', (data && data.message) || 'Помилка імпорту');
+                    if (data && Array.isArray(data.invalid_rows) && data.invalid_rows.length) {
+                        renderInvalidRowsTable(data);
+                    }
                 }
 
                 $('#import').prop('disabled', false).text('Імпортувати звіт');
@@ -628,10 +667,14 @@ $(function() {
             error: function(jqXHR) {
                 hideImportStatus();
                 var msg = 'Помилка імпорту';
-                if (jqXHR.responseJSON && jqXHR.responseJSON.message) {
-                    msg = jqXHR.responseJSON.message;
+                var responseData = jqXHR.responseJSON || {};
+                if (responseData.message) {
+                    msg = responseData.message;
                 }
                 setMessage('danger', msg);
+                if (Array.isArray(responseData.invalid_rows) && responseData.invalid_rows.length) {
+                    renderInvalidRowsTable(responseData);
+                }
                 $('#import').prop('disabled', false).text('Імпортувати звіт');
                 $('#process_area').removeClass('is-loading');
             }
@@ -640,4 +683,6 @@ $(function() {
 });
 JS;
 $this->registerJs($script);
+
+
 

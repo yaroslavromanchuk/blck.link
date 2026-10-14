@@ -445,32 +445,81 @@ class AggregatorController extends Controller
 
             $invalidIsrcRows = [];
 
-            $normalizeRecord = function (array $row, int $rowNumber = 0) use ($cache, $readColumn, $parseDate, $parseNumber, $foundBroma) {
+            $buildInvalidRowPayload = static function (int $rowNumber, string $rawValue, string $issue, ?string $symbol = null): array {
+                return [
+                    'row' => $rowNumber,
+                    'value' => $rawValue,
+                    'issue' => $issue,
+                    'symbol' => $symbol,
+                ];
+            };
+
+            $detectInvalidIsrcIssue = function (string $value): array {
+                $trimmed = trim($value);
+                if ($trimmed === '') {
+                    return [
+                        'issue' => 'Порожнє значення',
+                        'symbol' => null,
+                    ];
+                }
+
+                $clean = strtoupper($trimmed);
+                $invalidChars = preg_replace('/[A-Z0-9\s-]/', '', $clean);
+                if ($invalidChars !== '') {
+                    $firstInvalid = mb_substr($invalidChars, 0, 1, 'UTF-8');
+                    return [
+                        'issue' => 'Зайвий або неправильний символ',
+                        'symbol' => $firstInvalid,
+                    ];
+                }
+
+                if (!preg_match('/^(?:ISRC[\s-]*)?[A-Z]{2}[\s-]*[A-Z0-9]{3}[\s-]*\d{2}[\s-]*\d{5}[\s-]*$/', $clean)) {
+                    $candidate = preg_replace('/[^A-Z0-9]/', '', $clean);
+                    $missing = strlen($candidate) !== 12 ? 'Неправильна довжина ISRC' : 'Невірна структура ISRC';
+                    return [
+                        'issue' => $missing,
+                        'symbol' => null,
+                    ];
+                }
+
+                return [
+                    'issue' => 'Не пройшов валідацію ISRC',
+                    'symbol' => null,
+                ];
+            };
+
+            $normalizeRecord = function (array $row, int $rowNumber = 0) use ($cache, $readColumn, $parseDate, $parseNumber, $foundBroma, $buildInvalidRowPayload, $detectInvalidIsrcIssue) {
                 $rawIsrc = trim((string) $readColumn($row, 'isrc'));
                 if ($rawIsrc === '') {
-                    throw new RuntimeException(sprintf(
-                        'Невалідний ISRC у рядку %d: порожнє або некоректне значення ([порожньо])',
-                        $rowNumber
-                    ));
+                    throw new RuntimeException(json_encode($buildInvalidRowPayload(
+                        $rowNumber,
+                        $rawIsrc,
+                        'Порожнє значення',
+                        null
+                    ), JSON_THROW_ON_ERROR));
                 }
 
                 $normalizedRawIsrc = strtoupper($rawIsrc);
                 $isrcPattern = '/^(?:ISRC[\s-]*)?[A-Z]{2}[\s-]*[A-Z0-9]{3}[\s-]*\d{2}[\s-]*\d{5}[\s-]*$/';
                 if (!preg_match($isrcPattern, $normalizedRawIsrc)) {
-                    throw new RuntimeException(sprintf(
-                        'Невалідний ISRC у рядку %d: %s',
+                    $issue = $detectInvalidIsrcIssue($rawIsrc);
+                    throw new RuntimeException(json_encode($buildInvalidRowPayload(
                         $rowNumber,
-                        $rawIsrc
-                    ));
+                        $rawIsrc,
+                        $issue['issue'],
+                        $issue['symbol']
+                    ), JSON_THROW_ON_ERROR));
                 }
 
                 $cleanIsrc = preg_replace('/[^A-Z0-9]/i', '', $rawIsrc);
                 if ($cleanIsrc === '') {
-                    throw new RuntimeException(sprintf(
-                        'Невалідний ISRC у рядку %d: %s',
+                    $issue = $detectInvalidIsrcIssue($rawIsrc);
+                    throw new RuntimeException(json_encode($buildInvalidRowPayload(
                         $rowNumber,
-                        $rawIsrc
-                    ));
+                        $rawIsrc,
+                        $issue['issue'],
+                        $issue['symbol']
+                    ), JSON_THROW_ON_ERROR));
                 }
 
                 if ($cache['aggregator_id'] == 2) {
@@ -479,20 +528,24 @@ class AggregatorController extends Controller
 
                 $isrcObj = new Isrc($cleanIsrc);
                 if (!$isrcObj->isValid()) {
-                    throw new RuntimeException(sprintf(
-                        'Невалідний ISRC у рядку %d: %s',
+                    $issue = $detectInvalidIsrcIssue($rawIsrc);
+                    throw new RuntimeException(json_encode($buildInvalidRowPayload(
                         $rowNumber,
-                        $rawIsrc
-                    ));
+                        $rawIsrc,
+                        $issue['issue'],
+                        $issue['symbol']
+                    ), JSON_THROW_ON_ERROR));
                 }
 
                 $isr = $isrcObj->getIsrc(false);
                 if ($isr === '') {
-                    throw new RuntimeException(sprintf(
-                        'Невалідний ISRC у рядку %d: %s',
+                    $issue = $detectInvalidIsrcIssue($rawIsrc);
+                    throw new RuntimeException(json_encode($buildInvalidRowPayload(
                         $rowNumber,
-                        $rawIsrc
-                    ));
+                        $rawIsrc,
+                        $issue['issue'],
+                        $issue['symbol']
+                    ), JSON_THROW_ON_ERROR));
                 }
 
                 $country = trim((string)$readColumn($row, 'country', ''));
@@ -515,7 +568,17 @@ class AggregatorController extends Controller
                 try {
                     $normalized = $normalizeRecord($row, $rowNumber);
                 } catch (RuntimeException $e) {
-                    $invalidIsrcRows[] = $e->getMessage();
+                    $decoded = json_decode($e->getMessage(), true);
+                    if (is_array($decoded) && array_key_exists('row', $decoded)) {
+                        $invalidIsrcRows[] = $decoded;
+                    } else {
+                        $invalidIsrcRows[] = [
+                            'row' => $rowNumber,
+                            'value' => trim((string) $readColumn($row, 'isrc')),
+                            'issue' => $e->getMessage(),
+                            'symbol' => null,
+                        ];
+                    }
                     return;
                 }
 
@@ -603,8 +666,38 @@ class AggregatorController extends Controller
             }
 
             if (!empty($invalidIsrcRows)) {
-                $uniqueInvalidIsrcRows = array_values(array_unique($invalidIsrcRows));
-                throw new RuntimeException("Виявлено невалідні ISRC:\n" . implode("\n", $uniqueInvalidIsrcRows));
+                $uniqueInvalidIsrcRows = [];
+                $seen = [];
+
+                foreach ($invalidIsrcRows as $item) {
+                    if (!is_array($item)) {
+                        continue;
+                    }
+
+                    $row = (int)($item['row'] ?? 0);
+                    $value = (string)($item['value'] ?? '');
+                    $issue = (string)($item['issue'] ?? 'Невідоме поле ISRC');
+                    $symbol = array_key_exists('symbol', $item) && $item['symbol'] !== null ? (string)$item['symbol'] : null;
+                    $key = $row . '|' . $value . '|' . $issue . '|' . ($symbol ?? '');
+
+                    if (isset($seen[$key])) {
+                        continue;
+                    }
+
+                    $seen[$key] = true;
+                    $uniqueInvalidIsrcRows[] = [
+                        'row' => $row,
+                        'value' => $value,
+                        'issue' => $issue,
+                        'symbol' => $symbol,
+                    ];
+                }
+
+                throw new RuntimeException(json_encode([
+                    'success' => false,
+                    'message' => 'Виявлено невалідні ISRC',
+                    'invalid_rows' => $uniqueInvalidIsrcRows,
+                ], JSON_THROW_ON_ERROR));
             }
 
             $flushMap();
@@ -636,6 +729,7 @@ class AggregatorController extends Controller
                 'critical_warnings' => $criticalWarnings,
                 'non_critical_warnings' => $nonCriticalWarnings,
                 'missing_tracks' => $criticalWarnings,
+                'invalid_rows' => [],
                 'redirect_url' => Yii::$app->urlManager->createUrl(['/aggregator-report/view', 'id' => $modelReport->id]),
             ]);
 
@@ -644,10 +738,18 @@ class AggregatorController extends Controller
             @unlink($path);
             Yii::$app->cache->delete('file_meta');
 
-            return $this->asJson([
+            $payload = [
                 'success' => false,
-                'message' => $e->getMessage()
-            ]);
+                'message' => $e->getMessage(),
+                'invalid_rows' => [],
+            ];
+
+            $decoded = json_decode($e->getMessage(), true);
+            if (is_array($decoded) && array_key_exists('invalid_rows', $decoded)) {
+                $payload = array_merge($payload, $decoded);
+            }
+
+            return $this->asJson($payload);
         }
     }
 
@@ -811,7 +913,7 @@ class AggregatorController extends Controller
                     } else {
                         $tx->rollBack();
                         echo json_encode([
-                            'message' => 'Помилка завантаження',
+                            'message' => 'Помилка завантаже��ня',
                         ]);
                         die;
                     }
