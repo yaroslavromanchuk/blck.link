@@ -443,22 +443,38 @@ class AggregatorController extends Controller
                     ->column();
             }
 
-            $normalizeRecord = function (array $row) use ($cache, $readColumn, $parseDate, $parseNumber, $foundBroma) {
+            $normalizeRecord = function (array $row, int $rowNumber = 0) use ($cache, $readColumn, $parseDate, $parseNumber, $foundBroma) {
                 $rawIsrc = trim((string) $readColumn($row, 'isrc'));
-                $isr = preg_replace('/[^a-zA-Z0-9]/u', '', $rawIsrc);
-                if ($isr === '') {
-                    return null;
+                $cleanIsrc = preg_replace('/[^A-Z0-9]/i', '', $rawIsrc);
+
+                if ($rawIsrc === '' || $cleanIsrc === '') {
+                    throw new RuntimeException(sprintf(
+                        'Невалідний ISRC у рядку %d: порожнє або некоректне значення (%s)',
+                        $rowNumber,
+                        $rawIsrc !== '' ? $rawIsrc : '[порожньо]'
+                    ));
                 }
 
                 if ($cache['aggregator_id'] == 2) {
-                    $isr = $foundBroma[$isr] ?? $isr;
+                    $cleanIsrc = $foundBroma[$cleanIsrc] ?? $cleanIsrc;
                 }
 
-                $isrcObj = new Isrc($isr);
-                $isr = $isrcObj->getIsrc(false);
+                $isrcObj = new Isrc($cleanIsrc);
+                if (!$isrcObj->isValid()) {
+                    throw new RuntimeException(sprintf(
+                        'Невалідний ISRC у рядку %d: %s',
+                        $rowNumber,
+                        $rawIsrc
+                    ));
+                }
 
+                $isr = $isrcObj->getIsrc(false);
                 if ($isr === '') {
-                    return null;
+                    throw new RuntimeException(sprintf(
+                        'Невалідний ISRC у рядку %d: %s',
+                        $rowNumber,
+                        $rawIsrc
+                    ));
                 }
 
                 $country = trim((string)$readColumn($row, 'country', ''));
@@ -477,8 +493,8 @@ class AggregatorController extends Controller
                 ];
             };
 
-            $appendNormalizedRow = function (array $row) use (&$map, &$total, $modelReport, $normalizeRecord) {
-                $normalized = $normalizeRecord($row);
+            $appendNormalizedRow = function (array $row, int $rowNumber = 0) use (&$map, &$total, $modelReport, $normalizeRecord) {
+                $normalized = $normalizeRecord($row, $rowNumber);
                 if ($normalized === null) {
                     return;
                 }
@@ -523,8 +539,10 @@ class AggregatorController extends Controller
                     throw new RuntimeException('Файл CSV порожній або пошкоджений.');
                 }
 
+                $lineNumber = 2;
                 while (($row = fgetcsv($handle)) !== false) {
-                    $appendNormalizedRow($row);
+                    $appendNormalizedRow($row, $lineNumber);
+                    $lineNumber++;
                     if (count($map) >= $mapLimit) {
                         $flushMap();
                     }
@@ -550,7 +568,7 @@ class AggregatorController extends Controller
                         $values[] = $cell->getValue();
                     }
 
-                    $appendNormalizedRow(array_values($values));
+                    $appendNormalizedRow(array_values($values), $rowIndex);
                     if (count($map) >= $mapLimit) {
                         $flushMap();
                     }
@@ -592,15 +610,17 @@ class AggregatorController extends Controller
                 'redirect_url' => Yii::$app->urlManager->createUrl(['/aggregator-report/view', 'id' => $modelReport->id]),
             ]);
 
-    } catch (\Throwable $e) {
-        $tx->rollBack();
+        } catch (\Throwable $e) {
+            $tx->rollBack();
+            @unlink($path);
+            Yii::$app->cache->delete('file_meta');
 
-        return $this->asJson([
-            'success' => false,
-            'message' => 'Помилка: ' . $e->getMessage()
-        ]);
+            return $this->asJson([
+                'success' => false,
+                'message' => $e->getMessage()
+            ]);
+        }
     }
-}
 
     private function saveBatch(array $rows)
     {
