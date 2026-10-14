@@ -443,6 +443,8 @@ class AggregatorController extends Controller
                     ->column();
             }
 
+            $invalidIsrcRows = [];
+
             $normalizeRecord = function (array $row, int $rowNumber = 0) use ($cache, $readColumn, $parseDate, $parseNumber, $foundBroma) {
                 $rawIsrc = trim((string) $readColumn($row, 'isrc'));
                 if ($rawIsrc === '') {
@@ -509,8 +511,14 @@ class AggregatorController extends Controller
                 ];
             };
 
-            $appendNormalizedRow = function (array $row, int $rowNumber = 0) use (&$map, &$total, $modelReport, $normalizeRecord) {
-                $normalized = $normalizeRecord($row, $rowNumber);
+            $appendNormalizedRow = function (array $row, int $rowNumber = 0) use (&$map, &$total, $modelReport, $normalizeRecord, &$invalidIsrcRows) {
+                try {
+                    $normalized = $normalizeRecord($row, $rowNumber);
+                } catch (RuntimeException $e) {
+                    $invalidIsrcRows[] = $e->getMessage();
+                    return;
+                }
+
                 if ($normalized === null) {
                     return;
                 }
@@ -592,6 +600,11 @@ class AggregatorController extends Controller
 
                 unset($worksheet, $spreadsheet);
                 gc_collect_cycles();
+            }
+
+            if (!empty($invalidIsrcRows)) {
+                $uniqueInvalidIsrcRows = array_values(array_unique($invalidIsrcRows));
+                throw new RuntimeException("Виявлено невалідні ISRC:\n" . implode("\n", $uniqueInvalidIsrcRows));
             }
 
             $flushMap();
