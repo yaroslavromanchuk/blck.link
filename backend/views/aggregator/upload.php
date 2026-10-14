@@ -359,13 +359,30 @@ $(function() {
 
         $('.set_column_data').each(function() {
             var value = $(this).val();
-            if (value) {
-                selectedColumns[value] = parseInt($(this).data('column_number'), 10);
+            var columnIndex = parseInt($(this).data('column_number'), 10);
+            if (value && !isNaN(columnIndex)) {
+                selectedColumns[value] = columnIndex;
                 $(this).data('selected_field', value);
             } else {
                 $(this).data('selected_field', '');
             }
         });
+
+        return selectedColumns;
+    }
+
+    function refreshSelectedColumnsFromDom() {
+        return rebuildSelectedColumns();
+    }
+
+    function updateImportButtonState() {
+        var currentColumns = refreshSelectedColumnsFromDom();
+        var hasRequired = requiredFields.every(function(field) {
+            return Object.prototype.hasOwnProperty.call(currentColumns, field);
+        });
+
+        $('#import').prop('disabled', !hasRequired);
+        return hasRequired;
     }
 
     function showUploadStatus(text) {
@@ -539,14 +556,6 @@ $(function() {
         });
     }
 
-    function updateImportButtonState() {
-        var hasRequired = requiredFields.every(function(field) {
-            return Object.prototype.hasOwnProperty.call(selectedColumns, field);
-        });
-
-        $('#import').prop('disabled', !hasRequired);
-    }
-
     function clearMessage() {
         $('#message').empty();
     }
@@ -623,6 +632,12 @@ $(function() {
     $(document).on('click', '#import', function(event) {
         event.preventDefault();
 
+        selectedColumns = refreshSelectedColumnsFromDom();
+        if (!updateImportButtonState()) {
+            setMessage('danger', 'Потрібно обрати всі поля: Країна, ISRC, Місяць звіту, Платформа, Кількість переглядів, Сума.');
+            return;
+        }
+
         clearMessage();
         clearWarningPanel();
         showImportStatus('Імпорт у базу...');
@@ -683,6 +698,5 @@ $(function() {
 });
 JS;
 $this->registerJs($script);
-
 
 
