@@ -15,9 +15,9 @@ use yii\web\UploadedFile;
 class UploadReport extends Model
 {
     /**
-     * @var string|UploadedFile
+     * @var UploadedFile|string|null
      */
-    public string|UploadedFile $file = '';
+    public UploadedFile|string|null $file = null;
     public ?int $aggregatorId = null;
     public ?int $quarter = null;
     public ?int $year = null;
