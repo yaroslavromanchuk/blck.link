@@ -445,13 +445,29 @@ class AggregatorController extends Controller
 
             $normalizeRecord = function (array $row, int $rowNumber = 0) use ($cache, $readColumn, $parseDate, $parseNumber, $foundBroma) {
                 $rawIsrc = trim((string) $readColumn($row, 'isrc'));
-                $cleanIsrc = preg_replace('/[^A-Z0-9]/i', '', $rawIsrc);
-
-                if ($rawIsrc === '' || $cleanIsrc === '') {
+                if ($rawIsrc === '') {
                     throw new RuntimeException(sprintf(
-                        'Невалідний ISRC у рядку %d: порожнє або некоректне значення (%s)',
+                        'Невалідний ISRC у рядку %d: порожнє або некоректне значення ([порожньо])',
+                        $rowNumber
+                    ));
+                }
+
+                $normalizedRawIsrc = strtoupper($rawIsrc);
+                $isrcPattern = '/^(?:ISRC[\s-]*)?[A-Z]{2}[\s-]*[A-Z0-9]{3}[\s-]*\d{2}[\s-]*\d{5}[\s-]*$/';
+                if (!preg_match($isrcPattern, $normalizedRawIsrc)) {
+                    throw new RuntimeException(sprintf(
+                        'Невалідний ISRC у рядку %d: %s',
                         $rowNumber,
-                        $rawIsrc !== '' ? $rawIsrc : '[порожньо]'
+                        $rawIsrc
+                    ));
+                }
+
+                $cleanIsrc = preg_replace('/[^A-Z0-9]/i', '', $rawIsrc);
+                if ($cleanIsrc === '') {
+                    throw new RuntimeException(sprintf(
+                        'Невалідний ISRC у рядку %d: %s',
+                        $rowNumber,
+                        $rawIsrc
                     ));
                 }
 
