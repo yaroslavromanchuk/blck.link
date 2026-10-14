@@ -23,11 +23,15 @@ $this->title = $album->artist_name.' '.$album->name;
                     </div>
             <?php
 
-            if(!empty($album->servise)) {
-                
-                $services = (object) unserialize($album->servise);
-                
-                echo $this->render('services.php', ['services' => $services]);
+            $servicePayload = [];
+            if (!empty($album->servise)) {
+                $decoded = @unserialize((string) $album->servise, ['allowed_classes' => false]);
+                if (is_array($decoded)) {
+                    $servicePayload = $decoded;
+                }
+            }
+            if (!empty($servicePayload)) {
+                echo $this->render('services.php', ['services' => $servicePayload, 'id'=>$album->id]);
             }
 
             if (!empty($album->artist)) {

@@ -146,7 +146,9 @@ class SiteController extends Controller
 
         return $this->render('view', [
             'track' => $track,
-            'services' => (object) unserialize($track->servise),
+            'services' => is_string($track->servise)
+                ? (is_array(@unserialize((string) $track->servise, ['allowed_classes' => false])) ? @unserialize((string) $track->servise, ['allowed_classes' => false]) : [])
+                : [],
         ]);
     }
 

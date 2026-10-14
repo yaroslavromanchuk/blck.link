@@ -22,8 +22,15 @@ $this->title = $track->artist_name.' '.$track->name;
                     </div>
             <?php
 
-            if(!empty($track->services)) {
-                echo $this->render('services.php', ['services' => $track]);
+            $servicePayload = [];
+            if (!empty($track->services)) {
+                $decoded = @unserialize((string) $track->services, ['allowed_classes' => false]);
+                if (is_array($decoded)) {
+                    $servicePayload = $decoded;
+                }
+            }
+            if (!empty($servicePayload)) {
+                echo $this->render('services.php', ['services' => $servicePayload, 'id' => $track->id]);
             }
 
             if (!empty($track->artists)) {
