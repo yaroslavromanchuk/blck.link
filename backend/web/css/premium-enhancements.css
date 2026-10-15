@@ -1,5 +1,21 @@
 /* Minimal safe overrides only for the Gentelella layout */
 
+html,
+body {
+    background: #f5f7fb !important;
+}
+
+/* Keep the admin shell stretched to the viewport to avoid empty black space below content. */
+body .container.body,
+body .main_container {
+    min-height: 100vh;
+    background: #f5f7fb !important;
+}
+
+body .container.body .right_col {
+    min-height: calc(100vh - 58px);
+}
+
 body .main_container {
     background: #f5f7fb !important;
     position: relative;
