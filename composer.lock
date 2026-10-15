@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "a744603c5c72054c89d008f88274ecaf",
+    "content-hash": "f231919d7b26b19a2402730f06ee3369",
     "packages": [
         {
             "name": "aki/yii2-bot-telegram",
@@ -75,16 +75,16 @@
         },
         {
             "name": "bower-asset/gentelella",
-            "version": "v4.2.0",
+            "version": "v2.2.0",
             "source": {
                 "type": "git",
                 "url": "git@github.com:puikinsh/gentelella.git",
-                "reference": "33b7784b8fdb6992ab223b4d1d0cdea461b69142"
+                "reference": "e08f69ca77c20ca7e5b6590b84224e30017d9cdc"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/puikinsh/gentelella/zipball/33b7784b8fdb6992ab223b4d1d0cdea461b69142",
-                "reference": "33b7784b8fdb6992ab223b4d1d0cdea461b69142"
+                "url": "https://api.github.com/repos/puikinsh/gentelella/zipball/e08f69ca77c20ca7e5b6590b84224e30017d9cdc",
+                "reference": "e08f69ca77c20ca7e5b6590b84224e30017d9cdc"
             },
             "type": "bower-asset"
         },
