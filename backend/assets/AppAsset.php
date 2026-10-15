@@ -21,11 +21,14 @@ class AppAsset extends AssetBundle
     public $js = [
         'js/chartjs/chart.min.js',
         'js/echart/echarts-all.js',
+        'js/sidebar-menu.js',
         'js/page-animations.js'
     ];
 
     public $depends = [
-        'yii\web\YiiAsset',
-        'yiister\gentelella\assets\Asset',
+        'yii\\web\\YiiAsset',
+        'yii\\bootstrap\\BootstrapAsset',
+        'yii\\bootstrap\\BootstrapPluginAsset',
+        'rmrevin\\yii\\fontawesome\\AssetBundle',
     ];
 }
