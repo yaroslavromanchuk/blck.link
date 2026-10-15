@@ -176,9 +176,11 @@ class AggregatorController extends Controller
 
         if (Yii::$app->request->isPost) {
             $model->load(Yii::$app->request->post());
-            $model->file = UploadedFile::getInstance($model, 'file');
 
-            if (!$model->file) {
+            $uploadedFile = $this->resolveUploadedReportFile($model);
+            $model->file = $uploadedFile;
+
+            if (!$model->file instanceof UploadedFile) {
                 throw new RuntimeException('Please Select CSV File');
             }
 
@@ -564,7 +566,7 @@ class AggregatorController extends Controller
                 ];
             };
 
-            $appendNormalizedRow = function (array $row, int $rowNumber = 0) use (&$map, &$total, $modelReport, $normalizeRecord, &$invalidIsrcRows) {
+            $appendNormalizedRow = function (array $row, int $rowNumber = 0) use (&$map, &$total, $modelReport, $normalizeRecord, &$invalidIsrcRows, $readColumn) {
                 try {
                     $normalized = $normalizeRecord($row, $rowNumber);
                 } catch (RuntimeException $e) {
@@ -1135,5 +1137,65 @@ class AggregatorController extends Controller
 
         return array_values(array_unique($warnings));
     }
-    #endregion
+
+    private function resolveUploadedFileFromFilesArray(array $fileData): ?UploadedFile
+    {
+        if (empty($fileData) || !is_array($fileData)) {
+            return null;
+        }
+
+        if (isset($fileData['name']) && is_string($fileData['name']) && trim((string)$fileData['name']) !== '') {
+            return new UploadedFile([
+                'name' => $fileData['name'],
+                'type' => $fileData['type'] ?? '',
+                'tmp_name' => $fileData['tmp_name'] ?? '',
+                'error' => (int)($fileData['error'] ?? UPLOAD_ERR_NO_FILE),
+                'size' => (int)($fileData['size'] ?? 0),
+            ]);
+        }
+
+        if (isset($fileData['name']) && is_array($fileData['name'])) {
+            foreach ($fileData['name'] as $key => $name) {
+                if (!is_string($name) || trim($name) === '') {
+                    continue;
+                }
+
+                return new UploadedFile([
+                    'name' => $name,
+                    'type' => $fileData['type'][$key] ?? '',
+                    'tmp_name' => $fileData['tmp_name'][$key] ?? '',
+                    'error' => (int)($fileData['error'][$key] ?? UPLOAD_ERR_NO_FILE),
+                    'size' => (int)($fileData['size'][$key] ?? 0),
+                ]);
+            }
+        }
+
+        return null;
+    }
+
+    private function resolveUploadedReportFile(UploadReport $model): ?UploadedFile
+    {
+        $candidates = [
+            UploadedFile::getInstance($model, 'file'),
+            UploadedFile::getInstanceByName('UploadReport[file]'),
+            UploadedFile::getInstanceByName('file'),
+        ];
+
+        foreach ($candidates as $candidate) {
+            if ($candidate instanceof UploadedFile && trim((string)$candidate->name) !== '' && $candidate->error !== UPLOAD_ERR_NO_FILE) {
+                return $candidate;
+            }
+        }
+
+        foreach ($_FILES as $fileData) {
+            $candidate = $this->resolveUploadedFileFromFilesArray($fileData);
+            if ($candidate instanceof UploadedFile && trim((string)$candidate->name) !== '' && $candidate->error !== UPLOAD_ERR_NO_FILE) {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
+
+
 }
