@@ -1,0 +1,197 @@
+/*
+ * UX overrides: final layer for responsive desktop/mobile polish.
+ * Keep this file last in AppAsset so it can safely normalize legacy rules.
+ */
+
+:root {
+    --sidebar-expanded: 230px;
+    --sidebar-collapsed: 70px;
+    --top-nav-height: 58px;
+    --page-bg: #f5f7fb;
+    --card-bg: #ffffff;
+    --border-soft: #e5e7eb;
+    --text-main: #1f2937;
+}
+
+html,
+body {
+    min-height: 100%;
+    background: var(--page-bg) !important;
+    color: var(--text-main);
+}
+
+body .container.body,
+body .main_container {
+    min-height: 100vh;
+    background: var(--page-bg) !important;
+}
+
+/* Keep content area filling viewport under top nav and footer. */
+body .container.body .right_col {
+    min-height: calc(100vh - var(--top-nav-height) - 45px);
+    background: var(--page-bg) !important;
+}
+
+/* Desktop layout consistency */
+body.nav-md .container.body .right_col,
+body.nav-md .main_container .top_nav {
+    margin-left: var(--sidebar-expanded) !important;
+}
+
+body.nav-sm .container.body .right_col,
+body.nav-sm .main_container .top_nav {
+    margin-left: var(--sidebar-collapsed) !important;
+}
+
+/* Improve rhythm and readability of content blocks */
+.right_col .x_panel,
+.right_col .panel,
+.right_col .card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-soft);
+    border-radius: 10px;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05);
+}
+
+.right_col .x_title,
+.right_col .panel-heading,
+.right_col .card-header {
+    border-bottom: 1px solid #eef2f7 !important;
+}
+
+/* Forms: cleaner spacing */
+.form-group {
+    margin-bottom: 12px;
+}
+
+.form-control {
+    border-radius: 6px;
+    min-height: 36px;
+}
+
+/* Keep validation messages readable on small screens. */
+.help-block {
+    margin-top: 4px;
+}
+
+/* Tables */
+.table > thead > tr > th {
+    white-space: nowrap;
+}
+
+.table > tbody > tr > td {
+    vertical-align: middle;
+}
+
+/* Large desktop */
+@media (min-width: 1400px) {
+    .right_col {
+        padding-left: 24px !important;
+        padding-right: 24px !important;
+    }
+}
+
+/* Tablet and below */
+@media (max-width: 991px) {
+    body.nav-md .container.body .right_col,
+    body.nav-md .main_container .top_nav,
+    body.nav-sm .container.body .right_col,
+    body.nav-sm .main_container .top_nav {
+        margin-left: 0 !important;
+        width: 100% !important;
+    }
+
+    body .container.body .col-md-3.left_col,
+    body .left_col {
+        display: none !important;
+    }
+
+    body .container.body .right_col {
+        padding: 10px 12px !important;
+        min-height: calc(100vh - var(--top-nav-height));
+    }
+
+    body .main_container .top_nav {
+        padding: 0 !important;
+    }
+
+    body .top_nav .nav_menu nav {
+        height: var(--top-nav-height) !important;
+    }
+}
+
+/* Phones */
+@media (max-width: 767px) {
+    .right_col {
+        padding: 8px !important;
+    }
+
+    .page-title {
+        height: auto;
+        padding: 6px 0;
+    }
+
+    .page-title .title_left,
+    .page-title .title_right {
+        width: 100%;
+        float: none;
+    }
+
+    .page-title .title_right .pull-right {
+        margin: 6px 0 0;
+        float: none !important;
+    }
+
+    /* GridView/table mobile scrolling */
+    .grid-view,
+    .table-responsive {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        border-radius: 8px;
+    }
+
+    .grid-view table,
+    .table-responsive table,
+    .table {
+        min-width: 900px;
+    }
+
+    .grid-view th,
+    .grid-view td {
+        white-space: nowrap;
+    }
+
+    .grid-view .filters input,
+    .grid-view .filters select {
+        min-width: 120px;
+    }
+
+    .breadcrumb {
+        margin-bottom: 8px;
+        padding: 6px 10px;
+    }
+
+    footer {
+        margin: 0 !important;
+        padding: 6px 10px 0;
+    }
+}
+
+/* Very small phones */
+@media (max-width: 480px) {
+    body .top_nav #menu_toggle {
+        padding: 8px 10px !important;
+    }
+
+    .btn,
+    .btn-sm,
+    .btn-xs {
+        min-height: 34px;
+    }
+
+    .right_col h1,
+    .right_col h2 {
+        font-size: 22px;
+    }
+}
+

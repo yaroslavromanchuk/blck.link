@@ -15,7 +15,8 @@ class AppAsset extends AssetBundle
         'css/site.css',
         'css/custom.css',
         'css/premium-enhancements.css',
-        'css/premium-animations.css'
+        'css/premium-animations.css',
+        'css/ux-overrides.css',
     ];
 
     public $js = [

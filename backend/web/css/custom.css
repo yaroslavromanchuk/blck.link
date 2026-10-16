@@ -8,6 +8,7 @@ body.nav-sm .container.body .left_col {
 body.nav-sm .container.body .right_col {
   padding: 10px 20px;
   margin-left: 70px;
+  min-height: calc(100vh - 103px);
   z-index: 2;
 }
 body.nav-sm .navbar.nav_title {
@@ -173,6 +174,7 @@ body .container.body .right_col {
 body.nav-md .container.body .right_col {
   padding: 10px 20px 0;
   margin-left: 230px;
+  min-height: calc(100vh - 103px);
 }
 .nav_title {
   width: 230px;
@@ -199,6 +201,7 @@ body.nav-md .container.body .right_col {
   }
   .right_col {
     padding: 10px !important;
+    min-height: calc(100vh - 103px);
   }
 }
 @media (max-width: 1200px) {
@@ -301,7 +304,7 @@ body.nav-md .container.body .right_col {
   margin-bottom: 5px
 }
 body {
-  background: #000000;
+  background: #f5f7fb;
   /*#ECF0F1; #FCFCFC*/
   font-family: "Helvetica Neue", Roboto, Arial, "Droid Sans", sans-serif;
   font-size: 13px;
