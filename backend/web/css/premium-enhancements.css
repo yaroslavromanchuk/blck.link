@@ -122,21 +122,6 @@ body.modal-open .right_col {
     z-index: auto !important;
 }
 
-body.modal-open .modal-backdrop,
-body .modal-backdrop {
-    position: fixed !important;
-    z-index: 10040 !important;
-}
-
-body.modal-open .modal,
-body .modal {
-    position: fixed !important;
-    z-index: 10050 !important;
-}
-
-body .modal-dialog {
-    z-index: 10051 !important;
-}
 
 body .dropdown-usermenu li a {
     color: #374151 !important;
