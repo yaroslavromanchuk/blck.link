@@ -17,10 +17,7 @@ Modal::begin([
     'id'=>'invoice-add-modal',
 ]);
 
-$currency = \backend\models\Currency::find()
-    ->select(['currency_name', 'currency_id'])
-    ->indexBy('currency_id')
-    ->column();
+$currency = \backend\models\Currency::getListData();
 
 $years = range(2024, (int) date('Y'), 1);
 $years = array_combine($years, $years);
