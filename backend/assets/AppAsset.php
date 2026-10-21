@@ -2,6 +2,8 @@
 
 namespace backend\assets;
 
+use kartik\select2\Select2Asset;
+use kartik\select2\ThemeDefaultAsset;
 use yii\web\AssetBundle;
 
 class AppAsset extends AssetBundle
@@ -27,9 +29,11 @@ class AppAsset extends AssetBundle
     ];
 
     public $depends = [
-        'yii\\web\\YiiAsset',
-        'yii\\bootstrap\\BootstrapAsset',
-        'yii\\bootstrap\\BootstrapPluginAsset',
-        'rmrevin\\yii\\fontawesome\\AssetBundle',
+        'yii\web\YiiAsset',
+        'yii\bootstrap\BootstrapAsset',
+        'yii\bootstrap\BootstrapPluginAsset',
+        'rmrevin\yii\fontawesome\AssetBundle',
+        Select2Asset::class,
+        ThemeDefaultAsset::class,
     ];
 }
