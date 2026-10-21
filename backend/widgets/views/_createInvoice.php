@@ -9,7 +9,6 @@ use yii\bootstrap\Modal;
 use yii\helpers\Url;
 use yii\widgets\Pjax;
 use yii\jui\DatePicker;
-use yii\web\JsExpression;
 
 /* @var $invoice backend\models\Invoice */
 
@@ -65,14 +64,9 @@ $years = array_combine($years, $years);
                                 'model' => $invoice,
                                 'data' => $currency,
                                 'language' => 'uk',
-                                'options' => [
-                                    'placeholder' => Yii::t('app', 'Вкажіть валюту виплати'),
-                                    'id' => 'invoice-currency-id',
-                                ],
+                                'options' => ['placeholder' => Yii::t('app', 'Вкажіть валюту виплати'),],
                                 'pluginOptions' => [
-                                    'allowClear' => true,
-                                    'width' => '100%',
-                                    'dropdownParent' => new JsExpression("$('#invoice-add-modal')"),
+                                    //  'allowClear' => true
                                 ],
                                 'pluginEvents' => [
                                     'select2:select' => 'function(e) {
@@ -96,7 +90,6 @@ $years = array_combine($years, $years);
                                 ]
                             ]) ?>
                                 </div>
-
                                 <div class="col-sm-12 col-md-6">
                         <?= $form->field($invoice, 'exchange')
                             ->textInput()?>
@@ -134,15 +127,6 @@ $years = array_combine($years, $years);
 Modal::end();
 
 $script = <<< JS
-$(document).on('shown.bs.modal', '#invoice-add-modal', function () {
-    $('#invoice-currency-id').select2('destroy');
-    $('#invoice-currency-id').select2({
-        width: '100%',
-        allowClear: true,
-        dropdownParent: $('#invoice-add-modal')
-    });
-});
-
 $(document).on('beforeSubmit', '#create_invoice', function (e) {
     e.preventDefault();
     
