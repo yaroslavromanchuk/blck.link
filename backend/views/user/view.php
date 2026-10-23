@@ -105,13 +105,21 @@ $this->params['breadcrumbs'][] = $this->title;
                         'attribute' => 'artist_id',
                         'format' => 'raw',
                         'value' => function ($data) {
+                                if (!$data->artist_id || !$data->artist) {
+                                    return null;
+                                }
+
                                 return Html::a($data->artist->name, ['artist/view', 'id' => $data->artist_id]);
-                        }
+                         }
                     ],
                     [
                         'attribute' => 'track_id',
                         'format' => 'raw',
                         'value' => function ($data) {
+                        if (!$data->track_id || !$data->track) {
+                            return null;
+                        }
+
                         return Html::a($data->track->name, ['track/view', 'id' => $data->track_id]);
                         }
                     ],
@@ -139,13 +147,13 @@ $this->params['breadcrumbs'][] = $this->title;
                     'invoice_id',
                     ['attribute' => 'artist_id',
                         'value' => function ($data) {
-                            return $data->artist_id ? $data->artist->name : null;
+                            return $data->artist_id && $data->artist ? $data->artist->name : null;
                         }
                     ],
                     [
                         'attribute' => 'track_id',
                         'value' => function ($data) {
-                            return $data->track_id ? $data->track->name : null;
+                            return $data->track_id && $data->track ? $data->track->name : null;
                         }
                     ],
                     'all_sum',
@@ -159,7 +167,7 @@ $this->params['breadcrumbs'][] = $this->title;
                                     'currency_name'
                             ),
                         'value' => function ($data) {
-                            return $data->currency->name;
+                            return $data->currency ? $data->currency->name : null;
                         }
                     ],
                     [
@@ -212,5 +220,3 @@ alert('Помилка при оновленні');
 JS;
 
 $this->registerJs($script);
-
-
