@@ -29,6 +29,9 @@ class AggregatorController extends Controller
 {
 
     const CacheReportId = 'CacheReportId_';
+    private const EXCLUDED_ISRC_CODES = [
+        'T3056357729',
+    ];
     /**
      * {@inheritdoc}
      */
@@ -501,9 +504,8 @@ class AggregatorController extends Controller
                     ), JSON_THROW_ON_ERROR));
                 }
 
-                $normalizedRawIsrc = strtoupper($rawIsrc);
-                $isrcPattern = '/^(?:ISRC[\s-]*)?[A-Z]{2}[\s-]*[A-Z0-9]{3}[\s-]*\d{2}[\s-]*\d{5}[\s-]*$/';
-                if (!preg_match($isrcPattern, $normalizedRawIsrc)) {
+                $cleanIsrc = preg_replace('/[^A-Z0-9]/i', '', $rawIsrc);
+                if ($cleanIsrc === '') {
                     $issue = $detectInvalidIsrcIssue($rawIsrc);
                     throw new RuntimeException(json_encode($buildInvalidRowPayload(
                         $rowNumber,
@@ -513,8 +515,26 @@ class AggregatorController extends Controller
                     ), JSON_THROW_ON_ERROR));
                 }
 
-                $cleanIsrc = preg_replace('/[^A-Z0-9]/i', '', $rawIsrc);
-                if ($cleanIsrc === '') {
+                if ($this->isExcludedIsrc($cleanIsrc)) {
+                    $country = trim((string)$readColumn($row, 'country', ''));
+                    $platform = trim((string)$readColumn($row, 'platform', '')) ?: 'Загальний';
+                    $date = $parseDate($readColumn($row, 'date_report'));
+                    $count = $parseNumber($readColumn($row, 'count', 0), true);
+                    $amount = $parseNumber($readColumn($row, 'amount', 0));
+
+                    return [
+                        'country' => $country,
+                        'platform' => $platform,
+                        'date_report' => $date,
+                        'count' => $count,
+                        'amount' => $amount,
+                        'isrc' => strtoupper($cleanIsrc),
+                    ];
+                }
+
+                $normalizedRawIsrc = strtoupper($rawIsrc);
+                $isrcPattern = '/^(?:ISRC[\s-]*)?[A-Z]{2}[\s-]*[A-Z0-9]{3}[\s-]*\d{2}[\s-]*\d{5}[\s-]*$/';
+                if (!preg_match($isrcPattern, $normalizedRawIsrc)) {
                     $issue = $detectInvalidIsrcIssue($rawIsrc);
                     throw new RuntimeException(json_encode($buildInvalidRowPayload(
                         $rowNumber,
@@ -767,6 +787,22 @@ class AggregatorController extends Controller
                 array_keys($rows[0]),
                 $rows
             )->execute();
+    }
+
+    /**
+     * Перевірка, чи є ISRC у списку виключених
+     *
+     * @param string $isrc
+     * @return bool
+     */
+    private function isExcludedIsrc(string $isrc): bool
+    {
+        $normalized = strtoupper(trim((string)$isrc));
+        if ($normalized === '') {
+            return false;
+        }
+
+        return in_array($normalized, self::EXCLUDED_ISRC_CODES, true);
     }
 
 
