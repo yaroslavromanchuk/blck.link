@@ -264,6 +264,7 @@ class Invoice extends \yii\db\ActiveRecord
         $data = Yii::$app->db->createCommand("
             SELECT 
                 'label' as type,
+                sl.name as label_name,
                 IFNULL(ii.from_artist_id, 0) as artist_id,
                 IFNULL(a.name, '') as name,
                 SUM(CASE WHEN ii.artist_id = 0 THEN ii.amount ELSE 0 END) as label_amount,
@@ -272,6 +273,7 @@ class Invoice extends \yii\db\ActiveRecord
             FROM `invoice_items` ii 
                 INNER JOIN invoice i ON i.invoice_id = ii.invoice_id
                 LEFT JOIN artist a ON a.id = ii.from_artist_id 
+                LEFT JOIN sub_label sl ON sl.id = a.label_id
                 LEFT JOIN currency c ON c.currency_id = i.currency_id
             WHERE ii.invoice_id = :invoice_id
                 AND ii.artist_id = 0
@@ -281,6 +283,7 @@ class Invoice extends \yii\db\ActiveRecord
             
             SELECT 
                 'artist' as type,
+                sl.name as label_name,
                 ii.artist_id,
                 a.name,
                 0 as label_amount,
@@ -289,6 +292,7 @@ class Invoice extends \yii\db\ActiveRecord
             FROM `invoice_items` ii 
                 INNER JOIN invoice i ON i.invoice_id = ii.invoice_id
                 LEFT JOIN artist a ON a.id = ii.artist_id 
+                LEFT JOIN sub_label sl ON sl.id = a.label_id
                 LEFT JOIN currency c ON c.currency_id = i.currency_id
             WHERE ii.invoice_id = :invoice_id
                 AND ii.artist_id > 0
@@ -323,6 +327,7 @@ class Invoice extends \yii\db\ActiveRecord
             $sum[2] += $label['label_amount'];
 
             $result[] = [
+                'label_name' => $label['label_name'],
                 'name' => $label['name'],
                 'suma' => $suma,
                 'artist' => $art,
@@ -333,11 +338,12 @@ class Invoice extends \yii\db\ActiveRecord
 
         // Додати суму в кінці
         $result[] = [
-            '',
-            $sum[0],
-            $sum[1],
-            $sum[2],
-            ''
+            'label_name' => '',
+            'name' => '',
+            'suma' => $sum[0],
+            'artist' => $sum[1],
+            'label' => $sum[2],
+            'currency_name' => ''
         ];
 
         return $result;
