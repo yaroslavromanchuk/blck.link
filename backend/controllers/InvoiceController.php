@@ -689,13 +689,9 @@ class InvoiceController extends Controller
             $workSheet->fromArray(array_merge($header, $data), null, 'A1');
             
             if (count($data)) {
-                $i = (count($data) +2);
-                $workSheet->setCellValue('C' . $i, round(array_sum(array_column($data, 'all_sum')), 2));
-                $workSheet->setCellValue('D' . $i, round(array_sum(array_column($data, 'artist_sum')), 2));
-                $workSheet->setCellValue('E' . $i, round(array_sum(array_column($data, 'label_sum')), 2));
+                $i = (count($data) +1);
                 $workSheet->getStyle('C'. $i . ':E' . $i)->getFont()->setBold(true);
-                //$workSheet->getStyle('D'. (count($tempData)))->getFont()->setBold(true);
-                //$workSheet->getStyle('E'. (count($tempData)))->getFont()->setBold(true);
+
             }
         } else {
             $spreadSheet = new Spreadsheet();
