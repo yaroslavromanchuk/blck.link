@@ -641,10 +641,10 @@ class InvoiceController extends Controller
         
         switch ($model->invoice_type) {
             case 1:
-                $filename = "report_aggregator_{$model->aggregator_id}_q{$model->quarter}_{$model->invoice_id}.xlsx";
+                $filename = "report_aggregator_{$model->aggregator_id}_q{$model->quarter}_{$model->year}_{$model->invoice_id}.xlsx";
                 break;
             case 2:
-                $filename = "report_invoice_q_{$model->quarter}_{$model->invoice_id}.xlsx";
+                $filename = "report_invoice_q_{$model->quarter}_y_{$model->year}_i_{$model->invoice_id}.xlsx";
                 break;
             default: $filename = '';
         }
