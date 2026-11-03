@@ -225,10 +225,26 @@ class AggregatorController extends Controller
                         fclose($handle);
                     }
                 } else {
+                    $previewLimit = 25;
                     $reader = \PhpOffice\PhpSpreadsheet\IOFactory::createReaderForFile($filePath);
                     $reader->setReadDataOnly(true);
+                    $reader->setReadFilter(new class($previewLimit) implements \PhpOffice\PhpSpreadsheet\Reader\IReadFilter {
+                        private int $maxRows;
+
+                        public function __construct(int $maxRows)
+                        {
+                            $this->maxRows = max(1, $maxRows);
+                        }
+
+                        public function readCell(string $columnAddress, int $row, string $worksheetName = ''): bool
+                        {
+                            return $row <= $this->maxRows;
+                        }
+                    });
+
                     $spreadsheet = $reader->load($filePath);
                     $rows = $spreadsheet->getActiveSheet()->toArray(null, true, true, false);
+                    $rows = array_slice($rows, 0, $previewLimit);
 
                     $file_header = array_values($rows[0] ?? []);
                     foreach (array_slice($rows, 1, 10) as $row) {
@@ -661,6 +677,20 @@ class AggregatorController extends Controller
             } else {
                 $reader = \PhpOffice\PhpSpreadsheet\IOFactory::createReaderForFile($path);
                 $reader->setReadDataOnly(true);
+                $reader->setReadFilter(new class(25) implements \PhpOffice\PhpSpreadsheet\Reader\IReadFilter {
+                    private int $maxRows;
+
+                    public function __construct(int $maxRows)
+                    {
+                        $this->maxRows = max(1, $maxRows);
+                    }
+
+                    public function readCell($column, $row): bool
+                    {
+                        return $row <= $this->maxRows;
+                    }
+                });
+
                 $spreadsheet = $reader->load($path);
                 $worksheet = $spreadsheet->getActiveSheet();
 
