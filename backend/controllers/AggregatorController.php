@@ -685,19 +685,6 @@ class AggregatorController extends Controller
             } else {
                 $reader = \PhpOffice\PhpSpreadsheet\IOFactory::createReaderForFile($path);
                 $reader->setReadDataOnly(true);
-                $reader->setReadFilter(new class(25) implements \PhpOffice\PhpSpreadsheet\Reader\IReadFilter {
-                    private int $maxRows;
-
-                    public function __construct(int $maxRows)
-                    {
-                        $this->maxRows = max(1, $maxRows);
-                    }
-
-                    public function readCell($column, $row): bool
-                    {
-                        return $row <= $this->maxRows;
-                    }
-                });
 
                 $spreadsheet = $reader->load($path);
                 $worksheet = $spreadsheet->getActiveSheet();
