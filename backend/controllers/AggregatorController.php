@@ -225,26 +225,34 @@ class AggregatorController extends Controller
                         fclose($handle);
                     }
                 } else {
-                    $previewLimit = 25;
-                    $reader = \PhpOffice\PhpSpreadsheet\IOFactory::createReaderForFile($filePath);
+                    $reader = new \PhpOffice\PhpSpreadsheet\Reader\Xlsx();
                     $reader->setReadDataOnly(true);
-                    $reader->setReadFilter(new class($previewLimit) implements \PhpOffice\PhpSpreadsheet\Reader\IReadFilter {
-                        private int $maxRows;
-
-                        public function __construct(int $maxRows)
-                        {
-                            $this->maxRows = max(1, $maxRows);
-                        }
-
+                    $reader->setReadFilter(new class implements \PhpOffice\PhpSpreadsheet\Reader\IReadFilter {
                         public function readCell(string $columnAddress, int $row, string $worksheetName = ''): bool
                         {
-                            return $row <= $this->maxRows;
+                            if ($row > 8) {
+                                return false;
+                            }
+
+                            $col = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($columnAddress);
+
+                            return $col <= 20;
                         }
                     });
 
                     $spreadsheet = $reader->load($filePath);
-                    $rows = $spreadsheet->getActiveSheet()->toArray(null, true, true, false);
-                    $rows = array_slice($rows, 0, $previewLimit);
+                    $sheet = $spreadsheet->getActiveSheet();
+
+                    $rows = [];
+                    foreach ($sheet->getRowIterator(1, 8) as $row) {
+                        $values = [];
+                        foreach ($row->getCellIterator('A', 'T') as $cell) {
+                            $values[] = $cell->getValue();
+                        }
+                        $rows[] = $values;
+                    }
+
+                    unset($spreadsheet);
 
                     $file_header = array_values($rows[0] ?? []);
                     foreach (array_slice($rows, 1, 10) as $row) {
@@ -1047,6 +1055,20 @@ class AggregatorController extends Controller
                     }
                 } else {
                     $reader = new Xlsx();
+                    $reader->setReadDataOnly(true);
+                    $reader->setReadFilter(new class implements \PhpOffice\PhpSpreadsheet\Reader\IReadFilter {
+                        public function readCell(string $columnAddress, int $row, string $worksheetName = ''): bool
+                        {
+                            if ($row > 8) {
+                                return false;
+                            }
+
+                            $col = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($columnAddress);
+
+                            return $col <= 20;
+                        }
+                    });
+
                     $spreadsheet = $reader->load($model->file->tempName);
                     $worksheet = $spreadsheet->getActiveSheet();
                     $importResults = $worksheet->toArray();
