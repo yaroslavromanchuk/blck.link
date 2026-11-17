@@ -1042,20 +1042,6 @@ class AggregatorController extends Controller
                     }
                 } else {
                     $reader = new Xlsx();
-                    $reader->setReadDataOnly(true);
-                    $reader->setReadFilter(new class implements \PhpOffice\PhpSpreadsheet\Reader\IReadFilter {
-                        public function readCell(string $columnAddress, int $row, string $worksheetName = ''): bool
-                        {
-                            if ($row > 8) {
-                                return false;
-                            }
-
-                            $col = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($columnAddress);
-
-                            return $col <= 20;
-                        }
-                    });
-
                     $spreadsheet = $reader->load($model->file->tempName);
                     $worksheet = $spreadsheet->getActiveSheet();
                     $importResults = $worksheet->toArray();
