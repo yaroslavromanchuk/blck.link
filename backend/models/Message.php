@@ -34,6 +34,7 @@ class Message extends \yii\db\ActiveRecord
             [['name', 'translate'], 'string'],
             [['lang_id'], 'integer'],
             [['lang_id'], 'exist', 'skipOnError' => true, 'targetClass' => Lang::className(), 'targetAttribute' => ['lang_id' => 'id']],
+            [['name'], 'unique', 'targetAttribute' => ['name', 'lang_id'], 'message' => Yii::t('app', 'Для цієї мови такий ключ перекладу вже існує.')],
         ];
     }
 
@@ -44,9 +45,9 @@ class Message extends \yii\db\ActiveRecord
     {
         return [
             'id' => Yii::t('app', 'ID'),
-            'name' => Yii::t('app', 'Name'),
-            'translate' => Yii::t('app', 'Translate'),
-            'lang_id' => Yii::t('app', 'Lang ID'),
+            'name' => Yii::t('app', 'Ключ'),
+            'translate' => Yii::t('app', 'Переклад'),
+            'lang_id' => Yii::t('app', 'Мова'),
         ];
     }
 

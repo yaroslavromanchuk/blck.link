@@ -2,7 +2,10 @@
 
 namespace backend\models;
 
+use backend\services\ArtistBalanceService;
 use backend\widgets\DateFormat;
+use common\components\ArtistDocumentTranslator;
+use common\models\Lang;
 use common\models\MailLog;
 use Yii;
 
@@ -52,6 +55,8 @@ use Yii;
  * @property int $notify
  * @property SubLabel $label
  * @property Country $country
+ * @property int $lang_id
+ * @property Lang $lang
  * @property Track[] $tracks
  * @property User $admin
  * @property ArtistType $artistType
@@ -79,7 +84,7 @@ class Artist extends \yii\db\ActiveRecord
 	{
         return [
             [['name', 'percentage',  'type_id', 'label_id', 'artist_type_id'], 'required'],
-            [['type_id', 'label_id', 'active', 'admin_id', 'country_id', 'percentage', 'percentage_distribution', 'telegram_id', 'artist_type_id', 'last_payment_invoice', 'label_id', 'notify'], 'integer'],
+            [['type_id', 'label_id', 'active', 'admin_id', 'country_id', 'lang_id', 'percentage', 'percentage_distribution', 'telegram_id', 'artist_type_id', 'last_payment_invoice', 'label_id', 'notify'], 'integer'],
             [['edrpou', 'mfo', 'records'], 'integer'],
             [['deposit', 'deposit_1', 'deposit_3'], 'number'],
             //['ipn', 'is10NumbersOnly'],
@@ -215,7 +220,7 @@ class Artist extends \yii\db\ActiveRecord
             'deposit_1' => Yii::t('app', 'EURO'),
             'deposit_3' => Yii::t('app', 'USD'),
             'telegram_id' => Yii::t('app', 'ТелеграмID'),
-            'last_payment_invoice' => Yii::t('app', 'Останій інвойс на виплата'),
+            'last_payment_invoice' => Yii::t('app', 'Останій інвойс на виплату'),
             'date_last_payment' => Yii::t('app', 'Остання виплата'),
             'ipn' => Yii::t('app', 'РНОКПП'),
             'edrpou' => Yii::t('app', 'Код ЄДРПОУ'),
@@ -225,6 +230,7 @@ class Artist extends \yii\db\ActiveRecord
             'mfo' => Yii::t('app', 'МФО'),
             'description' => Yii::t('app', 'Додатково (коментар)'),
             'country_id' => Yii::t('app', 'Країна'),
+            'lang_id' => Yii::t('app', 'Мова'),
             'records' => Yii::t('app', 'Рекордс'),
             'notify' => Yii::t('app', 'Повідомляти'),
             'notified' => Yii::t('app', 'Повідомлено'),
@@ -261,6 +267,11 @@ class Artist extends \yii\db\ActiveRecord
         return $this->hasOne(Country::class, ['country_id' => 'country_id']);
     }
 
+    public function getLang(): \yii\db\ActiveQuery
+    {
+        return $this->hasOne(Lang::class, ['id' => 'lang_id']);
+    }
+
     public function getArtistType(): \yii\db\ActiveQuery
     {
         return $this->hasOne(ArtistType::class, ['type_id' => 'artist_type_id']);
@@ -283,8 +294,8 @@ class Artist extends \yii\db\ActiveRecord
 
     public function getLogo(): string
 	{
-        if (!empty($this->logo) && file_exists('/home/atpjwxlx/domains/blck.link/public_html/frontend/web/images/artist/'.$this->logo)) {
-            return Yii::getAlias('@site').'/images/artist/'.$this->logo;
+        if (!empty($this->logo) && file_exists(Yii::getAlias('@frontend/web/images/artist/' . $this->logo))) {
+            return Yii::getAlias('@site') . '/images/artist/' . $this->logo;
         }
 
         return '';
@@ -323,14 +334,14 @@ class Artist extends \yii\db\ActiveRecord
     }
 
     /**
-     * Розрахувати й збережити баланс артиста за період
+     * Розрахувати й зберегти баланс артиста за період
      *
      * Використовує новий ArtistBalanceService для централізованих розрахунків
      * @deprecated Розрахунки тепер виконуються в ArtistBalanceService
      */
     public function saveBalance(int $quarter, int $currency_id, int $year): void
     {
-        $service = new \backend\services\ArtistBalanceService();
+        $service = new ArtistBalanceService();
         $service->saveBalance($this->id, $quarter, $year, $currency_id);
     }
 
@@ -367,7 +378,7 @@ class Artist extends \yii\db\ActiveRecord
      */
     public static function calculationDeposit(?int $artistId = null): array
     {
-        return \backend\services\ArtistBalanceService::updateArtistDeposits($artistId);
+        return ArtistBalanceService::updateArtistDeposits($artistId);
     }
 
     public static function getArtistByName(string $name, ?int $label_id = null)
@@ -584,7 +595,22 @@ class Artist extends \yii\db\ActiveRecord
      */
     public static function getLog(int $artist_id, int $quarter, int $year, int $currency_id, string $currency_name, ?int $invoice_id = null)
     {
-        $service = new \backend\services\ArtistBalanceService();
+        $service = new ArtistBalanceService();
         return $service->getBalanceForReport($artist_id, $quarter, $year, $currency_id, $currency_name, $invoice_id);
+    }
+
+    public function translateDocument(string $source, array $params = []): string
+    {
+        return ArtistDocumentTranslator::t($this, $source, $params);
+    }
+
+    public function getDocumentLanguage(): Lang
+    {
+        return ArtistDocumentTranslator::language($this);
+    }
+    
+    public function getDocumentLanguageCode(): string
+    {
+        return ArtistDocumentTranslator::languageCode($this);
     }
 }

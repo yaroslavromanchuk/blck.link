@@ -84,8 +84,10 @@ $artist = new ActiveDataProvider([
                     //'url',
                     //'logo',
                     'active:boolean',
-                    //'percentage',
-                    //'percentage_distribution',
+                    [
+                        'attribute' => 'lang_id',
+                        'value' => static fn($data) => $data->lang ? $data->lang->name : '',
+                    ],
                     'phone',
                     'email:email',
                     'full_name',

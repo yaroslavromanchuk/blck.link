@@ -79,7 +79,10 @@ $tracks = new ActiveDataProvider([
                             //  'name',
                             'phone',
                             'email:email',
-                            //'deposit',
+                            [
+                                'attribute' => 'lang_id',
+                                'value' => static fn($data) => $data->lang ? $data->lang->name : '',
+                            ],
                             [
                                 'attribute' => 'deposit',
                                 //'label' => 'Релизов',
@@ -217,15 +220,13 @@ $tracks = new ActiveDataProvider([
                             'description:text',
                             [
                                 'class' => 'yii\grid\ActionColumn',
-                                'template' => '{view} ',
+                                'template' => '{view}',
                                 'buttons' => [
                                     'view' => function ($url, $model, $key) {
                                         $t = '/invoice/view-modal?id=' . $model['invoice_id'] . '&artistId=' . $model['artist_id'];
-                                        return Html::button('<span class="glyphicon glyphicon-eye-open"></span>', ['value'=> Url::to($t ), 'class' => 'btn btn-default btn-xs custom_button']);
+                                        return Html::button('<span class="glyphicon glyphicon-eye-open"></span>', ['value' => Url::to($t), 'class' => 'btn btn-default btn-xs custom_button']);
                                     },
                                 ],
-
-                                // вы можете настроить дополнительные свойства здесь.
                             ],
                        ]
                     ]);

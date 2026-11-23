@@ -183,7 +183,7 @@ class AggregatorReportController extends Controller
             $invoice->quarter = $report->quarter;
             $invoice->year = $report->year;
             $invoice->total = $total;
-            $invoice->description = 'Звіт ' . $report->aggregator->name . ' за ' . $report->quarter . 'кв.' . $report->year;
+            $invoice->description = $report->aggregator->translateDocument('Звіт ') . $report->aggregator->name . $report->aggregator->translateDocument(' за ') . $report->quarter . $report->aggregator->translateDocument('кв.') . $report->year;
             
             if (!$invoice->validate()) {
                 //print_r($invoice->getErrors());

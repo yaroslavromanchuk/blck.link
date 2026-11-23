@@ -89,7 +89,7 @@ use yiister\gentelella\widgets\Menu;
                                         'items'=> [
                                                 ['label' => Yii::t('app', 'Менеджери'),  'url' => ['/user']],
                                                // ['label' => Yii::t('app', 'Аналитика'),  'url' => ['/log']],
-                                               // ['label' => Yii::t('app', 'Переклади'),  'url' => ['/message']],
+                                                ['label' => Yii::t('app', 'Переклади'),  'url' => ['/message']],
 
                                                 //['label' => Yii::t('app', 'Агрегатори'),  'url' => ['/aggregator']],
                                         ],

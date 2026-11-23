@@ -30,19 +30,21 @@ $this->params['breadcrumbs'][] = $this->title;
         'columns' => [
             ['class' => 'yii\grid\SerialColumn'],
 
-           // 'aggregator_id',
-            'name',
+            [
+                'attribute' => 'name',
+                'value' => static fn($data) => $data->translateDocument($data->name),
+            ],
             [
                 'attribute' => 'service_type_id',
                 'value' => function($data) {
-                    return $data->serviceType ? $data->serviceType->name : '';
+                    return $data->serviceType ? $data->translateDocument($data->serviceType->name) : '';
                 },
             ],
             //'ownership_type',
             [
                 'attribute' => 'ownership_type',
                 'value' => function($data) {
-                    return $data->ownershipType ? $data->ownershipType->name : '';
+                    return $data->ownershipType ? $data->translateDocument($data->ownershipType->name) : '';
                 },
             ],
             [
@@ -57,6 +59,7 @@ $this->params['breadcrumbs'][] = $this->title;
                         ->select('name')
                         ->where(['in', 'id', $ids])
                         ->column();
+                    $d = array_map(static fn($name) => $data->translateDocument($name), $d);
                     return implode(', ', $d);
                 }
             ],
@@ -64,19 +67,19 @@ $this->params['breadcrumbs'][] = $this->title;
             [
                     'attribute' => 'type_use_id',
                 'value' => function($data) {
-                        return $data->type ? $data->type->name : '';
+                    return $data->type ? $data->translateDocument($data->type->name) : '';
                 }
             ],
             [
                 'attribute' => 'service_id',
                 'value' => function($data) {
-                    return $data->service ? $data->service->name : '';
+                    return $data->service ? $data->translateDocument($data->service->name) : '';
                 }
             ],
             [
                 'attribute' => 'currency_id',
                 'value' => function($data) {
-                    return $data->currency ? $data->currency->getName() : '';
+                    return $data->currency ? $data->translateDocument($data->currency->getName()) : '';
                 },
             ],
             //'date_add:date',

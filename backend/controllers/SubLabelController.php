@@ -18,6 +18,7 @@ use backend\models\User;
 use backend\models\UserBalance;
 use backend\widgets\DateFormat;
 use backend\widgets\Str;
+use common\components\ArtistDocumentTranslator;
 use common\models\Mail;
 use common\models\t;
 use DateTime;
@@ -33,13 +34,13 @@ use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\filters\VerbFilter;
 use yii\web\Response;
+use common\components\ReportFilePath;
 
 /**
  * SubLabelController implements the CRUD actions for SubLabel model.
  */
 class SubLabelController extends Controller
 {
-    private static string $homePage = '/home/atpjwxlx/domains/blck.link/public_html/backend/web/';
     /**
      * {@inheritdoc}
      */
@@ -428,13 +429,15 @@ class SubLabelController extends Controller
     public function actionInvoiceExportToPdfAct($label_id, $id, $redirect = true)
     {
         $model = $this->findModelInvoice($id);
+        ArtistDocumentTranslator::applyLanguage($model->label);
 
         $date = new DateTime($model->date_pay);
         $name = Str::transliterate($model->label->name);
-        $filename = $date->format('Y_m_d') . "_{$name}_act_invoice_{$model->invoice_id}.pdf";
+        $languageCode = $model->label->getDocumentLanguageCode();
+        $filename = $date->format('Y_m_d') . "_{$name}_act_invoice_{$model->invoice_id}_{$languageCode}.pdf";
 
-        if (file_exists(self::$homePage . 'pdf/' . $filename)) {
-			$this->redirect("/pdf/" . $filename);
+        if (file_exists(ReportFilePath::pdf($filename))) {
+			$this->redirect(ReportFilePath::webUrl('pdf', $filename));
         }
 
         $this->layout = 'pdf';
@@ -502,7 +505,7 @@ class SubLabelController extends Controller
         ]);
 
         // $pdf->filename = "Invoice_{$model->invoice_id}_artist_{$model->artist_id}.pdf";
-        $pdf->filename = self::$homePage . 'pdf/' . $filename;
+        $pdf->filename = ReportFilePath::pdf($filename);
         // return the pdf output as per the destination setting
         $pdf->render();
 
@@ -523,18 +526,20 @@ class SubLabelController extends Controller
         $invoiceIds = $this->getAllInvoiceInProgress($model, $model->invoice_status_id);
 		sort($invoiceIds);
         $name = Str::transliterate($model->label->name) . "_" . implode('_', $invoiceIds);
-        $filename = "report_{$name}_q{$model->quarter}_y{$model->year}.xlsx";
-		
-        if (file_exists(self::$homePage. 'xls/' .$filename)) {
+
+        $languageCode = $model->label->getDocumentLanguageCode();
+        $filename = "report_{$name}_q{$model->quarter}_y{$model->year}_{$languageCode}.xlsx";
+
+        if (file_exists(ReportFilePath::xls($filename))) {
             if ($redirect === false) {
                 return;
             }
-			$this->redirect("/xls/".$filename);
+			$this->redirect(ReportFilePath::webUrl('xls', $filename));
         }
 
         $spreadSheet = new Spreadsheet();
         $workSheet = $spreadSheet->getActiveSheet();
-        $workSheet->setTitle('Звіт по акту');
+        $workSheet->setTitle($model->label->translateDocument('Звіт по акту'));
 
         $workSheet->getStyle('A1:N1')->getAlignment()->setWrapText(true)
             ->setHorizontal(Alignment::HORIZONTAL_CENTER)
@@ -560,33 +565,30 @@ class SubLabelController extends Controller
 
         $tempData = [];
         $tempData[] = [
-            '№',
-            'Виконавець',
-            'Назва Твору',
-            'Кіл-ть Використань',
-            'Частка авторських (суміжних) прав, %',
-            'Загальна сума отриманої Винагороди Видавцем',
-            'Ставка Винагороди Правовласника за авторські та суміжні права, %',
-            'Сума Роялті правовласника',
-            'Валюта',
-            'Вид прав',
-            'Тип використання',
-            'Тип та/або ресурс використання',
-            'Країна',
-            'Період використання Об\'єкта',
+            $model->label->translateDocument('№'),
+            $model->label->translateDocument('Виконавець'),
+            $model->label->translateDocument('Назва Твору'),
+            $model->label->translateDocument('Кіл-ть Використань'),
+            $model->label->translateDocument('Частка авторських (суміжних) прав, %'),
+            $model->label->translateDocument('Загальна сума отриманої Винагороди Видавцем'),
+            $model->label->translateDocument('Ставка Винагороди Правовласника за авторські та суміжні права, %'),
+            $model->label->translateDocument('Сума Роялті правовласника'),
+            $model->label->translateDocument('Валюта'),
+            $model->label->translateDocument('Вид прав'),
+            $model->label->translateDocument('Тип використання'),
+            $model->label->translateDocument('Тип та/або ресурс використання'),
+            $model->label->translateDocument('Країна'),
+            $model->label->translateDocument('Період використання Об\'єкта'),
         ];
 
         $i = 1;
-		
-		
         $sum = [];
-        //$sum2 = ['USD'=>0, 'EUR'=>0, 'UAH'=>0];
 
         $tempData2 = [];
         $tempData2[] = [
-            'Виконавець',
-            'Сума Роялті',
-            'Валюта',
+            $model->label->translateDocument('Виконавець'),
+            $model->label->translateDocument('Сума Роялті'),
+            $model->label->translateDocument('Валюта'),
         ];
 		
 		$temp3 = [];
@@ -610,10 +612,10 @@ class SubLabelController extends Controller
 								$item['percentage_label'],
 								$item['amount_2'],
 								$item['currency_name'],
-								$item['prav1'],
-								$item['prav2'],
-								$item['platform'],
-								$item['country'],
+								$model->label->translateDocument((string)$item['prav1']),
+								$model->label->translateDocument((string)$item['prav2']),
+                                $model->label->translateDocument((string)$item['platform']),
+                                $item['country'],
 								DateFormat::datumUah2($item['date_report']),
 							];
 							$i++;
@@ -641,7 +643,7 @@ class SubLabelController extends Controller
         $workSheet->fromArray($tempData);
 
         $j = $i+2;
-        $workSheet->setCellValue('A' . $j, 'Всього:');
+        $workSheet->setCellValue('A' . $j, $model->label->translateDocument('Всього:'));
         $workSheet->getStyle('A'. $j)->getFont()->setBold(true);
 
         foreach ($sum as $key => $item) {
@@ -691,7 +693,7 @@ class SubLabelController extends Controller
         $spreadSheet->setActiveSheetIndex(0);
 
         $writer = new Xlsx($spreadSheet);
-        $writer->save(self::$homePage. 'xls/' .$filename);
+        $writer->save(ReportFilePath::xls($filename));
 
         if($redirect) {
             $this->redirect("/xls/" . $filename);
@@ -704,6 +706,7 @@ class SubLabelController extends Controller
 
         /* @var $model Invoice */
         $model = $this->findModelInvoice($id);
+        ArtistDocumentTranslator::applyLanguage($model->label);
 
         if (empty($model->label->email)) {
             Yii::$app->session->setFlash('error', 'У сублейбу відстуній email');
@@ -725,33 +728,19 @@ class SubLabelController extends Controller
         sort($invoiceIds);
 		$name = Str::transliterate($model->label->name) . "_" . implode('_', $invoiceIds);
 
-        $zvitExcelFileName = "report_{$name}_q{$model->quarter}_y{$model->year}.xlsx";
-        $excel =  self::$homePage . 'xls/' .$zvitExcelFileName;
+        $languageCode = $model->label->getDocumentLanguageCode();
+        $zvitExcelFileName = "report_{$name}_q{$model->quarter}_y{$model->year}_{$languageCode}.xlsx";
+        $excel =  ReportFilePath::xls($zvitExcelFileName);
 
         if (!file_exists($excel)) {
             $this->actionInvoiceExportToExcelReport($model->label_id, $model->invoice_id, false);
         }
 
         $attach[] = [$excel, ['fileName' => $zvitExcelFileName]];
-
-           // $_model = $invoice_id == $id ? $model : $this->findModelInvoice($invoice_id);
-           // $date = new DateTime($_model->date_pay);
-
-            /*$actFileName = $date->format('Y_m_d') . "_{$name}_act_invoice_{$invoice_id}.pdf";
-            $act = self::$homePage . 'pdf/' . $actFileName;
-
-            if (!file_exists($act)) {
-                $this->actionInvoiceExportToPdfAct($model->label_id, $invoice_id, false);
-            }
-
-            $attach[] = [$act, ['fileName' => $actFileName]];*/
-            //$date->format('Y_m_d') . "_
-
-
         $mail = new Mail([
             'from' => ['reports@blackbeatsmusic.com' => 'Black Beats Reports'],
             'to' => [$model->label->email => $model->label->name],
-            'subject' => "Black Beats | Royalty Report Q{$model->quarter} {$model->year}",
+            'subject' => 'Black Beats | ' . $model->label->translateDocument('Royalty Report') . " Q{$model->quarter} {$model->year}",
             'bcc' => 'gmmkam123@gmail.com',
             'replyTo' => 'reports@blackbeatsmusic.com',
             'view' => [

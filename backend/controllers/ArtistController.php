@@ -14,6 +14,7 @@ use backend\models\User;
 use backend\models\VUnpaidIncomeByPeriodSearch;
 use backend\widgets\DateFormat;
 use backend\widgets\Str;
+use common\components\ArtistDocumentTranslator;
 use common\models\Mail;
 use PhpOffice\PhpSpreadsheet\Reader\Html;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -34,13 +35,13 @@ use yii\web\Response;
 use yii\bootstrap\ActiveForm;
 use yii\filters\AccessControl;
 use yii\helpers\Url;
+use common\components\ReportFilePath;
 
 /**
  * ArtistController implements the CRUD actions for Artist model.
  */
 class ArtistController extends Controller
 {
-    private static string $homePage = '/home/atpjwxlx/domains/blck.link/public_html/backend/web/';
     /**
      * {@inheritdoc}
      */
@@ -458,11 +459,13 @@ class ArtistController extends Controller
 
         $d = date('Y_m_d_i');
         $name = Str::transliterate($model->name);
+        $languageCode = $model->getDocumentLanguageCode();
 
-        $filename = "/home/atpjwxlx/domains/blck.link/public_html/backend/web/balance_q3_{$d}_{$name}.xlsx";
+        $filename = "balance_q3_{$d}_{$name}_{$languageCode}.xlsx";
+        $filePath = ReportFilePath::xls($filename);
 
-        if (file_exists($filename)) {
-            $this->redirect("/balance_q3_{$d}_{$name}.xlsx");
+        if (file_exists($filePath)) {
+            $this->redirect('/xls/' . $filename);
         }
 
         $balance = ArtistLog::find()
@@ -561,9 +564,9 @@ class ArtistController extends Controller
 
         $reader = new Html();
         $writer = new Xlsx($reader->loadFromString($content));
-        $writer->save($filename);
+        $writer->save(ReportFilePath::xls($filename));
 
-        $this->redirect("/balance_q3_{$d}_{$name}.xlsx");
+        $this->redirect('/xls/' . $filename);
     }
 
     /**
@@ -577,8 +580,8 @@ class ArtistController extends Controller
     public function actionExportAct(int $id, int $quarter = null, int $year = null, bool $redirect = true)
     {
         $model = $this->findModel($id);
-        //$lastInvoice = $model->getLastPayInvoice();
-        
+        ArtistDocumentTranslator::applyLanguage($model);
+
         if (is_null($quarter)|| is_null($year)) {
             $lastInvoice = (new \yii\db\Query())
                 ->from(InvoiceItems::tableName())
@@ -609,8 +612,9 @@ class ArtistController extends Controller
         }
         
         $name = Str::transliterate($model->name);
-        $filename = "report_q_{$quarter}_{$year}_{$name}.xlsx";
-        
+        $languageCode = $model->getDocumentLanguageCode();
+        $filename = "report_q_{$quarter}_{$year}_{$name}_{$languageCode}.xlsx";
+
         if (false /*file_exists(self::$homePage . 'xls/' . $filename)*/) {
             if ($redirect) {
                 header("Location: /xls/".$filename);
@@ -646,7 +650,7 @@ class ArtistController extends Controller
         
         $spreadSheet = new Spreadsheet();
         $workSheet = $spreadSheet->getActiveSheet();
-        $workSheet->setTitle('Баланс');
+        $workSheet->setTitle($model->translateDocument('Баланс'));
         $workSheet->getColumnDimension('A')->setWidth(40);
         $workSheet->getColumnDimension('B')->setWidth(12);
         $workSheet->getColumnDimension('C')->setWidth(12);
@@ -668,17 +672,17 @@ class ArtistController extends Controller
         $workSheet->getStyle("A3:G14")->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN)->getColor()->setRGB('000000'); // чорний
         $workSheet->getStyle('A14:G14')->getFont()->setBold(true);
         $tempData = [];
-        $tempData[0] = ['Звіт за ' . $quarter . ' кв. ' . $year . ', ' . $model->name];  // 1
+        $tempData[0] = [$model->translateDocument('Звіт за') . ' ' . $quarter . ' ' . $model->translateDocument('кв.') . ' ' . $year . ', ' . $model->name];  // 1
         $tempData[1] = []; // 2
-        
+
         $tempData[2] = [ // 3
-            0 => 'Фінансовий звіт',
-            1 => 'Сума',
-            2 => 'Валюта',
-            3 => 'Сума',
-            4 => 'Валюта',
-            5 => 'Сума',
-            6 => 'Валюта',
+            0 => $model->translateDocument('Фінансовий звіт'),
+            1 => $model->translateDocument('Сума'),
+            2 => $model->translateDocument('Валюта'),
+            3 => $model->translateDocument('Сума'),
+            4 => $model->translateDocument('Валюта'),
+            5 => $model->translateDocument('Сума'),
+            6 => $model->translateDocument('Валюта'),
         ];
         $i = 3;
         
@@ -708,19 +712,17 @@ class ArtistController extends Controller
             $tempData[$i] = []; // 15
             $i++; // 16
             $tempData[$i] = [// 16
-                0 => 'Перелік фінансових операцій',
+                0 => $model->translateDocument('Перелік фінансових операцій'),
             ];
             $workSheet->getStyle('A' . $i)->getFont()->setBold(true);
-            
             $i++; // 17
-            
             $tempData[$i] = [
-                0 => 'Назва',
-                1 => 'Тип',
-                2 => 'Сума',
-                3 => 'Валюта',
-                4 => 'Квартал',
-                5 => 'Дата',
+                0 => $model->translateDocument('Назва'),
+                1 => $model->translateDocument('Тип'),
+                2 => $model->translateDocument('Сума'),
+                3 => $model->translateDocument('Валюта'),
+                4 => $model->translateDocument('Квартал'),
+                5 => $model->translateDocument('Дата'),
             ];
             
             $workSheet->getStyle("A$i:F$i")->getFont()->setBold(true);
@@ -859,20 +861,20 @@ class ArtistController extends Controller
             
             $tempData = [];
             $tempData[] = [
-                '№',
-                'Виконавець',
-                'Назва Твору',
-                'Кіл-ть Використань',
-                'Частка авторських (суміжних) прав, %',
-                'Загальна сума отриманої Винагороди Видавцем',
-                'Ставка Винагороди Правовласника за авторські та суміжні права, %',
-                'Сума Роялті правовласника',
-                'Валюта',
-                'Вид прав',
-                'Тип використання',
-                'Тип та/або ресурс використання',
-                'Країна',
-                'Період використання Об\'єкта',
+                $model->translateDocument('№'),
+                $model->translateDocument('Виконавець'),
+                $model->translateDocument('Назва Твору'),
+                $model->translateDocument('Кіл-ть Використань'),
+                $model->translateDocument('Частка авторських (суміжних) прав, %'),
+                $model->translateDocument('Загальна сума отриманої Винагороди Видавцем'),
+                $model->translateDocument('Ставка Винагороди Правовласника за авторські та суміжні права, %'),
+                $model->translateDocument('Сума Роялті правовласника'),
+                $model->translateDocument('Валюта'),
+                $model->translateDocument('Вид прав'),
+                $model->translateDocument('Тип використання'),
+                $model->translateDocument('Тип та/або ресурс використання'),
+                $model->translateDocument('Країна'),
+                $model->translateDocument('Період використання Об\'єкта'),
             ];
             
             $i = 1;
@@ -905,8 +907,8 @@ class ArtistController extends Controller
         }
         
         $writer = new Xlsx($spreadSheet);
-        $writer->save(self::$homePage . 'xls/' . $filename);
-        
+        $writer->save(ReportFilePath::xls($filename));
+
         if ($redirect) {
             header("Location: /xls/".$filename);
             exit;
@@ -949,9 +951,9 @@ class ArtistController extends Controller
         $workSheet->fromArray($tempData);
         $filename = "all_artist_list.xlsx";
         $writer = new Xlsx($spreadSheet);
-        $writer->save(self::$homePage . 'xls/' . $filename);
-        
-        $this->redirect("/xls/".$filename);
+        $writer->save(ReportFilePath::xls($filename));
+
+        $this->redirect('/xls/' . $filename);
     }
     
     public function actionMail($id)
@@ -975,7 +977,7 @@ class ArtistController extends Controller
             ->where([
                 'invoice.invoice_status_id' => [2, 4],
                 'invoice.invoice_type' => 2,
-            ])->orderBy(['invoice.year' => SORT_DESC, 'invoice.quarter' =>  SORT_DESC])
+            ])->orderBy(['invoice.year' => SORT_DESC, 'invoice.quarter' => SORT_DESC])
             ->limit(1)
             ->one();
         
@@ -985,13 +987,13 @@ class ArtistController extends Controller
             throw new \RuntimeException("Артисту {$model->name} не вдалось відправити звіт! Відсутній файл звіту. Зверніться до адміністратора.");
         }
         
-        $excel = self::$homePage .  'xls/' . $reportFileName;
+        $excel = ReportFilePath::xls($reportFileName);
         $attach[] = [$excel, ['fileName' => $reportFileName]];
         
         $mail = new Mail([
             'from' => ['reports@blackbeatsmusic.com' => 'Black Beats Reports'],
             'to' => [$model->email => $model->name],
-            'subject' => "Black Beats | Royalty Report Q{$lastInvoice['quarter']} {$lastInvoice['year']}",
+            'subject' => 'Black Beats | ' . $model->translateDocument('Royalty Report') . " Q{$lastInvoice['quarter']} {$lastInvoice['year']}",
             //'bcc' => 'reports@blackbeatsmusic.com',
             'bcc' => 'gmmkam123@gmail.com',
             'replyTo' => 'reports@blackbeatsmusic.com',

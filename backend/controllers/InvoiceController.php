@@ -35,13 +35,13 @@ use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\filters\VerbFilter;
 use yii\web\Response;
+use common\components\ReportFilePath;
 
 /**
  * InvoiceController implements the CRUD actions for Invoice model.
  */
 class InvoiceController extends Controller
 {
-    private static string $homePage = '/home/atpjwxlx/domains/blck.link/public_html/backend/web/';
     /**
      * {@inheritdoc}
      */
@@ -649,7 +649,7 @@ class InvoiceController extends Controller
             default: $filename = '';
         }
 
-        $filePath = self::$homePage . 'xls/' . $filename;
+        $filePath = ReportFilePath::xls($filename);
         clearstatcache(true, $filePath);
 
         if (file_exists($filePath)) {
@@ -723,7 +723,7 @@ class InvoiceController extends Controller
         }
 
         $writer = new Xlsx($spreadSheet);
-        $writer->save($filePath);
+        $writer->save(ReportFilePath::xls($filename));
         header("Location: /xls/".$filename);
         exit;
        // $this->redirect("/xls/" . $filename);
@@ -1016,8 +1016,8 @@ class InvoiceController extends Controller
 
         $filename = $name . ".xlsx";
         $writer = new Xlsx($spreadSheet);
-        $writer->save(self::$homePage . 'xls/' . $filename);
-        
+        $writer->save(ReportFilePath::xls($filename));
+
         $this->redirect("/xls/".$filename);
     }
     

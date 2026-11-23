@@ -15,8 +15,9 @@ use Yii;
  * @property int $active
  * @property string $date_added
  * @property string $last_update
- *
+ * @property int $lang_id
  * @property User $user
+ * @property Lang $lang
  */
 class SubLabel extends \yii\db\ActiveRecord
 {
@@ -35,6 +36,7 @@ class SubLabel extends \yii\db\ActiveRecord
     {
         return [
             [['date_added', 'last_update'], 'safe'],
+            [['lang_id'], 'integer'],
             [['name'], 'string', 'max' => 100],
             [['url'], 'string', 'max' => 50],
             [['description', 'logo'], 'string', 'max' => 255],
@@ -57,6 +59,27 @@ class SubLabel extends \yii\db\ActiveRecord
             'active' => Yii::t('app', 'Active'),
             'date_added' => Yii::t('app', 'Date Added'),
             'last_update' => Yii::t('app', 'Last Update'),
+            'lang_id' => Yii::t('app', 'Мова'),
         ];
+    }
+
+    /**
+     * Gets query for [[User]].
+     *
+     * @return \yii\db\ActiveQuery
+     */
+    public function getUser(): \yii\db\ActiveQuery
+    {
+        return $this->hasOne(User::class, ['id' => 'user_id']);
+    }
+
+    /**
+     * Gets query for [[Lang]].
+     *
+     * @return \yii\db\ActiveQuery
+     */
+    public function getLang(): \yii\db\ActiveQuery
+    {
+        return $this->hasOne(Lang::class, ['id' => 'lang_id']);
     }
 }

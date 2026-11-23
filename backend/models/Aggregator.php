@@ -169,4 +169,14 @@ class Aggregator extends \yii\db\ActiveRecord
     {
         return $this->hasOne(AggregatorServiceType::class, ['service_type_id' => 'service_type_id']);
     }
+
+    public function translateDocument(string $source, array $params = []): string
+    {
+        $label = $this->label;
+        if ($label instanceof SubLabel) {
+            return $label->translateDocument($source, $params);
+        }
+
+        return $source;
+    }
 }

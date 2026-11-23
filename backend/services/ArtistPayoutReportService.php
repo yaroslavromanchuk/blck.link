@@ -5,6 +5,7 @@ namespace backend\services;
 
 use backend\models\Artist;
 use backend\models\Invoice;
+use common\components\ArtistDocumentTranslator;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Yii;
@@ -36,7 +37,7 @@ class ArtistPayoutReportService
         
         $rows = $this->buildRows($coverage, $details);
         
-        return $this->buildSpreadsheet($rows);
+        return $this->buildSpreadsheet($rows, $artistId);
     }
     
     /**
@@ -110,7 +111,10 @@ class ArtistPayoutReportService
     {
         $invoice = Invoice::findOne($payoutInvoiceId);
         $artist  = Artist::findOne($artistId);
-        
+        if ($artist) {
+            ArtistDocumentTranslator::applyLanguage($artist);
+        }
+
         $coverage = $this->getCoverageSummary($payoutInvoiceId, $artistId);
         
         $amount = array_sum(array_column($coverage, 'total'));
@@ -144,8 +148,8 @@ class ArtistPayoutReportService
         ]);
         
         $filename = Yii::getAlias('@backend/pdf/')
-            . $artist->id . "_act_invoice_{$invoice->invoice_id}.pdf";
-        
+            . $artist->id . "_act_invoice_{$invoice->invoice_id}_" . $artist->getDocumentLanguageCode() . '.pdf';
+
         $pdf->filename = $filename;
         $pdf->render();
         
@@ -357,23 +361,27 @@ class ArtistPayoutReportService
     /* -------------------------------------------------------------
      * Генерація Excel
      * ------------------------------------------------------------- */
-    private function buildSpreadsheet(array $rows): string
+    private function buildSpreadsheet(array $rows, int $artistId): string
     {
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
         
         // Header
+        $artist = Artist::findOne($artistId);
+        if ($artist) {
+            ArtistDocumentTranslator::applyLanguage($artist);
+        }
         $headers = [
-            'Year',
-            'Quarter',
-            'Track',
+            $artist ? $artist->translateDocument('Year') : 'Year',
+            $artist ? $artist->translateDocument('Quarter') : 'Quarter',
+            $artist ? $artist->translateDocument('Track') : 'Track',
             'ISRC',
-            'Platform',
-            'Country',
-            'Report Date',
-            'Streams',
-            'Gross Amount',
-            'Covered in Payout',
+            $artist ? $artist->translateDocument('Platform') : 'Platform',
+            $artist ? $artist->translateDocument('Country') : 'Country',
+            $artist ? $artist->translateDocument('Report Date') : 'Report Date',
+            $artist ? $artist->translateDocument('Streams') : 'Streams',
+            $artist ? $artist->translateDocument('Gross Amount') : 'Gross Amount',
+            $artist ? $artist->translateDocument('Covered in Payout') : 'Covered in Payout',
         ];
         
         $sheet->fromArray($headers, null, 'A1');

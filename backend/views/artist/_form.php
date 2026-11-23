@@ -1,6 +1,8 @@
 <?php
 
 use kartik\select2\Select2;
+use common\models\Lang;
+use yii\helpers\ArrayHelper;
 use yii\helpers\Html;
 use yii\widgets\ActiveForm;
 
@@ -68,6 +70,14 @@ use yii\widgets\ActiveForm;
                             </div>
                             <div class="col-sm-6">
                                 <?= $form->field($model, 'name')->textInput(['maxlength' => true]) ?>
+                            </div>
+                            <div class="col-sm-6">
+                                <?= $form->field($model, 'lang_id')->widget(Select2::class, [
+                                    'model' => $model,
+                                    'data' => ArrayHelper::map(Lang::find()->where(['active' => 1])->all(), 'id', 'name'),
+                                    'language' => 'uk',
+                                    'options' => ['placeholder' => Yii::t('app', 'Вкажіть мову')],
+                                ]) ?>
                             </div>
                             <div class="col-sm-6">
                                 <?= $form->field($model, 'artist_type_id')

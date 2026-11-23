@@ -38,8 +38,7 @@ use yii\web\UploadedFile;
 use yii\web\Response;
 use yii\bootstrap\ActiveForm;
 use yii\base\Model;
-
-use yii\filters\AccessControl;
+use common\components\ReportFilePath;
 
 
 /**
@@ -47,7 +46,6 @@ use yii\filters\AccessControl;
  */
 class TrackController extends Controller
 {
-    private static string $homePage = '/home/atpjwxlx/domains/blck.link/public_html/backend/web/';
     /**
      * {@inheritdoc}
      */
@@ -482,8 +480,8 @@ class TrackController extends Controller
         $workSheet->fromArray($tempData);
         $filename = "track_list.xlsx";
         $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadSheet);
-        $writer->save(self::$homePage . 'xls/' . $filename);
-        
+        $writer->save(ReportFilePath::xls($filename));
+
         $this->redirect("/xls/".$filename);
     }
 

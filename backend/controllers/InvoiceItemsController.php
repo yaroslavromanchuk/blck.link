@@ -20,6 +20,8 @@ use backend\widgets\DateFormat;
 use backend\widgets\Str;
 use Box\Spout\Common\Entity\Style\Color;
 use Box\Spout\Writer\Common\Creator\Style\StyleBuilder;
+use common\components\ArtistDocumentTranslator;
+use common\components\ReportFilePath;
 use common\models\Mail;
 use common\models\MailLog;
 use common\models\t;
@@ -47,7 +49,20 @@ use Box\Spout\Writer\Common\Creator\WriterEntityFactory;
  */
 class InvoiceItemsController extends Controller
 {
-    private static string $homePage = '/home/atpjwxlx/domains/blck.link/public_html/backend/web/';
+    private static function getHomePage(): string
+    {
+        $webRoot = rtrim(Yii::getAlias('@backend/web'), '/\\');
+
+        foreach (['xls', 'pdf'] as $directory) {
+            $path = $webRoot . DIRECTORY_SEPARATOR . $directory;
+            if (!is_dir($path)) {
+                mkdir($path, 0775, true);
+            }
+        }
+
+        return $webRoot . DIRECTORY_SEPARATOR;
+    }
+
     /**
      * {@inheritdoc}
      */
@@ -234,7 +249,7 @@ class InvoiceItemsController extends Controller
                          AND ii.`artist_id`= {$model->artist_id}"
                 )->execute();
                 
-                if (in_array($model->invoice->invoice_status_id, [2, 4]) // проведений або в процесі виплати
+                if (in_array($model->invoice->invoice_status_id, [2, 4]) // проведених або в процесі виплати
                     && in_array($model->invoice->invoice_type, [InvoiceType::$credit, InvoiceType::$costs, InvoiceType::$advance])
                 ) {
                     Artist::calculationDeposit($model->artist_id);
@@ -284,9 +299,10 @@ class InvoiceItemsController extends Controller
 
         $date = new \DateTime($model->invoice->date_pay);
         $name = Str::transliterate($model->artist->name);
-        $filename = $date->format('Y_m_d') . "_{$name}_balance_q{$model->invoice->quarter}_invoice_{$model->invoice->invoice_id}.pdf";
+        $languageCode = $model->artist->getDocumentLanguageCode();
+        $filename = $date->format('Y_m_d') . "_{$name}_balance_q{$model->invoice->quarter}_invoice_{$model->invoice->invoice_id}_{$languageCode}.pdf";
 
-        $filePath = self::$homePage . 'pdf/' . $filename;
+        $filePath = self::getHomePage() . 'pdf/' . $filename;
         clearstatcache(true, $filePath);
         if (file_exists($filePath)) {
             $this->redirect("/pdf/".$filename);
@@ -348,7 +364,7 @@ class InvoiceItemsController extends Controller
         ]);
 
         // $pdf->filename = "Invoice_{$model->invoice_id}_artist_{$model->artist_id}.pdf";
-        $pdf->filename = self::$homePage . 'pdf/' . $filename;
+        $pdf->filename = self::getHomePage() . 'pdf/' . $filename;
         // return the pdf output as per the destination setting
         $pdf->render();
 
@@ -365,9 +381,10 @@ class InvoiceItemsController extends Controller
         $model = $this->findModel($id);
         $date = new \DateTime($model->invoice->date_pay);
         $name = Str::transliterate($model->artist->name);
-        $filename = $date->format('Y_m_d') . "_{$name}_balance_q{$model->invoice->quarter}_invoice_{$model->invoice->invoice_id}.xlsx";
+        $languageCode = $model->artist->getDocumentLanguageCode();
+        $filename = $date->format('Y_m_d') . "_{$name}_balance_q{$model->invoice->quarter}_invoice_{$model->invoice->invoice_id}_{$languageCode}.xlsx";
 
-        $filePath = self::$homePage . 'xls/' . $filename;
+        $filePath = self::getHomePage() . 'xls/' . $filename;
         clearstatcache(true, $filePath);
         if (file_exists($filePath)) {
             $this->redirect("/xls/".$filename);
@@ -458,7 +475,7 @@ class InvoiceItemsController extends Controller
         
         $filename = $this->getActPdfName($id);
 
-		$filePath = self::$homePage . 'pdf/' . $filename;
+		$filePath = self::getHomePage() . 'pdf/' . $filename;
         clearstatcache(true, $filePath);
 
         if (file_exists($filePath) && $redirect) {
@@ -539,15 +556,22 @@ class InvoiceItemsController extends Controller
 
     public function actionExportAct(int $id, bool $redirect = true, array $invoiceItemsIds = [])
     {
+        if (YII_ENV_DEV) {
+            set_time_limit(0);
+            @ini_set('memory_limit', '512M');
+        }
+
         $model = $this->findModel($id);
+        ArtistDocumentTranslator::applyLanguage($model->artist);
 
         $invoiceItemsIds = !empty($invoiceItemsIds) ? $invoiceItemsIds : $this->getAllInvoiceItemsForArtist($model, $model->invoice->invoice_status_id);
 		$invoiceIds = $invoiceItemsIds['invoice'];
 		sort($invoiceIds);
 
         $name = Str::transliterate($model->artist->name) . "_" . implode('_', $invoiceIds);
-        $filename = "report_{$name}_q{$model->invoice->quarter}_year_{$model->invoice->year}.xlsx";
-        $filePath = self::$homePage . 'xls/' . $filename;
+        $languageCode = $model->artist->getDocumentLanguageCode();
+        $filename = "report_{$name}_q{$model->invoice->quarter}_year_{$model->invoice->year}_{$languageCode}.xlsx";
+        $filePath = ReportFilePath::xls($filename);
         // Force fresh export each time and avoid stale file_exists/stat cache behavior.
         clearstatcache(true, $filePath);
 
@@ -560,21 +584,7 @@ class InvoiceItemsController extends Controller
             exit;
         }
         
-        if ($model->artist->type_id == 1) {
-            $spreadSheet = $this->generateReportInternalArtist($model, $invoiceItemsIds);
-        } else {
-            if (false/*$model->artist_id == 2227*/) {
-                $this->generateReportPartnerSpout($model, $invoiceItemsIds, $filename);
-                if ($redirect) {
-                    header("Location: /xls/".$filename);
-                    exit;
-                }
-
-                return $filename;
-            } else {
-                $spreadSheet = $this->generateReportPartner($model, $invoiceItemsIds);
-            }
-        }
+        $spreadSheet = $model->artist->type_id == 1 ? $this->generateReportInternalArtist($model, $invoiceItemsIds) : $this->generateReportPartner($model, $invoiceItemsIds);
         
         #endregion Звіт
 
@@ -596,7 +606,7 @@ class InvoiceItemsController extends Controller
         $model = $this->findModel($id);
 
         if (empty($model->artist->email)) {
-            Yii::$app->session->setFlash('error', 'У артиста відстуній email');
+            Yii::$app->session->setFlash('error', 'У артиста відстунній email');
 
             return $this->redirect(['invoice/view', 'id' => $model->invoice_id]);
         } /*else if ($model->getNotified()) {
@@ -615,37 +625,16 @@ class InvoiceItemsController extends Controller
 		
 		$invoiceIds = $invoiceItemsIds['invoice'];
 		sort($invoiceIds);
-		//$name = Str::transliterate($model->artist->name) . "_" . implode('_', $invoiceIds);
-		
-        //$date = new \DateTime($model->invoice->date_pay);
-        //$name = Str::transliterate($model->artist->name);
-
-        //$actFileName = $date->format('Y_m_d') . "_{$name}_act_q{$model->invoice->quarter}_invoice_{$model->invoice->invoice_id}.pdf";
-       /* $actFileName = $date->format('Y_m_d') . "_{$name}_act_q{$model->invoice->quarter}_invoice_{$model->invoice->invoice_id}.pdf";
-        $act = self::$homePage . 'pdf/' . $actFileName;
-
-         if (!file_exists($act)) {
-             $this->actionPdfAct($id, false);
-         }*/
-
-        //$balanceFileName = $date->format('Y_m_d') . "_{$name}_balance_q{$model->invoice->quarter}_invoice_{$model->invoice->invoice_id}.pdf";
-        //$reportFileName = "report_{$name}_q{$model->invoice->quarter}_year_{$model->invoice->year}.xlsx";
-       // $excel =  self::$homePage .  'xls/' .$reportFileName;
         
         $reportFileName = $this->actionExportAct($id, false, $invoiceItemsIds);
         
-        $excel =  self::$homePage .  'xls/' .$reportFileName;
-
-      //  if (!file_exists($excel)) {
-         //   $this->actionExportAct($id, false, $invoiceItemsIds);
-      //  }
-
+        $excel =  self::getHomePage() .  'xls/' .$reportFileName;
         $attach[] = [$excel, ['fileName' => $reportFileName]];
 
         $mail = new Mail([
             'from' => ['reports@blackbeatsmusic.com' => 'Black Beats Reports'],
             'to' => [$model->artist->email => $model->artist->name],
-            'subject' => "Black Beats | Royalty Report Q{$model->invoice->quarter} {$model->invoice->year}",
+            'subject' => 'Black Beats | ' . $model->artist->translateDocument('Royalty Report') . " Q{$model->invoice->quarter} {$model->invoice->year}",
             'bcc' => 'gmmkam123@gmail.com',
             'replyTo' => 'reports@blackbeatsmusic.com',
             'view' => [
@@ -665,7 +654,6 @@ class InvoiceItemsController extends Controller
             Yii::$app->session->setFlash('success', "Артисту {$model->artist->name} успішно відправлено звіт!");
         } else {
             throw new \RuntimeException("Артисту {$model->artist->name} не вдалось відправлено звіт! Зверніться до адміністратора.");
-          //  Yii::$app->session->setFlash('error', "Артисту {$model->artist->name} не вдалось відправлено звіт! Зверніться до адміністратора.");
         }
         
         $logs = $model->invoice->getInvoiceLogs(InvoiceLogType::EMAIL)->all();
@@ -681,9 +669,6 @@ class InvoiceItemsController extends Controller
         }
         
         return '<span class="glyphicon glyphicon-ok text-success" data-toggle="tooltip" data-placement="top" data-title=" ' . $titleLog. '"></span>';
-
-
-       // return $this->redirect(['invoice/view', 'id' => $model->invoice_id]);
     }
 
     public function actionApprove($id)
@@ -898,7 +883,7 @@ class InvoiceItemsController extends Controller
         $spreadSheet = new Spreadsheet();
         #region Баланс
         $workSheet = $spreadSheet->getActiveSheet();
-        $workSheet->setTitle('Баланс');
+        $workSheet->setTitle($model->artist->translateDocument('Баланс'));
         $workSheet->getColumnDimension('A')->setWidth(40);
         $workSheet->getColumnDimension('B')->setWidth(12);
         $workSheet->getColumnDimension('C')->setWidth(12);
@@ -947,7 +932,7 @@ class InvoiceItemsController extends Controller
             ->setRGB('000000'); // чорний
         
         $tempData = [];
-        $tempData[0] = ['Звіт за ' . $model->invoice->quarter . ' кв. ' . $model->invoice->year . ', ' . $model->artist->name];  // 1
+        $tempData[0] = [$model->artist->translateDocument('Звіт за ') . $model->invoice->quarter . $model->artist->translateDocument(' кв. ') . $model->invoice->year . ', ' . $model->artist->name];  // 1
         $workSheet->getStyle("A1:G1")
             ->getBorders()
             ->getBottom()
@@ -957,13 +942,13 @@ class InvoiceItemsController extends Controller
         
         $tempData[1] = []; // 2
         $tempData[2] = [ // 3
-            0 => 'Фінансовий звіт',
-            1 => 'Сума',
-            2 => 'Валюта',
-            3 => 'Сума',
-            4 => 'Валюта',
-            5 => 'Сума',
-            6 => 'Валюта',
+            0 => $model->artist->translateDocument('Фінансовий звіт'),
+            1 => $model->artist->translateDocument('Сума'),
+            2 => $model->artist->translateDocument('Валюта'),
+            3 => $model->artist->translateDocument('Сума'),
+            4 => $model->artist->translateDocument('Валюта'),
+            5 => $model->artist->translateDocument('Сума'),
+            6 => $model->artist->translateDocument('Валюта'),
         ];
         
         $i = 3;
@@ -1040,19 +1025,19 @@ class InvoiceItemsController extends Controller
             $tempData[$i] = []; // 15
             $i++; // 16
             $tempData[$i] = [// 16
-                0 => 'Перелік фінансових операцій',
+                0 => $model->artist->translateDocument('Перелік фінансовиих операцій'),
             ];
             $workSheet->getStyle('A' . $i)->getFont()->setBold(true);
             
             $i++; // 17
             
             $tempData[$i] = [
-                0 => 'Назва',
-                1 => 'Тип',
-                2 => 'Сума',
-                3 => 'Валюта',
-                4 => 'Квартал',
-                5 => 'Дата',
+                0 => $model->artist->translateDocument('Назва'),
+                1 => $model->artist->translateDocument('Тип'),
+                2 => $model->artist->translateDocument('Сума'),
+                3 => $model->artist->translateDocument('Валюта'),
+                4 => $model->artist->translateDocument('Квартал'),
+                5 => $model->artist->translateDocument('Дата'),
             ];
             
             $workSheet->getStyle("A$i:F$i")->getFont()->setBold(true);
@@ -1085,7 +1070,7 @@ class InvoiceItemsController extends Controller
             foreach ($income as $item) {
                 $tempData[$i] = [
                     0 => $item['description'],
-                    1 => $item['invoice_type_name'] == 'Баланс' ? 'Нарахування' : $item['invoice_type_name'],
+                    1 => $item['invoice_type_name'] == 'Баланс' ? $model->artist->translateDocument('Нарахування') : $item['invoice_type_name'],
                     2 => number_format($item['amount'], 2, '.', ''),
                     3 => $item['currency_name'],
                     4 => $model->invoice->quarter . ' кв.',
@@ -1100,7 +1085,7 @@ class InvoiceItemsController extends Controller
                     1 => $item['invoice_type_name'],
                     2 => number_format($item['amount'], 2, '.', ''),
                     3 => $item['currency_name'],
-                    4 => $model->invoice->quarter . ' кв.',
+                    4 => $model->invoice->quarter . $model->artist->translateDocument(' кв.'),
                     5 => $item['date_item'],
                 ];
                 $i++;
@@ -1122,9 +1107,9 @@ class InvoiceItemsController extends Controller
         // зберегти баланс на першому аркуші
         $workSheet->fromArray($tempData);
         
-        $workSheet->setCellValue('I3', 'Валюта');
-        $workSheet->setCellValue('J3', 'Сума');
-        $workSheet->setCellValue('K3', 'Курс');
+        $workSheet->setCellValue('I3', $model->artist->translateDocument('Валюта'));
+        $workSheet->setCellValue('J3', $model->artist->translateDocument('Сума'));
+        $workSheet->setCellValue('K3', $model->artist->translateDocument('Курс'));
         $workSheet->getStyle('I3')->getFont()->setBold(true);
         $workSheet->getStyle('J3')->getFont()->setBold(true);
         $workSheet->getStyle('K3')->getFont()->setBold(true);
@@ -1202,14 +1187,14 @@ class InvoiceItemsController extends Controller
             $spreadSheet->createSheet();
             $spreadSheet->setActiveSheetIndex(1);
             $workSheet = $spreadSheet->getActiveSheet();
-            $workSheet->setTitle('Звіт по трекам');
-            
+            $workSheet->setTitle($model->artist->translateDocument('Звіт по трекам'));
+
             $workSheet->getStyle('A1:I1')
                 ->getAlignment()
                 ->setWrapText(true)
                 ->setHorizontal(Alignment::HORIZONTAL_CENTER)
                 ->setVertical(Alignment::HORIZONTAL_CENTER);
-            
+
             $workSheet->getStyle("A1:I1")->getFill()
                 ->setFillType(Fill::FILL_SOLID)
                 ->getStartColor()
@@ -1226,7 +1211,7 @@ class InvoiceItemsController extends Controller
                 ->setBorderStyle(Border::BORDER_THIN)
                 ->getColor()
                 ->setRGB('000000'); // чорний
-            
+
             $workSheet->getStyle("A1:I" . (count($data2) + 1))
                 ->getBorders()
                 ->getOutline()
@@ -1243,20 +1228,20 @@ class InvoiceItemsController extends Controller
             $workSheet->getColumnDimension('H')->setWidth(12);
             $workSheet->getColumnDimension('I')->setWidth(12);
             $workSheet->getStyle('A1:I1')->getFont()->setBold(true);
-            
+
             $tempData = []; // порожній ряд
             $tempData[] = [
-                '№',
-                'Виконавець',
-                'Назва твору',
-                'Кіл-ть використань',
-                'Частка авторських (суміжних) прав, %',
-                'Загальна сума отриманої винагороди видавцем',
-                'Ставка винагороди правовласника за авторські та суміжні права, %',
-                'Сума Роялті',
-                'Валюта',
+                $model->artist->translateDocument('№'),
+                $model->artist->translateDocument('Виконавець'),
+                $model->artist->translateDocument('Назва твору'),
+                $model->artist->translateDocument('Кіл-ть використань'),
+                $model->artist->translateDocument('Частка авторських (суміжних) прав, %'),
+                $model->artist->translateDocument('Загальна сума отриманої винагороди видавцем'),
+                $model->artist->translateDocument('Ставка винагороди правовласника за авторські та суміжні права, %'),
+                $model->artist->translateDocument('Сума Роялті'),
+                $model->artist->translateDocument('Валюта'),
             ];
-            
+
             $i = 1;
             foreach ($data2 as $item) {
                 $tempData[] = [
@@ -1272,7 +1257,7 @@ class InvoiceItemsController extends Controller
                 ];
                 $i++;
             }
-            
+
             $workSheet->fromArray($tempData);
         }
         
@@ -1280,12 +1265,12 @@ class InvoiceItemsController extends Controller
             $spreadSheet->createSheet();
             $spreadSheet->setActiveSheetIndex(2);
             $workSheet = $spreadSheet->getActiveSheet();
-            $workSheet->setTitle('Розгорнутий звіт');
-            
+            $workSheet->setTitle($model->artist->translateDocument('Розгорнутий звіт'));
+
             $workSheet->getStyle('A1:N1')->getAlignment()->setWrapText(true)
                 ->setHorizontal(Alignment::HORIZONTAL_CENTER)
                 ->setVertical(Alignment::HORIZONTAL_CENTER);
-            
+
             $workSheet->getStyle("A1:N1")->getFill()
                 ->setFillType(Fill::FILL_SOLID)
                 ->getStartColor()
@@ -1302,14 +1287,14 @@ class InvoiceItemsController extends Controller
                 ->setBorderStyle(Border::BORDER_THIN)
                 ->getColor()
                 ->setRGB('000000'); // чорний
-            
+
             $workSheet->getStyle("A1:N" . (count($data) + 1))
                 ->getBorders()
                 ->getOutline()
                 ->setBorderStyle(Border::BORDER_THIN)
                 ->getColor()
                 ->setRGB('000000'); // чорний
-            
+
             $workSheet->getColumnDimension('A')->setWidth(6);
             $workSheet->getColumnDimension('B')->setWidth(12);
             $workSheet->getColumnDimension('C')->setWidth(12);
@@ -1326,25 +1311,25 @@ class InvoiceItemsController extends Controller
             $workSheet->getColumnDimension('N')->setWidth(15);
             $workSheet->getStyle('A1:N1')->getFont()->setBold(true);
             $workSheet->getRowDimension('1')->setRowHeight(100);
-            
+
             $tempData = [];
             $tempData[] = [
-                '№',
-                'Виконавець',
-                'Назва Твору',
-                'Кіл-ть Використань',
-                'Частка авторських (суміжних) прав, %',
-                'Загальна сума отриманої Винагороди Видавцем',
-                'Ставка Винагороди Правовласника за авторські та суміжні права, %',
-                'Сума Роялті правовласника',
-                'Валюта',
-                'Вид прав',
-                'Тип використання',
-                'Тип та/або ресурс використання',
-                'Країна',
-                'Період використання Об\'єкта',
+                $model->artist->translateDocument('№'),
+                $model->artist->translateDocument('Виконавець'),
+                $model->artist->translateDocument('Назва Твору'),
+                $model->artist->translateDocument('Кіл-ть Використань'),
+                $model->artist->translateDocument('Частка авторських (суміжних) прав, %'),
+                $model->artist->translateDocument('Загальна сума отриманої Винагороди Видавцем'),
+                $model->artist->translateDocument('Ставка Винагороди Правовласника за авторські та суміжні права, %'),
+                $model->artist->translateDocument('Сума Роялті правовласника'),
+                $model->artist->translateDocument('Валюта'),
+                $model->artist->translateDocument('Вид прав'),
+                $model->artist->translateDocument('Тип використання'),
+                $model->artist->translateDocument('Тип та/або ресурс використання'),
+                $model->artist->translateDocument('Країна'),
+                $model->artist->translateDocument('Період використання Об\'єкта'),
             ];
-            
+
             $i = 1;
             foreach ($data as $item) {
                 $tempData[] = [
@@ -1366,10 +1351,10 @@ class InvoiceItemsController extends Controller
                 $i++;
             }
             $workSheet->fromArray($tempData);
-            
+
             // перевірка чи суми співпадають
             /*$error_sum = [];
-            
+
             foreach ($sum as $key => $item) {
                 if (round($item) != round($sum2[$key])) {
                     $error_sum[$key] = [
@@ -1382,13 +1367,13 @@ class InvoiceItemsController extends Controller
                 Yii::$app->session->setFlash('error', ['message' => 'Суми в інвойсі і в звіті не співпадають.', $error_sum]);
                 return $this->redirect(['invoice/view', 'id' => $model->invoice_id, 'InvoiceItemsSearch'=>['artist_id' => $model->artist_id]]);
             }*/
-            
+
             /*
             $q = $j+2;
             $workSheet->setCellValue('A' . $q, 'Сума Роялті правовласника:');
             $workSheet->getStyle('A'. $q)->getFont()->setBold(true);
             $workSheet->mergeCells("A{$q}:C{$q}");
-            
+
             foreach ($sum2 as $key => $item) {
                  if(empty($item)) {
                      continue;
@@ -1399,7 +1384,7 @@ class InvoiceItemsController extends Controller
                 $workSheet->getStyle('A'. $temp)->getFont()->setBold(true);
                 $workSheet->getStyle('B'. $temp)->getFont()->setBold(true);
             }*/
-            
+
             // переключитись на 1 аркуш
             $spreadSheet->setActiveSheetIndex(0);
         }
@@ -1409,7 +1394,7 @@ class InvoiceItemsController extends Controller
 
     private function generateReportPartnerSpout(InvoiceItems $model, array $invoiceItemsIds = [], string $filename = '')
     {
-        $filePath = self::$homePage . 'xls/' .$filename;
+        $filePath = self::getHomePage() . 'xls/' .$filename;
 
         $writer = WriterEntityFactory::createXLSXWriter();
         $writer->openToFile($filePath);
@@ -1419,11 +1404,20 @@ class InvoiceItemsController extends Controller
         // ======================
 
         $headers = [
-            '№', 'Виконавець', 'Назва Твору', 'Кіл-ть Використань',
-            'Частка %', 'Сума', 'Ставка %',
-            'Роялті', 'Валюта', 'Тип прав',
-            'Тип використання', 'Платформа',
-            'Країна', 'Період'
+            $model->artist->translateDocument('№'),
+            $model->artist->translateDocument('Виконавець'),
+            $model->artist->translateDocument('Назва Твору'),
+            $model->artist->translateDocument('Кіл-ть Використань'),
+            $model->artist->translateDocument('Частка авторських (суміжних) прав, %'),
+            $model->artist->translateDocument('Загальна сума отриманої Винагороди Видавцем'),
+            $model->artist->translateDocument('Ставка Винагороди Правовласника за авторські та суміжні права, %'),
+            $model->artist->translateDocument('Сума Роялті правовласника'),
+            $model->artist->translateDocument('Валюта'),
+            $model->artist->translateDocument('Вид прав'),
+            $model->artist->translateDocument('Тип використання'),
+            $model->artist->translateDocument('Тип та/або ресурс використання'),
+            $model->artist->translateDocument('Країна'),
+            $model->artist->translateDocument('Період використання Об\'єкта'),
         ];
 
 // ✅ стиль header
@@ -1539,15 +1533,15 @@ class InvoiceItemsController extends Controller
         exit;
 
 
-        return basename($filePath);
+       // return basename($filePath);
     }
 
     private function generateReportPartner(InvoiceItems $model, array $invoiceItemsIds = [])
     {
         $spreadSheet = new Spreadsheet();
         $workSheet = $spreadSheet->getActiveSheet();
-        $workSheet->setTitle('Звіт по акту');
-        
+        $workSheet->setTitle($model->artist->translateDocument('Звіт по акту'));
+
         // OPTIMIZATION: Column widths as array for batch setting
         $columnWidths = [
             'A' => 10, 'B' => 15, 'C' => 15, 'D' => 13, 'E' => 11, 'F' => 12,
@@ -1564,10 +1558,20 @@ class InvoiceItemsController extends Controller
         $workSheet->getRowDimension('1')->setRowHeight(100);
 
         $headers = [
-            '№', 'Виконавець', 'Назва Твору', 'Кіл-ть Використань', 'Частка авторських (суміжних) прав, %',
-            'Загальна сума отриманої Винагороди Видавцем', 'Ставка Винагороди Правовласника за авторські та суміжні права, %',
-            'Сума Роялті правовласника', 'Валюта', 'Вид прав', 'Тип використання', 'Тип та/або ресурс використання',
-            'Країна', 'Період використання Об\'єкта',
+            $model->artist->translateDocument('№'),
+            $model->artist->translateDocument('Виконавець'),
+            $model->artist->translateDocument('Назва Твору'),
+            $model->artist->translateDocument('Кіл-ть Використань'),
+            $model->artist->translateDocument('Частка авторських (суміжних) прав, %'),
+            $model->artist->translateDocument('Загальна сума отриманої Винагороди Видавцем'),
+            $model->artist->translateDocument('Ставка Винагороди Правовласника за авторські та суміжні права, %'),
+            $model->artist->translateDocument('Сума Роялті правовласника'),
+            $model->artist->translateDocument('Валюта'),
+            $model->artist->translateDocument('Вид прав'),
+            $model->artist->translateDocument('Тип використання'),
+            $model->artist->translateDocument('Тип та/або ресурс використання'),
+            $model->artist->translateDocument('Країна'),
+            $model->artist->translateDocument('Період використання Об\'єкта'),
         ];
 
         $workSheet->fromArray($headers, null, "A1");
@@ -1619,9 +1623,9 @@ class InvoiceItemsController extends Controller
                 $item['percentage_label'],
                 $item['amount_2'],
                 $item['currency_name'],
-                $item['prav1'],
-                $item['prav2'],
-                $item['platform'],
+                $model->artist->translateDocument((string)$item['prav1']),
+                $model->artist->translateDocument((string)$item['prav2']),
+                $model->artist->translateDocument((string)$item['platform']),
                 $item['country'],
                 DateFormat::datumUah2($item['date_report']),
             ];
@@ -1666,9 +1670,9 @@ class InvoiceItemsController extends Controller
                     $item['percentage_label'],
                     $item['amount_2'],
                     $item['currency_name'],
-                    $item['prav1'],
-                    $item['prav2'],
-                    $item['platform'],
+                    $model->artist->translateDocument((string)$item['prav1']),
+                    $model->artist->translateDocument((string)$item['prav2']),
+                    $model->artist->translateDocument((string)$item['platform']),
                     $item['country'],
                     DateFormat::datumUah2($item['date_report']),
                 ];
@@ -1697,34 +1701,24 @@ class InvoiceItemsController extends Controller
             $this->addTotalsRow($workSheet, $row, $sum, $curs);
         }
 
-        //if (!empty($tracks)) {
-           // $trackRows = [];
-           // $row = 2;
-
-           // foreach ($tracks as $idx => $item) {
-
-          //  }
-
-            // Batch insert all track rows
-           // $workSheet->fromArray($trackRows, null, "A2");
-            //$row = count($trackRows) + 2;
-
-            // Add totals row
-           // $this->addTotalsRow($workSheet, $row, $sum, $curs);
-      //  }
-        
         // OPTIMIZATION: Second sheet data
         $spreadSheet->createSheet();
         $spreadSheet->setActiveSheetIndex(1);
         $workSheet = $spreadSheet->getActiveSheet();
-        $workSheet->setTitle('Звіт по артистам');
+        $workSheet->setTitle($model->artist->translateDocument('Звіт по артистам'));
         $workSheet->getColumnDimension('A')->setWidth(20);
         $workSheet->getColumnDimension('B')->setWidth(15);
         $workSheet->getColumnDimension('C')->setWidth(10);
         $workSheet->getStyle('A1:C1')->getFont()->setBold(true);
         
         // Convert flat artist sums back to array format
-        $tempData2 = [['Виконавець', 'Сума Роялті', 'Валюта']];
+        $tempData2 = [
+            [
+                $model->artist->translateDocument('Виконавець'),
+                $model->artist->translateDocument('Сума Роялті'),
+                $model->artist->translateDocument('Валюта')
+            ]
+        ];
         foreach ($artistSums as $artistSum) {
             $tempData2[] = [$artistSum['artist_name'], $artistSum['amount'], $artistSum['currency_name']];
         }
@@ -2024,7 +2018,7 @@ class InvoiceItemsController extends Controller
     private function getReportData(int $invoice_id, int $artist_id, bool $groupBy = false): \yii\db\DataReader|array
     {
         if ($groupBy) {
-            $queryGroupBy = ",
+            $queryGroupBy = ", 
             	sum(ari.count) as count,
                	ROUND(sum(IF(IFNULL(ii2.artist_percentage, t2p.percentage) != 100, IFNULL(ii2.artist_percentage, t2p.percentage)/ 100 * ari.amount, ari.amount)), 5) as amount,
                	ROUND(sum(IF(IFNULL(ii2.artist_percentage, t2p.percentage) != 100, IFNULL(ii2.artist_percentage, t2p.percentage) / 100 * ari.amount, ari.amount) * (IFNULL(ii2.percentage, t2p2.percentage) / 100)), 5) as amount_2
@@ -2036,7 +2030,7 @@ class InvoiceItemsController extends Controller
              ORDER BY ari.track_id ASC
             ";
         } else {
-            $queryGroupBy = ",
+            $queryGroupBy = ", 
             	ari.count,
              	ROUND(IF(IFNULL(ii2.artist_percentage, t2p.percentage) != 100, IFNULL(ii2.artist_percentage, t2p.percentage) / 100 * ari.amount, ari.amount), 5) as amount,
                 ROUND(IF(IFNULL(ii2.artist_percentage, t2p.percentage) != 100, IFNULL(ii2.artist_percentage, t2p.percentage) / 100 * ari.amount, ari.amount) * (IFNULL(ii2.percentage, t2p2.percentage) / 100), 5) as amount_2

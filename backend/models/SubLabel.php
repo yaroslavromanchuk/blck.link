@@ -2,6 +2,8 @@
 
 namespace backend\models;
 
+use common\components\ArtistDocumentTranslator;
+use common\models\Lang;
 use Yii;
 
 /**
@@ -31,6 +33,8 @@ use Yii;
  * @property string $tov_name
  * @property int $label_type_id
  * @property bool $migrated
+ * @property int $lang_id
+ * @property Lang $lang
  *
  * @property User $user
  */
@@ -56,7 +60,7 @@ class SubLabel extends \yii\db\ActiveRecord
             [['url'], 'string', 'max' => 50],
             [['description', 'logo'], 'string', 'max' => 255],
             [['url'], 'unique'],
-            [['edrpou', 'mfo',  'percentage', 'percentage_distribution', 'telegram_id', 'label_type_id', 'active', 'migrated'], 'integer'],
+            [['edrpou', 'mfo',  'percentage', 'percentage_distribution', 'telegram_id', 'label_type_id', 'active', 'migrated', 'lang_id'], 'integer'],
             [['ipn'], 'string', 'length' => 10],
             [['bank'], 'string', 'max' => 150],
             [['iban'], 'string', 'length' => 29],
@@ -99,7 +103,13 @@ class SubLabel extends \yii\db\ActiveRecord
             'percentage_distribution' => Yii::t('app', 'Дистрибуція %'),
             'telegram_id' => Yii::t('app', 'ТелеграмID'),
             'migrated' => Yii::t('app', 'Міграція'),
+            'lang_id' => Yii::t('app', 'Мова'),
         ];
+    }
+
+    public function getLang(): \yii\db\ActiveQuery
+    {
+        return $this->hasOne(Lang::class, ['id' => 'lang_id']);
     }
 
     public function getType(): \yii\db\ActiveQuery
@@ -110,5 +120,19 @@ class SubLabel extends \yii\db\ActiveRecord
     public function getArtists(): \yii\db\ActiveQuery
     {
         return $this->hasMany(Artist::class, ['label_id' => 'id']);
+    }
+
+    public function translateDocument(string $source, array $params = []): string
+    {
+        return ArtistDocumentTranslator::t($this, $source, $params);
+    }
+
+    public function getDocumentLanguage(): \common\models\Lang
+    {
+        return ArtistDocumentTranslator::language($this);
+    }
+    public function getDocumentLanguageCode(): string
+    {
+        return ArtistDocumentTranslator::languageCode($this);
     }
 }

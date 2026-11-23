@@ -25,9 +25,9 @@ class MessageController extends Controller
                 'class' => AccessControl::class,
                 'rules' => [
                     [
-                        'actions' => ['index', 'view', 'create', 'update', 'delete'],
+                        'actions' => ['index', 'view', 'create', 'update', 'delete', 'inline-update'],
                         'allow' => true,
-                        'roles' => ['admin'],
+                        'roles' => ['admin', 'manager'],
 
                     ],
                 ],
@@ -36,6 +36,7 @@ class MessageController extends Controller
                 'class' => VerbFilter::class,
                 'actions' => [
                     'delete' => ['POST'],
+                    'inline-update' => ['POST'],
                 ],
             ],
         ];
@@ -135,5 +136,34 @@ class MessageController extends Controller
         }
 
         throw new NotFoundHttpException(Yii::t('app', 'The requested page does not exist.'));
+    }
+
+    public function actionInlineUpdate()
+    {
+        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+
+        $id = (int)Yii::$app->request->post('id');
+        $translate = Yii::$app->request->post('translate');
+        $model = $this->findModel($id);
+
+        $model->translate = is_string($translate) ? trim($translate) : '';
+        if (!$model->validate(['translate'])) {
+            return [
+                'success' => false,
+                'errors' => $model->getFirstErrors(),
+            ];
+        }
+
+        if (!$model->save(false, ['translate'])) {
+            return [
+                'success' => false,
+                'errors' => ['translate' => Yii::t('app', 'Не вдалося зберегти переклад.')],
+            ];
+        }
+
+        return [
+            'success' => true,
+            'translate' => $model->translate,
+        ];
     }
 }

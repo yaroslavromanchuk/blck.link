@@ -6,6 +6,7 @@ use backend\models\AggregatorTypeUse;
 use backend\models\Currency;
 use backend\models\Ownership;
 use backend\models\OwnershipType;
+use backend\models\SubLabel;
 use yii\helpers\ArrayHelper;
 use yii\helpers\Html;
 use yii\widgets\ActiveForm;
@@ -19,44 +20,57 @@ use kartik\select2\Select2;
 <div class="aggregator-form row">
 
     <?php $form = ActiveForm::begin(); ?>
+    <?php
+    $documentLabel = SubLabel::findOne((int)Yii::$app->user->identity->label_id);
+    $translate = static fn(string $source): string => $documentLabel instanceof SubLabel
+        ? $documentLabel->translateDocument($source)
+        : $source;
+    $translatedMap = static function(array $items) use ($translate): array {
+        return array_combine(
+            array_keys($items),
+            array_map(static fn(string $name): string => $translate($name), array_values($items))
+        );
+    };
+    ?>
     <?= $form->field($model, 'label_id')->hiddenInput(['value'=>Yii::$app->user->identity->label_id])->label(false)?>
     <div class="col-sm-12 col-md-2">
         <?= $form->field($model, 'name')->textInput(['maxlength' => true]) ?>
     </div>
     <div class="col-sm-12 col-md-2">
     <?= $form->field($model, 'currency_id')->dropDownList(
-        ArrayHelper::map(Currency::find()->all(), 'currency_id', 'currency_name'),
-       // ['prompt' => 'Валюта']
+        $translatedMap(ArrayHelper::map(Currency::find()->all(), 'currency_id', 'currency_name')),
+
     ) ?>
     </div>
     <div class="col-sm-12 col-md-2">
         <?= $form->field($model, 'service_type_id')->dropDownList(
-            ArrayHelper::map(AggregatorServiceType::find()->all(), 'service_type_id', 'name'),
-        // ['prompt' => 'Тип діяльності']
+            $translatedMap(ArrayHelper::map(AggregatorServiceType::find()->all(), 'service_type_id', 'name')),
+
         ) ?>
     </div>
     <div class="col-sm-12 col-md-2">
     <?= $form->field($model, 'ownership_type')->dropDownList(
-        ArrayHelper::map(Ownership::find()->all(), 'id', 'name'),
-      //  ['prompt' => 'Тип Власності']
+        $translatedMap(ArrayHelper::map(Ownership::find()->all(), 'id', 'name')),
+
     ) ?>
     </div>
     <div class="col-sm-12 col-md-2">
     <?= $form->field($model, 'type_use_id')->dropDownList(
-        ArrayHelper::map(AggregatorTypeUse::find()->all(), 'type_id', 'name'),
-       // ['prompt' => 'Русурс зі звіту']
+        $translatedMap(ArrayHelper::map(AggregatorTypeUse::find()->all(), 'type_id', 'name')),
+
     ) ?>
     </div>
     <div class="col-sm-12 col-md-2">
     <?= $form->field($model, 'service_id')->dropDownList(
-        ArrayHelper::map(AggregatorService::find()->all(), 'service_id', 'name'),
-        ['prompt' => 'Брати зі звіту']
+        $translatedMap(ArrayHelper::map(AggregatorService::find()->all(), 'service_id', 'name')),
+
+        ['prompt' => $translate('Брати зі звіту')]
     ) ?>
     </div>
     <div class="col-sm-12 col-md-12">
         <?= $form->field($model, 'ownership_types')->checkboxList(
-            ArrayHelper::map(OwnershipType::find()->all(), 'id', 'name'),
-        // ['prompt' => 'Тип Виконання']
+            $translatedMap(ArrayHelper::map(OwnershipType::find()->all(), 'id', 'name')),
+
         ) ?>
     </div>
     <div class="col-sm-12 col-md-3">
