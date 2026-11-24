@@ -1521,81 +1521,38 @@ class InvoiceItemsController extends Controller
         $workSheet->getColumnDimension('F')->setWidth(12);
         $workSheet->getColumnDimension('G')->setWidth(12);
 
-        // Branded logo in the header area.
-        $logoPath = Yii::getAlias('@backend/web') . '/img/email_label.jpeg';
-        $logoSource = null;
-
-        if (is_file($logoPath)) {
-            $logoSource = $logoPath;
-        }
+        /*
+         * Banner image is temporarily disabled.
+         * Keep this block for quick restore if needed.
+         *
+         * $logoPath = Yii::getAlias('@backend/web') . '/img/email_label.jpeg';
+         * ... image loading + Drawing setup ...
+         */
 
         $workSheet->mergeCells('A1:G1');
-        $workSheet->getRowDimension(1)->setRowHeight(90);
-
-        if ($logoSource !== null) {
-            $defaultFont = $spreadSheet->getDefaultStyle()->getFont();
-            $bannerWidth = 0;
-            foreach (['A', 'B', 'C', 'D', 'E', 'F', 'G'] as $column) {
-                $bannerWidth += \PhpOffice\PhpSpreadsheet\Shared\Drawing::cellDimensionToPixels(
-                    $workSheet->getColumnDimension($column)->getWidth(),
-                    $defaultFont
-                );
-            }
-            $bannerHeight = \PhpOffice\PhpSpreadsheet\Shared\Drawing::pointsToPixels(
-                $workSheet->getRowDimension(1)->getRowHeight()
-            );
-            $imageSize = @getimagesize($logoSource);
-            $imageWidth = (int)($imageSize[0] ?? 0);
-            $imageHeight = (int)($imageSize[1] ?? 0);
-
-            $logo = new Drawing();
-            $logo->setName('Label logo');
-            $logo->setDescription('Label logo');
-            $logo->setPath($logoSource);
-            $logo->setResizeProportional(true);
-
-            if ($imageWidth > 0 && $imageHeight > 0 && $bannerWidth > 0 && $bannerHeight > 0) {
-                $scale = min($bannerWidth / $imageWidth, $bannerHeight / $imageHeight);
-                $targetWidth = (int)max(1, floor($imageWidth * $scale));
-                $targetHeight = (int)max(1, floor($imageHeight * $scale));
-                $logo->setWidth($targetWidth);
-                $logo->setHeight($targetHeight);
-                $logo->setOffsetX((int)max(0, floor(($bannerWidth - $targetWidth) / 2)));
-                $logo->setOffsetY((int)max(0, floor(($bannerHeight - $targetHeight) / 2)));
-            } else {
-                $logo->setHeight($bannerHeight);
-                $logo->setOffsetX(0);
-                $logo->setOffsetY(0);
-            }
-
-            $logo->setCoordinates('A1');
-            $logo->setWorksheet($workSheet);
-        }
-
-        $workSheet->mergeCells('A2:G2');
-        $workSheet->getRowDimension(2)->setRowHeight(38);
-        $workSheet->getStyle('A2:G2')->getFont()->setBold(true)->setSize(16);
-        $workSheet->getStyle('A2:G2')->getAlignment()
+        $workSheet->getRowDimension(1)->setRowHeight(38);
+        $workSheet->getStyle('A1:G1')->getFont()->setBold(true)->setSize(16);
+        $workSheet->getStyle('A1:G1')->getAlignment()
             ->setHorizontal(Alignment::HORIZONTAL_LEFT)
             ->setVertical(Alignment::VERTICAL_CENTER);
-        $workSheet->getStyle('A2:G2')
+        $workSheet->getStyle('A1:G1')
             ->getFill()
             ->setFillType(Fill::FILL_SOLID)
             ->getStartColor()
             ->setARGB('E6E6E6');
-        $workSheet->getStyle('A4:G4')->getFont()->setBold(true);
-        $workSheet->getStyle('A4:G4')
+        $workSheet->getStyle('A3:G3')->getFont()->setBold(true);
+        $workSheet->getStyle('A3:G3')
             ->getFill()
             ->setFillType(Fill::FILL_SOLID)
             ->getStartColor()
             ->setRGB('D9D9D9');
-        $workSheet->getStyle('A4:G4')
+        $workSheet->getStyle('A3:G3')
             ->getBorders()
             ->getOutline()
             ->setBorderStyle(Border::BORDER_THIN)
             ->getColor()
             ->setRGB('000000');
-        $workSheet->getStyle('A4:G4')
+        $workSheet->getStyle('A3:G3')
             ->getBorders()
             ->getInside()
             ->setBorderStyle(Border::BORDER_THIN)
@@ -1604,7 +1561,7 @@ class InvoiceItemsController extends Controller
 
         $balanceData = [];
         $balanceData[0] = [$model->artist->translateDocument('Звіт за ') . $model->invoice->quarter . $model->artist->translateDocument(' кв. ') . $model->invoice->year . ', ' . $model->artist->name];
-        $workSheet->getStyle('A2:G2')
+        $workSheet->getStyle('A1:G1')
             ->getBorders()
             ->getBottom()
             ->setBorderStyle(Border::BORDER_THIN)
@@ -1690,7 +1647,7 @@ class InvoiceItemsController extends Controller
             $balanceRow++;
         }
 
-        $balanceLastRow = max(3, $balanceRow) + 1;
+        $balanceLastRow = max(3, $balanceRow);
         $workSheet->getStyle('A' . $balanceLastRow . ':G' . $balanceLastRow)->getFont()->setBold(true);
         $workSheet->getStyle('A' . $balanceLastRow . ':G' . $balanceLastRow)
             ->getBorders()
@@ -1698,7 +1655,7 @@ class InvoiceItemsController extends Controller
             ->setBorderStyle(Border::BORDER_THIN)
             ->getColor()
             ->setRGB('000000');
-        $workSheet->getStyle('A4:G' . $balanceLastRow)
+        $workSheet->getStyle('A3:G' . $balanceLastRow)
             ->getBorders()
             ->getOutline()
             ->setBorderStyle(Border::BORDER_THIN)
@@ -1793,18 +1750,18 @@ class InvoiceItemsController extends Controller
             }
         }
 
-        $workSheet->fromArray($balanceData, null, 'A2');
-        $workSheet->setCellValue('I4', $model->artist->translateDocument('Валюта'));
-        $workSheet->setCellValue('J4', $model->artist->translateDocument('Сума'));
-        $workSheet->setCellValue('K4', $model->artist->translateDocument('Курс'));
-        $workSheet->getStyle('I4:K4')->getFont()->setBold(true);
-        $workSheet->getStyle('I4:K4')->getFill()
+        $workSheet->fromArray($balanceData, null, 'A1');
+        $workSheet->setCellValue('I3', $model->artist->translateDocument('Валюта'));
+        $workSheet->setCellValue('J3', $model->artist->translateDocument('Сума'));
+        $workSheet->setCellValue('K3', $model->artist->translateDocument('Курс'));
+        $workSheet->getStyle('I3:K3')->getFont()->setBold(true);
+        $workSheet->getStyle('I3:K3')->getFill()
             ->setFillType(Fill::FILL_SOLID)
             ->getStartColor()
             ->setRGB('D9D9D9');
-        $workSheet->getStyle('I4:K4')->getBorders()->getOutline()->setBorderStyle(Border::BORDER_THIN);
+        $workSheet->getStyle('I3:K3')->getBorders()->getOutline()->setBorderStyle(Border::BORDER_THIN);
 
-        $x = 5;
+        $x = 4;
         foreach ($sum as $currency => $value) {
             if ($value > 0) {
                 $workSheet->setCellValue('I' . $x, $currency);
@@ -1816,12 +1773,12 @@ class InvoiceItemsController extends Controller
             }
         }
 
-        if ($x > 5) {
-            $workSheet->getStyle('I5:K' . ($x - 1))->getBorders()->getOutline()->setBorderStyle(Border::BORDER_THIN);
-            $workSheet->getStyle('I5:K' . ($x - 1))->getBorders()->getInside()->setBorderStyle(Border::BORDER_THIN);
+        if ($x > 4) {
+            $workSheet->getStyle('I4:K' . ($x - 1))->getBorders()->getOutline()->setBorderStyle(Border::BORDER_THIN);
+            $workSheet->getStyle('I4:K' . ($x - 1))->getBorders()->getInside()->setBorderStyle(Border::BORDER_THIN);
         }
 
-        $workSheet->setSelectedCell('A2');
+        $workSheet->setSelectedCell('A1');
 
         return [
             'sum' => $sum,
