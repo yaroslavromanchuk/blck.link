@@ -28,9 +28,11 @@ class ArtistBalanceQueryBuilder
                 LEFT JOIN `invoice` i ON i.invoice_id = ii.invoice_id 
             WHERE i.currency_id = :currency_id
               AND ii.artist_id = :artist_id 
-              AND i.quarter < :quarter 
-              AND i.year <= :year
-              AND i.invoice_status_id = 2
+              AND (
+                    i.year < :year
+                    OR (i.year = :year AND i.quarter < :quarter)
+              )
+              AND i.invoice_status_id IN (2, 4)
         ")
             ->bindValue(':artist_id', $artistId)
             ->bindValue(':currency_id', $currencyId)
@@ -242,7 +244,12 @@ class ArtistBalanceQueryBuilder
      */
     public static function getPayoutAmountForPeriod(int $artistId, int $currencyId, int $quarter, int $year, ?int $excludeInvoiceId = null): float
     {
-        $cmd = Yii::$app->db->createCommand("
+        $excludeSql = '';
+        if (!is_null($excludeInvoiceId)) {
+            $excludeSql = ' AND i.invoice_id != :exclude_invoice_id';
+        }
+
+        $cmd = Yii::$app->db->createCommand(" 
             SELECT ABS(SUM(ii.amount)) as pay 
             FROM `invoice_items` ii 
                 INNER JOIN `invoice` i ON i.invoice_id = ii.invoice_id 
@@ -252,6 +259,7 @@ class ArtistBalanceQueryBuilder
               AND ii.artist_id = :artist_id 
               AND i.quarter = :quarter 
               AND i.year = :year
+              {$excludeSql}
         ")
             ->bindValue(':artist_id', $artistId)
             ->bindValue(':quarter', $quarter)
@@ -259,7 +267,7 @@ class ArtistBalanceQueryBuilder
             ->bindValue(':year', $year);
 
         if (!is_null($excludeInvoiceId)) {
-            $cmd->andWhere(['!=', 'i.invoice_id', $excludeInvoiceId]);
+            $cmd->bindValue(':exclude_invoice_id', $excludeInvoiceId);
         }
 
         return (float) ($cmd->queryScalar() ?? 0);

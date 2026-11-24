@@ -43,8 +43,8 @@ class ArtistBalanceService
         $balance->currencyName = $currency?->currency_name ?? '';
 
         // Отримати тип артиста
-        $artist = Artist::findOne($artistId);
-        $isPartner = $artist && $artist->artist_type_id == 2;  // 2 = Partner
+        $balance->artist = Artist::findOne($artistId);
+        $isPartner = $balance->artist && $balance->artist->artist_type_id == 2;  // 2 = Partner
 
         // Розрахувати всі суми
         $balance->previousBalance = $this->queryBuilder::getPreviousBalance($artistId, $currencyId, $quarter, $year);
@@ -151,6 +151,22 @@ class ArtistBalanceService
         $balance = $this->calculateBalance($artistId, $quarter, $year, $currencyId, $invoiceId);
         $balance->currencyName = $currencyName;
 
+        // Заповнити значення
+        $valuesByType = [
+            1 => $balance->previousBalance,
+            2 => $balance->costs,
+            3 => $balance->advance,
+            4 => $balance->balanceBeforePayout,
+            // Report-level total income = artist + features + label shares.
+            5 => $balance->directIncome + $balance->featureIncome + $balance->labelIncome,
+            6 => $balance->directIncome,
+            7 => $balance->featureIncome,
+            8 => $balance->labelIncome,
+            10 => $balance->balanceBeforePayout,
+            11 => $balance->amountToPay,
+            13 => $balance->paidAmount,
+        ];
+
         $result = [];
         $balanceTypes = ArtistLogType::find()
             ->where(['active' => 1])
@@ -159,25 +175,17 @@ class ArtistBalanceService
 
         // Ініціалізувати результат з типів балансу з БД
         foreach ($balanceTypes as $type) {
+            if ($balance->artist->artist_type_id == 2 && $type->log_type_id == 7) {
+                // Для Partner не показуємо Feature Income
+                continue;
+            }
+
             $result[$type->log_type_id] = [
-                'name' => $type->name,
-                'value' => 0,
+                'name' => $balance->artist->translateDocument($type->name),
+                'value' => $valuesByType[$type->log_type_id] ?? 0,
                 'currency_name' => $currencyName,
             ];
         }
-
-        // Заповнити значення
-        $result[1]['value'] = $balance->previousBalance;
-        $result[2]['value'] = $balance->costs;
-        $result[3]['value'] = $balance->advance;
-        $result[4]['value'] = $balance->balanceBeforePayout;
-        $result[5]['value'] = $balance->totalIncome;
-        $result[6]['value'] = $balance->directIncome;
-        $result[7]['value'] = $balance->featureIncome;
-        $result[8]['value'] = $balance->labelIncome;
-        $result[10]['value'] = $balance->balanceBeforePayout;
-        $result[11]['value'] = $balance->amountToPay;
-        $result[13]['value'] = $balance->paidAmount;
 
         return $result;
     }

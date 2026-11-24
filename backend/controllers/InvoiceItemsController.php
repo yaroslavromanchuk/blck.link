@@ -4,6 +4,7 @@ namespace backend\controllers;
 
 use backend\helpers\InvoiceAllocationService;
 use backend\models\AggregatorReportItem;
+use backend\services\ArtistBalanceService;
 use backend\services\ArtistPayoutReportService;
 use backend\models\Artist;
 use backend\models\ArtistLogType;
@@ -30,6 +31,7 @@ use PhpOffice\PhpSpreadsheet\Reader\Html;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Worksheet\Drawing;
 use Yii;
 use backend\models\InvoiceItems;
 use backend\models\InvoiceItemsSearch;
@@ -296,6 +298,7 @@ class InvoiceItemsController extends Controller
     public function actionPdfBalance(int $id, $redirect = true)
     {
         $model = $this->findModel($id);
+        $artistBalanceService = new ArtistBalanceService();
 
         $date = new \DateTime($model->invoice->date_pay);
         $name = Str::transliterate($model->artist->name);
@@ -316,7 +319,7 @@ class InvoiceItemsController extends Controller
             'pdf/balance/view',
             [
                 'model' => $model,
-                'all' => Artist::getLog(
+                'all' => $artistBalanceService->getBalanceForReport(
                     $model->artist_id,
                     $model->invoice->quarter,
                     $model->invoice->year,
@@ -379,6 +382,7 @@ class InvoiceItemsController extends Controller
     public function actionExportBalance(int $id)
     {
         $model = $this->findModel($id);
+        $artistBalanceService = new ArtistBalanceService();
         $date = new \DateTime($model->invoice->date_pay);
         $name = Str::transliterate($model->artist->name);
         $languageCode = $model->artist->getDocumentLanguageCode();
@@ -398,7 +402,7 @@ class InvoiceItemsController extends Controller
             'pdf/balance/view',
             [
                 'model' => $model,
-                'all' => Artist::getLog(
+                'all' => $artistBalanceService->getBalanceForReport(
                     $model->artist_id,
                     $model->invoice->quarter,
                     $model->invoice->year,
@@ -575,14 +579,14 @@ class InvoiceItemsController extends Controller
         // Force fresh export each time and avoid stale file_exists/stat cache behavior.
         clearstatcache(true, $filePath);
 
-        if (file_exists($filePath) === true) {
+      /*  if (file_exists($filePath) === true) {
             if ($redirect === false) {
                 return $filename;
             }
 
             header("Location: /xls/".$filename);
             exit;
-        }
+        }*/
         
         $spreadSheet = $model->artist->type_id == 1 ? $this->generateReportInternalArtist($model, $invoiceItemsIds) : $this->generateReportPartner($model, $invoiceItemsIds);
         
@@ -882,252 +886,10 @@ class InvoiceItemsController extends Controller
     {
         $spreadSheet = new Spreadsheet();
         #region Баланс
-        $workSheet = $spreadSheet->getActiveSheet();
-        $workSheet->setTitle($model->artist->translateDocument('Баланс'));
-        $workSheet->getColumnDimension('A')->setWidth(40);
-        $workSheet->getColumnDimension('B')->setWidth(12);
-        $workSheet->getColumnDimension('C')->setWidth(12);
-        $workSheet->getColumnDimension('D')->setWidth(12);
-        $workSheet->getColumnDimension('E')->setWidth(12);
-        $workSheet->getColumnDimension('F')->setWidth(12);
-        $workSheet->getColumnDimension('G')->setWidth(12);
-        
-        $workSheet->getStyle('A1:G1')->getFont()->setBold(true);
-        $workSheet->getStyle('A1:G1')
-            ->getFill()
-            ->setFillType(Fill::FILL_SOLID)
-            ->getStartColor()
-            ->setARGB('BFBFBF');;
-        $workSheet->getStyle('A3:G3')->getFont()->setBold(true);
-        $workSheet->getStyle('A14:G14')->getFont()->setBold(true);
-        $workSheet->getStyle('A3:G3')
-            ->getFill()
-            ->setFillType(Fill::FILL_SOLID)
-            ->getStartColor()
-            ->setRGB('BFBFBF');
-        $workSheet->getStyle("A3:G3")
-            ->getBorders()
-            ->getOutline()
-            ->setBorderStyle(Border::BORDER_THIN)
-            ->getColor()
-            ->setRGB('000000'); // чорний
-        $workSheet->getStyle("A3:G3")
-            ->getBorders()
-            ->getInside()
-            ->setBorderStyle(Border::BORDER_THIN)
-            ->getColor()
-            ->setRGB('A5A5A5'); // сірий
-        $workSheet->getStyle("A14:G14")
-            ->getBorders()
-            ->getOutline()
-            ->setBorderStyle(Border::BORDER_THIN)
-            ->getColor()
-            ->setRGB('000000'); // чорний
-        
-        $workSheet->getStyle("A3:G14")
-            ->getBorders()
-            ->getOutline()
-            ->setBorderStyle(Border::BORDER_THIN)
-            ->getColor()
-            ->setRGB('000000'); // чорний
-        
-        $tempData = [];
-        $tempData[0] = [$model->artist->translateDocument('Звіт за ') . $model->invoice->quarter . $model->artist->translateDocument(' кв. ') . $model->invoice->year . ', ' . $model->artist->name];  // 1
-        $workSheet->getStyle("A1:G1")
-            ->getBorders()
-            ->getBottom()
-            ->setBorderStyle(Border::BORDER_THIN)
-            ->getColor()
-            ->setRGB('000000'); // чорний
-        
-        $tempData[1] = []; // 2
-        $tempData[2] = [ // 3
-            0 => $model->artist->translateDocument('Фінансовий звіт'),
-            1 => $model->artist->translateDocument('Сума'),
-            2 => $model->artist->translateDocument('Валюта'),
-            3 => $model->artist->translateDocument('Сума'),
-            4 => $model->artist->translateDocument('Валюта'),
-            5 => $model->artist->translateDocument('Сума'),
-            6 => $model->artist->translateDocument('Валюта'),
-        ];
-        
-        $i = 3;
-        
-         $sum = ['USD'=>0, 'EUR'=>0, 'UAH'=>0];//['USD'=>0, 'EUR'=>0, 'UAH'=>0];
-         // $sum2 = ['USD'=>0, 'EUR'=>0, 'UAH'=>0];
-        // $costs = [];
-        $balance = [];
-        //$sum = [];
-        $curs = [
-            'EUR' => 1,
-            'UAH' => 1,
-            'USD' => 1,
-        ];
-        
-        foreach ($invoiceItemsIds['items'] as $id) {
-            $_model = ($id == $model->id) ? $model : $this->findModel($id);
-            $curs[$_model->invoice->currency->currency_name] = $_model->invoice->exchange;
-            $sum[$_model->invoice->currency->currency_name] = round(($_model->amount < 0 ? $_model->amount * -1 : $_model->amount), 2);
-            
-            $balance[$_model->invoice->currency_id] = Artist::getLog(
-                $_model->artist_id,
-                $_model->invoice->quarter,
-                $_model->invoice->year,
-                $_model->invoice->currency_id,
-                $_model->invoice->currency->currency_name,
-                $_model->invoice_id
-            );
-        }
-
-        $balanceKeys = array_keys($balance);
-
-        $diff = array_diff([1, 2, 3], $balanceKeys);
-        if ($diff) {
-            foreach ($diff as $item) {
-                $balance[$item] = Artist::getLog(
-                    $model->artist_id,
-                    $model->invoice->quarter,
-                    $model->invoice->year,
-                    $item,
-                    ($item == 1 ? 'EUR' : ($item == 2 ? 'UAH' : 'USD')),
-                );
-            }
-        }
-        
-        $cur = 1;
-        
-        if (!isset($balance[1])) {
-            if (isset($balance[2])) {
-                $cur = 2;
-            } else {
-                $cur = 3;
-            }
-        }
-        foreach ($balance[$cur] as $key => $item) { // 1 - EURO
-            $tempData[$i] = [
-                0 => strip_tags($item['name']),
-                1 => number_format($balance[1][$key]['value'] ?? 0, 2, '.', ''),
-                2 => $balance[1][$key]['currency_name'] ?? 'EUR',
-                3 => number_format($balance[3][$key]['value'] ?? 0, 2, '.', ''),
-                4 => $balance[3][$key]['currency_name'] ?? 'USD',
-                5 => number_format($balance[2][$key]['value'] ?? 0, 2, '.', ''),
-                6 => $balance[2][$key]['currency_name'] ?? 'UAH',
-            ];
-            $i++; // 15
-        }
-        $income = $model->artist->getIncome($model->invoice->quarter, $model->invoice->year, $model->invoice->invoice_id);
-        $costs = $model->artist->getCosts($model->invoice->quarter, $model->invoice->year);
-        $nextQuarter = DateFormat::getNextQuarterYear($model->invoice->quarter, $model->invoice->year);
-        $costs_next = $model->artist->getCosts($nextQuarter['quarter'], $nextQuarter['year']);
-
-        if (count($income) + count($costs) + count($costs_next) > 0) {
-            $i++;
-            $tempData[$i] = []; // 15
-            $i++; // 16
-            $tempData[$i] = [// 16
-                0 => $model->artist->translateDocument('Перелік фінансовиих операцій'),
-            ];
-            $workSheet->getStyle('A' . $i)->getFont()->setBold(true);
-            
-            $i++; // 17
-            
-            $tempData[$i] = [
-                0 => $model->artist->translateDocument('Назва'),
-                1 => $model->artist->translateDocument('Тип'),
-                2 => $model->artist->translateDocument('Сума'),
-                3 => $model->artist->translateDocument('Валюта'),
-                4 => $model->artist->translateDocument('Квартал'),
-                5 => $model->artist->translateDocument('Дата'),
-            ];
-            
-            $workSheet->getStyle("A$i:F$i")->getFont()->setBold(true);
-            $workSheet->getStyle("A$i:F$i")->getFill()
-                ->setFillType(Fill::FILL_SOLID)
-                ->getStartColor()
-                ->setRGB('BFBFBF');
-            $workSheet->getStyle("A$i:F$i")
-                ->getBorders()
-                ->getInside()
-                ->setBorderStyle(Border::BORDER_THIN)
-                ->getColor()
-                ->setRGB('A5A5A5'); // чорний
-            
-            $workSheet->getStyle("A$i:F$i")
-                ->getBorders()
-                ->getOutline()
-                ->setBorderStyle(Border::BORDER_THIN)
-                ->getColor()
-                ->setRGB('000000'); // чорний
-            
-            $workSheet->getStyle("A$i:F" . ($i + count($income) + count($costs) + count($costs_next)))
-                ->getBorders()
-                ->getOutline()
-                ->setBorderStyle(Border::BORDER_THIN)
-                ->getColor()
-                ->setRGB('000000'); // чорний
-            $i++; // 18
-            // доп. доходи
-            foreach ($income as $item) {
-                $tempData[$i] = [
-                    0 => $item['description'],
-                    1 => $item['invoice_type_name'] == 'Баланс' ? $model->artist->translateDocument('Нарахування') : $item['invoice_type_name'],
-                    2 => number_format($item['amount'], 2, '.', ''),
-                    3 => $item['currency_name'],
-                    4 => $model->invoice->quarter . ' кв.',
-                    5 => $item['date_item'],
-                ];
-                $i++;
-            }
-            // витрати
-            foreach ($costs as $item) {
-                $tempData[$i] = [
-                    0 => $item['description'],
-                    1 => $item['invoice_type_name'],
-                    2 => number_format($item['amount'], 2, '.', ''),
-                    3 => $item['currency_name'],
-                    4 => $model->invoice->quarter . $model->artist->translateDocument(' кв.'),
-                    5 => $item['date_item'],
-                ];
-                $i++;
-            }
-            // витрати за майбутній квартал
-            foreach ($costs_next as $item) {
-                $tempData[$i] = [
-                    0 => $item['description'],
-                    1 => $item['invoice_type_name'],
-                    2 => number_format($item['amount'], 2, '.', ''),
-                    3 => $item['currency_name'],
-                    4 => $nextQuarter['quarter'] . ' кв.',
-                    5 => $item['date_item'],
-                ];
-                $i++;
-            }
-        }
-        
-        // зберегти баланс на першому аркуші
-        $workSheet->fromArray($tempData);
-        
-        $workSheet->setCellValue('I3', $model->artist->translateDocument('Валюта'));
-        $workSheet->setCellValue('J3', $model->artist->translateDocument('Сума'));
-        $workSheet->setCellValue('K3', $model->artist->translateDocument('Курс'));
-        $workSheet->getStyle('I3')->getFont()->setBold(true);
-        $workSheet->getStyle('J3')->getFont()->setBold(true);
-        $workSheet->getStyle('K3')->getFont()->setBold(true);
-        $x = 4;
-        
-        foreach ($sum as $currency => $value) {
-            if ($value > 0) {
-                $workSheet->setCellValue('I' . $x, $currency);
-                $workSheet->setCellValue('J' . $x, number_format($value, 4, '.', ''));
-                
-                if (isset($curs[$currency]) && $curs[$currency] != 1) {
-                    $workSheet->setCellValue('K' . $x, number_format($curs[$currency], 4, '.', ''));
-                }
-                $x++;
-            }
-        }
-        
-        $workSheet->setSelectedCell('A1');
+        $balanceMeta = $this->buildBalanceSheet($spreadSheet, $model, $invoiceItemsIds);
+        $sum = $balanceMeta['sum'];
+        $curs = $balanceMeta['curs'];
+        $diff = $balanceMeta['diff'];
         #endregion Баланс
         
         #region Звіт
@@ -1350,40 +1112,8 @@ class InvoiceItemsController extends Controller
                 ];
                 $i++;
             }
+
             $workSheet->fromArray($tempData);
-
-            // перевірка чи суми співпадають
-            /*$error_sum = [];
-
-            foreach ($sum as $key => $item) {
-                if (round($item) != round($sum2[$key])) {
-                    $error_sum[$key] = [
-                        'invoice' => round($item, 2),
-                        'report' => round($sum2[$key], 2)
-                    ];
-                }
-            }
-            if (!empty($error_sum)) {
-                Yii::$app->session->setFlash('error', ['message' => 'Суми в інвойсі і в звіті не співпадають.', $error_sum]);
-                return $this->redirect(['invoice/view', 'id' => $model->invoice_id, 'InvoiceItemsSearch'=>['artist_id' => $model->artist_id]]);
-            }*/
-
-            /*
-            $q = $j+2;
-            $workSheet->setCellValue('A' . $q, 'Сума Роялті правовласника:');
-            $workSheet->getStyle('A'. $q)->getFont()->setBold(true);
-            $workSheet->mergeCells("A{$q}:C{$q}");
-
-            foreach ($sum2 as $key => $item) {
-                 if(empty($item)) {
-                     continue;
-                 }
-                $temp = ++$q;
-                $workSheet->setCellValue('A' . $temp, $key);
-                $workSheet->setCellValue('B' . $temp, round($item, 2));
-                $workSheet->getStyle('A'. $temp)->getFont()->setBold(true);
-                $workSheet->getStyle('B'. $temp)->getFont()->setBold(true);
-            }*/
 
             // переключитись на 1 аркуш
             $spreadSheet->setActiveSheetIndex(0);
@@ -1539,8 +1269,15 @@ class InvoiceItemsController extends Controller
     private function generateReportPartner(InvoiceItems $model, array $invoiceItemsIds = [])
     {
         $spreadSheet = new Spreadsheet();
+        #region Баланс
+        $this->buildBalanceSheet($spreadSheet, $model, $invoiceItemsIds);
+        #endregion Баланс
+
+        #region Звіт по акту
+        $spreadSheet->createSheet();
+        $spreadSheet->setActiveSheetIndex(1);
         $workSheet = $spreadSheet->getActiveSheet();
-        $workSheet->setTitle($model->artist->translateDocument('Звіт по акту'));
+        $workSheet->setTitle($model->artist->translateDocument('Звіт по трекам'));
 
         // OPTIMIZATION: Column widths as array for batch setting
         $columnWidths = [
@@ -1586,15 +1323,9 @@ class InvoiceItemsController extends Controller
             ->indexBy('invoice_id')
             ->all();
 
-        $payCurrency = [];
-
         foreach ($invoices as $inv) {
             $curs[$inv->currency->currency_name] = $inv->exchange;
-            $payCurrency[] = $inv->currency_id;
         }
-
-        // OPTIMIZATION: Batch insert rows instead of setCellValue per cell
-        //$tracks = $this->getReportDataXls($invoiceItemsIds['invoice'], $model->artist_id);
 
         $reader = $this->getReportDataXlsSpout(
             $invoiceItemsIds['invoice'],
@@ -1602,6 +1333,7 @@ class InvoiceItemsController extends Controller
         );
 
         $trackRows = [];
+        $foundCurrencyIds = [];
         $row = 1;
 
         while ($item = $reader->read()) {
@@ -1611,6 +1343,9 @@ class InvoiceItemsController extends Controller
             }
 
             $sum[$item['currency_name']] += $item['amount_2'];
+            if (isset($item['currency_id'])) {
+                $foundCurrencyIds[(int)$item['currency_id']] = true;
+            }
 
             // Build row array instead of individual setCellValue calls
             $trackRows[] = [
@@ -1643,12 +1378,14 @@ class InvoiceItemsController extends Controller
             $row++;
         }
 
-        if (count($payCurrency) < 3) {
+        // Include currencies that have no linked payout rows yet.
+        $excludeCurrencyIds = array_keys($foundCurrencyIds);
+        if (count($excludeCurrencyIds) < 3) {
             $reader = $this->getReportDataXlsSpoutNoPay(
                 $model->artist_id,
                 $model->invoice->quarter,
                 $model->invoice->year,
-                $payCurrency
+                $excludeCurrencyIds
             );
 
             while ($item = $reader->read()) {
@@ -1701,9 +1438,26 @@ class InvoiceItemsController extends Controller
             $this->addTotalsRow($workSheet, $row, $sum, $curs);
         }
 
-        // OPTIMIZATION: Second sheet data
+        // Style sheet 2 as a readable report table.
+        $sheet2LastRow = $workSheet->getHighestRow();
+        $workSheet->freezePane('A2');
+        $workSheet->setAutoFilter('A1:N1');
+        $workSheet->getStyle('A1:N1')->getFill()
+            ->setFillType(Fill::FILL_SOLID)
+            ->getStartColor()
+            ->setRGB('D9D9D9');
+        $workSheet->getStyle('A1:N1')->getBorders()->getOutline()->setBorderStyle(Border::BORDER_THIN);
+        if ($sheet2LastRow >= 1) {
+            $workSheet->getStyle('A1:N' . $sheet2LastRow)->getBorders()->getInside()->setBorderStyle(Border::BORDER_THIN);
+            $workSheet->getStyle('A1:N' . $sheet2LastRow)->getBorders()->getOutline()->setBorderStyle(Border::BORDER_THIN);
+            $workSheet->getStyle('A2:N' . $sheet2LastRow)->getAlignment()->setVertical(Alignment::VERTICAL_TOP);
+        }
+
+        #endregion Звіт по акту
+
+        #region Звіт по артистам
         $spreadSheet->createSheet();
-        $spreadSheet->setActiveSheetIndex(1);
+        $spreadSheet->setActiveSheetIndex(2);
         $workSheet = $spreadSheet->getActiveSheet();
         $workSheet->setTitle($model->artist->translateDocument('Звіт по артистам'));
         $workSheet->getColumnDimension('A')->setWidth(20);
@@ -1729,10 +1483,351 @@ class InvoiceItemsController extends Controller
         // Add totals
         $this->addTotalsRow($workSheet, $totalRow, $sum, $curs);
 
+        // Style sheet 3.
+        $sheet3LastRow = $workSheet->getHighestRow();
+        $workSheet->freezePane('A2');
+        $workSheet->setAutoFilter('A1:C1');
+        $workSheet->getStyle('A1:C1')->getFill()
+            ->setFillType(Fill::FILL_SOLID)
+            ->getStartColor()
+            ->setRGB('D9D9D9');
+        if ($sheet3LastRow >= 1) {
+            $workSheet->getStyle('A1:C' . $sheet3LastRow)->getBorders()->getInside()->setBorderStyle(Border::BORDER_THIN);
+            $workSheet->getStyle('A1:C' . $sheet3LastRow)->getBorders()->getOutline()->setBorderStyle(Border::BORDER_THIN);
+        }
+        #endregion Звіт по артистам
+
         // переключитись на 1 аркуш
         $spreadSheet->setActiveSheetIndex(0);
 
         return $spreadSheet;
+    }
+
+    /**
+     * Build the first "Баланс" sheet with a unified layout used by both report types.
+     *
+     * @return array{sum: array<string, float>, curs: array<string, float>, diff: array<int, int|string>}
+     */
+    private function buildBalanceSheet(Spreadsheet $spreadSheet, InvoiceItems $model, array $invoiceItemsIds = []): array
+    {
+        $artistBalanceService = new ArtistBalanceService();
+        $workSheet = $spreadSheet->getActiveSheet();
+        $workSheet->setTitle($model->artist->translateDocument('Баланс'));
+        $workSheet->getColumnDimension('A')->setWidth(40);
+        $workSheet->getColumnDimension('B')->setWidth(12);
+        $workSheet->getColumnDimension('C')->setWidth(12);
+        $workSheet->getColumnDimension('D')->setWidth(12);
+        $workSheet->getColumnDimension('E')->setWidth(12);
+        $workSheet->getColumnDimension('F')->setWidth(12);
+        $workSheet->getColumnDimension('G')->setWidth(12);
+
+        // Branded logo in the header area.
+        $logoPath = Yii::getAlias('@backend/web') . '/img/email_label.jpeg';
+        $logoSource = null;
+
+        if (is_file($logoPath)) {
+            $logoSource = $logoPath;
+        }
+
+        $workSheet->mergeCells('A1:G1');
+        $workSheet->getRowDimension(1)->setRowHeight(90);
+
+        if ($logoSource !== null) {
+            $defaultFont = $spreadSheet->getDefaultStyle()->getFont();
+            $bannerWidth = 0;
+            foreach (['A', 'B', 'C', 'D', 'E', 'F', 'G'] as $column) {
+                $bannerWidth += \PhpOffice\PhpSpreadsheet\Shared\Drawing::cellDimensionToPixels(
+                    $workSheet->getColumnDimension($column)->getWidth(),
+                    $defaultFont
+                );
+            }
+            $bannerHeight = \PhpOffice\PhpSpreadsheet\Shared\Drawing::pointsToPixels(
+                $workSheet->getRowDimension(1)->getRowHeight()
+            );
+            $imageSize = @getimagesize($logoSource);
+            $imageWidth = (int)($imageSize[0] ?? 0);
+            $imageHeight = (int)($imageSize[1] ?? 0);
+
+            $logo = new Drawing();
+            $logo->setName('Label logo');
+            $logo->setDescription('Label logo');
+            $logo->setPath($logoSource);
+            $logo->setResizeProportional(true);
+
+            if ($imageWidth > 0 && $imageHeight > 0 && $bannerWidth > 0 && $bannerHeight > 0) {
+                $scale = min($bannerWidth / $imageWidth, $bannerHeight / $imageHeight);
+                $targetWidth = (int)max(1, floor($imageWidth * $scale));
+                $targetHeight = (int)max(1, floor($imageHeight * $scale));
+                $logo->setWidth($targetWidth);
+                $logo->setHeight($targetHeight);
+                $logo->setOffsetX((int)max(0, floor(($bannerWidth - $targetWidth) / 2)));
+                $logo->setOffsetY((int)max(0, floor(($bannerHeight - $targetHeight) / 2)));
+            } else {
+                $logo->setHeight($bannerHeight);
+                $logo->setOffsetX(0);
+                $logo->setOffsetY(0);
+            }
+
+            $logo->setCoordinates('A1');
+            $logo->setWorksheet($workSheet);
+        }
+
+        $workSheet->mergeCells('A2:G2');
+        $workSheet->getRowDimension(2)->setRowHeight(38);
+        $workSheet->getStyle('A2:G2')->getFont()->setBold(true)->setSize(16);
+        $workSheet->getStyle('A2:G2')->getAlignment()
+            ->setHorizontal(Alignment::HORIZONTAL_LEFT)
+            ->setVertical(Alignment::VERTICAL_CENTER);
+        $workSheet->getStyle('A2:G2')
+            ->getFill()
+            ->setFillType(Fill::FILL_SOLID)
+            ->getStartColor()
+            ->setARGB('E6E6E6');
+        $workSheet->getStyle('A4:G4')->getFont()->setBold(true);
+        $workSheet->getStyle('A4:G4')
+            ->getFill()
+            ->setFillType(Fill::FILL_SOLID)
+            ->getStartColor()
+            ->setRGB('D9D9D9');
+        $workSheet->getStyle('A4:G4')
+            ->getBorders()
+            ->getOutline()
+            ->setBorderStyle(Border::BORDER_THIN)
+            ->getColor()
+            ->setRGB('000000');
+        $workSheet->getStyle('A4:G4')
+            ->getBorders()
+            ->getInside()
+            ->setBorderStyle(Border::BORDER_THIN)
+            ->getColor()
+            ->setRGB('A5A5A5');
+
+        $balanceData = [];
+        $balanceData[0] = [$model->artist->translateDocument('Звіт за ') . $model->invoice->quarter . $model->artist->translateDocument(' кв. ') . $model->invoice->year . ', ' . $model->artist->name];
+        $workSheet->getStyle('A2:G2')
+            ->getBorders()
+            ->getBottom()
+            ->setBorderStyle(Border::BORDER_THIN)
+            ->getColor()
+            ->setRGB('000000');
+
+        $balanceData[1] = [];
+        $balanceData[2] = [
+            0 => $model->artist->translateDocument('Фінансовий звіт'),
+            1 => $model->artist->translateDocument('Сума'),
+            2 => $model->artist->translateDocument('Валюта'),
+            3 => $model->artist->translateDocument('Сума'),
+            4 => $model->artist->translateDocument('Валюта'),
+            5 => $model->artist->translateDocument('Сума'),
+            6 => $model->artist->translateDocument('Валюта'),
+        ];
+
+        $sum = ['USD' => 0, 'EUR' => 0, 'UAH' => 0];
+        $curs = ['EUR' => 1, 'UAH' => 1, 'USD' => 1];
+        $balance = [];
+        $balanceRow = 3;
+
+        $invoiceIdsForBalance = !empty($invoiceItemsIds['invoice']) ? array_unique(array_map('intval', $invoiceItemsIds['invoice'])) : [$model->invoice_id];
+        foreach ($invoiceIdsForBalance as $invoiceId) {
+            $invoiceModel = ((int)$invoiceId === (int)$model->invoice_id) ? $model->invoice : Invoice::findOne((int)$invoiceId);
+            if ($invoiceModel === null || $invoiceModel->currency === null) {
+                continue;
+            }
+
+            $currencyName = $invoiceModel->currency->currency_name;
+            $curs[$currencyName] = $invoiceModel->exchange;
+        }
+
+        $itemsForBalance = !empty($invoiceItemsIds['items']) ? $invoiceItemsIds['items'] : [$model->id];
+        foreach ($itemsForBalance as $id) {
+            $_model = ((int)$id === (int)$model->id) ? $model : $this->findModel((int)$id);
+            $currencyName = $_model->invoice->currency->currency_name;
+
+            $curs[$currencyName] = $_model->invoice->exchange;
+
+            $balance[$_model->invoice->currency_id] = $artistBalanceService->getBalanceForReport(
+                $_model->artist_id,
+                $_model->invoice->quarter,
+                $_model->invoice->year,
+                $_model->invoice->currency_id,
+                $currencyName,
+                $_model->invoice_id
+            );
+        }
+
+        $diff = array_diff([Currency::EUR, Currency::UAH, Currency::USD], array_keys($balance));
+        if ($diff) {
+            foreach ($diff as $currencyId) {
+                $balance[$currencyId] = $artistBalanceService->getBalanceForReport(
+                    $model->artist_id,
+                    $model->invoice->quarter,
+                    $model->invoice->year,
+                    $currencyId,
+                    ($currencyId == Currency::EUR ? 'EUR' : ($currencyId == Currency::UAH ? 'UAH' : 'USD'))
+                );
+            }
+        }
+
+        // Right-side totals should mirror "Сума до сплати" in the balance table.
+        $sum['EUR'] = round(abs((float)($balance[Currency::EUR][11]['value'] ?? 0)), 2);
+        $sum['USD'] = round(abs((float)($balance[Currency::USD][11]['value'] ?? 0)), 2);
+        $sum['UAH'] = round(abs((float)($balance[Currency::UAH][11]['value'] ?? 0)), 2);
+
+        $cur = isset($balance[Currency::EUR])
+            ? Currency::EUR
+            : (isset($balance[Currency::UAH]) ? Currency::UAH : Currency::USD);
+
+        foreach ($balance[$cur] as $key => $item) {
+            $balanceData[$balanceRow] = [
+                0 => strip_tags((string)$item['name']),
+                1 => number_format($balance[Currency::EUR][$key]['value'] ?? 0, 2, '.', ''),
+                2 => $balance[Currency::EUR][$key]['currency_name'] ?? 'EUR',
+                3 => number_format($balance[Currency::USD][$key]['value'] ?? 0, 2, '.', ''),
+                4 => $balance[Currency::USD][$key]['currency_name'] ?? 'USD',
+                5 => number_format($balance[Currency::UAH][$key]['value'] ?? 0, 2, '.', ''),
+                6 => $balance[Currency::UAH][$key]['currency_name'] ?? 'UAH',
+            ];
+            $balanceRow++;
+        }
+
+        $balanceLastRow = max(3, $balanceRow) + 1;
+        $workSheet->getStyle('A' . $balanceLastRow . ':G' . $balanceLastRow)->getFont()->setBold(true);
+        $workSheet->getStyle('A' . $balanceLastRow . ':G' . $balanceLastRow)
+            ->getBorders()
+            ->getOutline()
+            ->setBorderStyle(Border::BORDER_THIN)
+            ->getColor()
+            ->setRGB('000000');
+        $workSheet->getStyle('A4:G' . $balanceLastRow)
+            ->getBorders()
+            ->getOutline()
+            ->setBorderStyle(Border::BORDER_THIN)
+            ->getColor()
+            ->setRGB('000000');
+
+        // Fetch income and costs for the current and next quarter
+        $income = $model->artist->getIncome($model->invoice->quarter, $model->invoice->year, $model->invoice->invoice_id);
+        $costs = $model->artist->getCosts($model->invoice->quarter, $model->invoice->year);
+        $nextQuarter = DateFormat::getNextQuarterYear($model->invoice->quarter, $model->invoice->year);
+        $costsNext = $model->artist->getCosts($nextQuarter['quarter'], $nextQuarter['year']);
+
+        if (count($income) + count($costs) + count($costsNext) > 0) {
+            $balanceRow++;
+            $balanceData[$balanceRow] = [];
+            $balanceRow++;
+            $balanceData[$balanceRow] = [
+                0 => $model->artist->translateDocument('Перелік фінансовиих операцій'),
+            ];
+            $workSheet->getStyle('A' . $balanceRow)->getFont()->setBold(true);
+
+            $balanceRow++;
+            $balanceData[$balanceRow] = [
+                0 => $model->artist->translateDocument('Назва'),
+                1 => $model->artist->translateDocument('Тип'),
+                2 => $model->artist->translateDocument('Сума'),
+                3 => $model->artist->translateDocument('Валюта'),
+                4 => $model->artist->translateDocument('Квартал'),
+                5 => $model->artist->translateDocument('Дата'),
+            ];
+
+            $workSheet->getStyle("A$balanceRow:F$balanceRow")->getFont()->setBold(true);
+            $workSheet->getStyle("A$balanceRow:F$balanceRow")
+                ->getFill()
+                ->setFillType(Fill::FILL_SOLID)
+                ->getStartColor()
+                ->setRGB('BFBFBF');
+            $workSheet->getStyle("A$balanceRow:F$balanceRow")
+                ->getBorders()
+                ->getInside()
+                ->setBorderStyle(Border::BORDER_THIN)
+                ->getColor()
+                ->setRGB('A5A5A5');
+            $workSheet->getStyle("A$balanceRow:F$balanceRow")
+                ->getBorders()
+                ->getOutline()
+                ->setBorderStyle(Border::BORDER_THIN)
+                ->getColor()
+                ->setRGB('000000');
+            $workSheet->getStyle("A$balanceRow:F" . ($balanceRow + count($income) + count($costs) + count($costsNext)))
+                ->getBorders()
+                ->getOutline()
+                ->setBorderStyle(Border::BORDER_THIN)
+                ->getColor()
+                ->setRGB('000000');
+
+            $balanceRow++;
+            foreach ($income as $item) {
+                $balanceData[$balanceRow] = [
+                    0 => $item['description'],
+                    1 => $item['invoice_type_name'] == 'Баланс' ? $model->artist->translateDocument('Нарахування') : $item['invoice_type_name'],
+                    2 => number_format($item['amount'], 2, '.', ''),
+                    3 => $item['currency_name'],
+                    4 => $model->invoice->quarter . ' кв.',
+                    5 => $item['date_item'],
+                ];
+                $balanceRow++;
+            }
+
+            foreach ($costs as $item) {
+                $balanceData[$balanceRow] = [
+                    0 => $item['description'],
+                    1 => $item['invoice_type_name'],
+                    2 => number_format($item['amount'], 2, '.', ''),
+                    3 => $item['currency_name'],
+                    4 => $model->invoice->quarter . $model->artist->translateDocument(' кв.'),
+                    5 => $item['date_item'],
+                ];
+                $balanceRow++;
+            }
+
+            foreach ($costsNext as $item) {
+                $balanceData[$balanceRow] = [
+                    0 => $item['description'],
+                    1 => $item['invoice_type_name'],
+                    2 => number_format($item['amount'], 2, '.', ''),
+                    3 => $item['currency_name'],
+                    4 => $nextQuarter['quarter'] . ' кв.',
+                    5 => $item['date_item'],
+                ];
+                $balanceRow++;
+            }
+        }
+
+        $workSheet->fromArray($balanceData, null, 'A2');
+        $workSheet->setCellValue('I4', $model->artist->translateDocument('Валюта'));
+        $workSheet->setCellValue('J4', $model->artist->translateDocument('Сума'));
+        $workSheet->setCellValue('K4', $model->artist->translateDocument('Курс'));
+        $workSheet->getStyle('I4:K4')->getFont()->setBold(true);
+        $workSheet->getStyle('I4:K4')->getFill()
+            ->setFillType(Fill::FILL_SOLID)
+            ->getStartColor()
+            ->setRGB('D9D9D9');
+        $workSheet->getStyle('I4:K4')->getBorders()->getOutline()->setBorderStyle(Border::BORDER_THIN);
+
+        $x = 5;
+        foreach ($sum as $currency => $value) {
+            if ($value > 0) {
+                $workSheet->setCellValue('I' . $x, $currency);
+                $workSheet->setCellValue('J' . $x, number_format($value, 4, '.', ''));
+                if (isset($curs[$currency]) && $curs[$currency] != 1) {
+                    $workSheet->setCellValue('K' . $x, number_format($curs[$currency], 4, '.', ''));
+                }
+                $x++;
+            }
+        }
+
+        if ($x > 5) {
+            $workSheet->getStyle('I5:K' . ($x - 1))->getBorders()->getOutline()->setBorderStyle(Border::BORDER_THIN);
+            $workSheet->getStyle('I5:K' . ($x - 1))->getBorders()->getInside()->setBorderStyle(Border::BORDER_THIN);
+        }
+
+        $workSheet->setSelectedCell('A2');
+
+        return [
+            'sum' => $sum,
+            'curs' => $curs,
+            'diff' => $diff,
+        ];
     }
 
     /**
@@ -1751,6 +1846,12 @@ class InvoiceItemsController extends Controller
         foreach (['A', 'B', 'C'] as $col) {
             $workSheet->getStyle($col . $j)->getFont()->setBold(true);
         }
+        $workSheet->getStyle('A' . $j . ':C' . $j)->getFill()
+            ->setFillType(Fill::FILL_SOLID)
+            ->getStartColor()
+            ->setRGB('D9D9D9');
+        $workSheet->getStyle('A' . $j . ':C' . $j)->getBorders()->getInside()->setBorderStyle(Border::BORDER_THIN);
+        $workSheet->getStyle('A' . $j . ':C' . $j)->getBorders()->getOutline()->setBorderStyle(Border::BORDER_THIN);
 
         ++$j;
         foreach ($sum as $key => $amount) {
@@ -1762,6 +1863,11 @@ class InvoiceItemsController extends Controller
                 }
                 ++$j;
             }
+        }
+
+        if ($j > $startRow) {
+            $workSheet->getStyle('A' . $startRow . ':C' . ($j - 1))->getBorders()->getInside()->setBorderStyle(Border::BORDER_THIN);
+            $workSheet->getStyle('A' . $startRow . ':C' . ($j - 1))->getBorders()->getOutline()->setBorderStyle(Border::BORDER_THIN);
         }
     }
 
@@ -1806,7 +1912,7 @@ class InvoiceItemsController extends Controller
 				
                 WHERE ii.invoice_id in ($invoiceIds)
                   AND ii2.artist_id = :artist_id
-                   GROUP BY ari.track_id, ari.platform, ari.country, ari.date_report
+                   GROUP BY i.currency_id, ari.track_id, ari.platform, ari.country, ari.date_report
               ) as qq
                 LEFT JOIN currency c ON c.currency_id= qq.currency_id
     
@@ -1825,7 +1931,6 @@ class InvoiceItemsController extends Controller
         ORDER BY qq.currency_id ASC, qq.track_id ASC, qq.date_report ASC";
 
         return Yii::$app->db->createCommand($query)
-            //  ->bindValue(':invoice_id', $invoice_id)
             ->bindValue(':artist_id', $artist_id)
             ->query();
     }
@@ -1835,7 +1940,9 @@ class InvoiceItemsController extends Controller
      */
     private function getReportDataXlsSpoutNoPay(int $artist_id, int $quarter, int $year, array $payCurrency): \yii\db\DataReader|array
     {
-        $currencyIds = implode(',', $payCurrency);
+        $currencyIds = !empty($payCurrency)
+            ? implode(',', array_map('intval', $payCurrency))
+            : '0';
         $query = "SELECT IF(a.id != a2.id, CONCAT(a.name, ' (', a2.name, ')'), t.artist_name)as artist_name,
                     t.name as track_name,
                     ii.artist_percentage as percentage,
@@ -1926,7 +2033,7 @@ class InvoiceItemsController extends Controller
 				
                 WHERE ii.invoice_id in ($invoiceIds)
                   AND ii2.artist_id = :artist_id
-                   GROUP BY ari.track_id, ari.platform, ari.country, ari.date_report
+                   GROUP BY i.currency_id, ari.track_id, ari.platform, ari.country, ari.date_report
               ) as qq
                 LEFT JOIN currency c ON c.currency_id= qq.currency_id
     
@@ -1945,7 +2052,6 @@ class InvoiceItemsController extends Controller
         ORDER BY qq.currency_id ASC, qq.track_id ASC, qq.date_report ASC";
         
         return Yii::$app->db->createCommand($query)
-          //  ->bindValue(':invoice_id', $invoice_id)
             ->bindValue(':artist_id', $artist_id)
             ->queryAll();
     }
@@ -2252,8 +2358,13 @@ class InvoiceItemsController extends Controller
                 INNER JOIN `invoice` as i ON i.invoice_id = ii.invoice_id ";
 
         if (!empty($statusId)) {
-            $q .= " AND i.invoice_status_id = {$statusId}
-            ";
+            if (in_array((int)$statusId, [InvoiceStatus::Calculated, InvoiceStatus::InProgress], true)) {
+                $q .= " AND i.invoice_status_id IN (" . InvoiceStatus::Calculated . ", " . InvoiceStatus::InProgress . ")
+                ";
+            } else {
+                $q .= " AND i.invoice_status_id = {$statusId}
+                ";
+            }
         }
 
         $q .= "

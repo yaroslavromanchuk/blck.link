@@ -2,6 +2,8 @@
 
 namespace backend\services;
 
+use backend\models\Artist;
+
 /**
  * DTO для передачі розраховуваних даних балансу артиста
  * 
@@ -32,6 +34,7 @@ class ArtistBalanceDto
     public int $currencyId;
     public int $quarter;
     public int $year;
+    public Artist|null $artist = null;
     public string $currencyName = '';
 
     public function __construct(int $artistId, int $currencyId, int $quarter, int $year)
