@@ -32,6 +32,7 @@ use yii\db\StaleObjectException;
 use yii\helpers\Url;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
+use yii\filters\AccessControl;
 use yii\filters\VerbFilter;
 use backend\models\Upload;
 use yii\web\UploadedFile;
