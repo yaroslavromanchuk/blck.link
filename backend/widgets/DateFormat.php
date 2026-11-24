@@ -84,7 +84,7 @@ class DateFormat
         return str_replace($men, $mcz, $date);
     }
 
-    public static function datumUah2(string $time = 'now'): string
+    public static function datumUah2(string $time = 'now', int $langId = 1): string
     {
         $time = strtotime($time);
 
@@ -101,6 +101,10 @@ class DateFormat
             'Черв.', 'Лип.', 'Серп.', 'Верес.', 'Жовт.',
             'Лист.', 'Груд.'
         ];
+
+        if ($langId == 1) {
+            return $date;
+        }
 
         return str_replace($men, $mcz, $date);
     }

@@ -1104,11 +1104,11 @@ class InvoiceItemsController extends Controller
                     $item['percentage_label'],
                     $item['amount_2'],
                     $item['currency_name'],
-                    $item['prav1'],
-                    $item['prav2'],
+                    $model->artist->translateDocument($item['prav1']),
+                    $model->artist->translateDocument($item['prav2']),
                     $item['platform'],
                     $item['country'],
-                    DateFormat::datumUah2($item['date_report'] ?? 'now'),
+                    DateFormat::datumUah2($item['date_report'] ?? 'now', $model->artist->lang_id),
                 ];
                 $i++;
             }
@@ -1360,9 +1360,9 @@ class InvoiceItemsController extends Controller
                 $item['currency_name'],
                 $model->artist->translateDocument((string)$item['prav1']),
                 $model->artist->translateDocument((string)$item['prav2']),
-                $model->artist->translateDocument((string)$item['platform']),
+                (string)$item['platform'],
                 $item['country'],
-                DateFormat::datumUah2($item['date_report']),
+                DateFormat::datumUah2($item['date_report'], $model->artist->lang_id),
             ];
 
             // OPTIMIZATION: Aggregate artist sums with simple key instead of nested array
@@ -1409,7 +1409,7 @@ class InvoiceItemsController extends Controller
                     $item['currency_name'],
                     $model->artist->translateDocument((string)$item['prav1']),
                     $model->artist->translateDocument((string)$item['prav2']),
-                    $model->artist->translateDocument((string)$item['platform']),
+                    (string)$item['platform'],
                     $item['country'],
                     DateFormat::datumUah2($item['date_report']),
                 ];
