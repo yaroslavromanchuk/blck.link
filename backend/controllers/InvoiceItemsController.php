@@ -893,7 +893,7 @@ class InvoiceItemsController extends Controller
         $spreadSheet = new Spreadsheet();
         #region Баланс
         $balanceMeta = $this->buildBalanceSheet($spreadSheet, $model, $invoiceItemsIds);
-        $sum = $balanceMeta['sum'];
+        $sum2 = $balanceMeta['sum'];
         $curs = $balanceMeta['curs'];
         $diff = $balanceMeta['diff'];
         #endregion Баланс
@@ -901,23 +901,24 @@ class InvoiceItemsController extends Controller
         #region Звіт
         $data = [];
         $data2 = [];
-        $sum2 = [];
         foreach ($invoiceItemsIds['items'] as $id) {
             $_model = ($id == $model->id) ? $model : $this->findModel($id);
             $tracks = $this->getReportData($_model->invoice_id, $_model->artist_id);
-            $curs[$_model->invoice->currency->currency_name] = $_model->invoice->exchange;
-            
+            $currencyName = $_model->invoice->currency->currency_name;
+            $curs[$currencyName] = $_model->invoice->exchange;
+            $sum2[$currencyName] = $sum2[$currencyName] ?? 0.0;
+
             if (!empty($tracks)) {
                 foreach ($tracks as $trackRow) {
                     $data[] = $trackRow;
                 }
-                $sum2[$_model->invoice->currency->currency_name] = round(array_sum(array_column($tracks, 'amount_2')), 2);
+                $sum2[$currencyName] = round(array_sum(array_column($tracks, 'amount_2')), 2);
             }
 
             $feats = $this->getReportDataFeat($_model->invoice_id, $_model->artist_id);
             
             if (!empty($feats)) {
-                $sum2[$_model->invoice->currency->currency_name] += round(array_sum(array_column($feats, 'amount_2')), 2);
+                $sum2[$currencyName] += round(array_sum(array_column($feats, 'amount_2')), 2);
                 foreach ($feats as $featRow) {
                     $data[] = $featRow;
                 }
@@ -1220,10 +1221,7 @@ class InvoiceItemsController extends Controller
             // ✅ підсумки (малий масив — ок)
             $cur = $item['currency_name'];
 
-            if (!isset($sum[$cur])) {
-                $sum[$cur] = 0;
-            }
-            $sum[$cur] += $item['amount_2'];
+            $sum[$cur] = ($sum[$cur] ?? 0) + $item['amount_2'];
 
             // ✅ агрегація по артисту
             $key = $item['artist_name'] . '|' . $cur;
@@ -1236,7 +1234,7 @@ class InvoiceItemsController extends Controller
                 ];
             }
 
-            $artistSums[$key][1] += abs($item['amount_2']);
+            $artistSums[$key][1] = ($artistSums[$key][1] ?? 0) + abs($item['amount_2']);
 
             // ✅ debug памʼяті
             if ($i % 5000 === 0) {
@@ -1349,12 +1347,7 @@ class InvoiceItemsController extends Controller
         $hasTrackRows = false;
 
         while ($item = $reader->read()) {
-            // Initialize currency sum if not set
-            if (!isset($sum[$item['currency_name']])) {
-                $sum[$item['currency_name']] = 0;
-            }
-
-            $sum[$item['currency_name']] += $item['amount_2'];
+            $sum[$item['currency_name']] = ($sum[$item['currency_name']] ?? 0) + $item['amount_2'];
             if (isset($item['currency_id'])) {
                 $foundCurrencyIds[(int)$item['currency_id']] = true;
             }
@@ -1385,7 +1378,7 @@ class InvoiceItemsController extends Controller
                     'currency_name' => $item['currency_name'],
                 ];
             }
-            $artistSums[$key]['amount'] += abs($item['amount_2']);
+            $artistSums[$key]['amount'] = ($artistSums[$key]['amount'] ?? 0) + abs($item['amount_2']);
             $trackIndex++;
             $trackRowNumber++;
             $hasTrackRows = true;
@@ -1402,12 +1395,7 @@ class InvoiceItemsController extends Controller
             );
 
             while ($item = $reader->read()) {
-                // Initialize currency sum if not set
-                if (!isset($sum[$item['currency_name']])) {
-                    $sum[$item['currency_name']] = 0;
-                }
-
-                $sum[$item['currency_name']] += $item['amount_2'];
+                $sum[$item['currency_name']] = ($sum[$item['currency_name']] ?? 0) + $item['amount_2'];
 
                 $workSheet->fromArray([[
                     $trackIndex,
@@ -1435,7 +1423,7 @@ class InvoiceItemsController extends Controller
                         'currency_name' => $item['currency_name'],
                     ];
                 }
-                $artistSums[$key]['amount'] += abs($item['amount_2']);
+                $artistSums[$key]['amount'] = ($artistSums[$key]['amount'] ?? 0) + abs($item['amount_2']);
                 $trackIndex++;
                 $trackRowNumber++;
                 $hasTrackRows = true;
