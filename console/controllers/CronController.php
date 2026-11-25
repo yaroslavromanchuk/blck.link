@@ -24,7 +24,9 @@ class CronController extends Controller
         echo $id . "\n";
         $c = new InvoiceItemsController('invoice-items', Yii::$app);
         try {
-            $c->actionExportAct($id, false);
+            $filename = $c->actionExportAct((int)$id, false);
+            echo "Generated file: {$filename}\n";
+            echo "Browser path: /xls/{$filename}\n";
         } catch (Throwable $e) {
             echo $e->getMessage();
             exit(1);
