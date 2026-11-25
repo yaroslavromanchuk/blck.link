@@ -2,7 +2,6 @@
 
 namespace backend\controllers;
 
-use backend\components\SpreadsheetFileCache;
 use backend\helpers\InvoiceAllocationService;
 use backend\models\AggregatorReportItem;
 use backend\services\ArtistBalanceService;
@@ -29,7 +28,6 @@ use common\models\MailLog;
 use common\models\t;
 use kartik\mpdf\Pdf;
 use PhpOffice\PhpSpreadsheet\Reader\Html;
-use PhpOffice\PhpSpreadsheet\Settings;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
@@ -563,15 +561,6 @@ class InvoiceItemsController extends Controller
 
     public function actionExportAct(int $id, bool $redirect = true, array $invoiceItemsIds = [])
     {
-        $cellCache = null;
-        $cellCacheDir = '';
-        if (PHP_SAPI === 'cli') {
-            $cellCacheDir = Yii::getAlias('@backend/runtime/phpss-cell-cache-' . uniqid('', true));
-            FileHelper::createDirectory($cellCacheDir);
-            $cellCache = new SpreadsheetFileCache($cellCacheDir);
-            Settings::setCache($cellCache);
-        }
-
         $model = $this->findModel($id);
         ArtistDocumentTranslator::applyLanguage($model->artist);
 
@@ -609,14 +598,6 @@ class InvoiceItemsController extends Controller
         $spreadSheet->disconnectWorksheets();
         unset($writer, $spreadSheet);
         gc_collect_cycles();
-
-        if ($cellCache !== null) {
-            $cellCache->clear();
-            Settings::setCache(null);
-            if ($cellCacheDir !== '') {
-                FileHelper::removeDirectory($cellCacheDir);
-            }
-        }
 
         if ($redirect) {
             header("Location: /xls/".$filename);
