@@ -33,7 +33,8 @@ class ArtistBalanceQueryBuilder
                     OR (i.year = :year AND i.quarter < :quarter)
               )
               AND i.invoice_status_id IN (2, 4)
-              AND ii.payment_invoice_id = (
+              AND (
+                  ii.payment_invoice_id = (
                     SELECT MAX(ip.invoice_id)
                     FROM `invoice` ip
                         INNER JOIN `invoice_items` iip ON iip.invoice_id = ip.invoice_id
@@ -43,7 +44,9 @@ class ArtistBalanceQueryBuilder
                       AND ip.quarter = :quarter
                       AND ip.year = :year
                       AND iip.artist_id = :artist_id
-              )
+                )
+                      or ii.payment_invoice_id IS NULL
+                  )
         ")
             ->bindValue(':artist_id', $artistId)
             ->bindValue(':currency_id', $currencyId)
@@ -83,7 +86,11 @@ class ArtistBalanceQueryBuilder
                 'i.year' => $year,
                 'ii.artist_id' => $artistId
             ])
-            ->andWhere(['ii.payment_invoice_id' => $currentPayInvoiceSubQuery])
+            ->andWhere([
+                'or',
+                ['ii.payment_invoice_id' => $currentPayInvoiceSubQuery],
+                ['ii.payment_invoice_id' => null],
+            ])
             ->groupBy('i.invoice_type')
             ->indexBy('invoice_type')
             ->all();
