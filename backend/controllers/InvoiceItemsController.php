@@ -561,6 +561,10 @@ class InvoiceItemsController extends Controller
 
     public function actionExportAct(int $id, bool $redirect = true, array $invoiceItemsIds = [])
     {
+
+        set_time_limit(0);
+        ini_set('memory_limit', '2048M');
+
         $model = $this->findModel($id);
         ArtistDocumentTranslator::applyLanguage($model->artist);
 
