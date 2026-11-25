@@ -584,8 +584,8 @@ class InvoiceItemsController extends Controller
                 return $filename;
             }
 
-            header("Location: /xls/".$filename);
-            exit;
+          //  header("Location: /xls/".$filename);
+            //exit;
         }
         
         $spreadSheet = $model->artist->type_id == 1 ? $this->generateReportInternalArtist($model, $invoiceItemsIds) : $this->generateReportPartner($model, $invoiceItemsIds);
