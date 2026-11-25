@@ -561,7 +561,7 @@ class InvoiceItemsController extends Controller
     public function actionExportAct(int $id, bool $redirect = true, array $invoiceItemsIds = [])
     {
         set_time_limit(0);
-        ini_set('memory_limit', '1024M');
+        ini_set('memory_limit', '2048M');
 
         $model = $this->findModel($id);
         ArtistDocumentTranslator::applyLanguage($model->artist);
@@ -577,14 +577,14 @@ class InvoiceItemsController extends Controller
         // Force fresh export each time and avoid stale file_exists/stat cache behavior.
         clearstatcache(true, $filePath);
 
-      /*  if (file_exists($filePath) === true) {
+       if (file_exists($filePath) === true) {
             if ($redirect === false) {
                 return $filename;
             }
 
             header("Location: /xls/".$filename);
             exit;
-        }*/
+        }
         
         $spreadSheet = $model->artist->type_id == 1 ? $this->generateReportInternalArtist($model, $invoiceItemsIds) : $this->generateReportPartner($model, $invoiceItemsIds);
         
