@@ -22,23 +22,35 @@ class ArtistBalanceQueryBuilder
      */
     public static function getPreviousBalance(int $artistId, int $currencyId, int $quarter, int $year): float
     {
-        return (float) Yii::$app->db->createCommand("
-            SELECT SUM(ii.amount) as dep 
-            FROM `invoice_items` ii 
-                LEFT JOIN `invoice` i ON i.invoice_id = ii.invoice_id 
+        return (float) (Yii::$app->db->createCommand("
+            SELECT COALESCE(SUM(ii.amount), 0) AS dep
+            FROM `invoice_items` ii
+                INNER JOIN `invoice` i ON i.invoice_id = ii.invoice_id
             WHERE i.currency_id = :currency_id
-              AND ii.artist_id = :artist_id 
+              AND ii.artist_id = :artist_id
               AND (
                     i.year < :year
                     OR (i.year = :year AND i.quarter < :quarter)
               )
               AND i.invoice_status_id IN (2, 4)
+              AND ii.payment_invoice_id = (
+                    SELECT MAX(ip.invoice_id)
+                    FROM `invoice` ip
+                        INNER JOIN `invoice_items` iip ON iip.invoice_id = ip.invoice_id
+                    WHERE ip.invoice_type = :pay_type
+                      AND ip.invoice_status_id IN (2, 4)
+                      AND ip.currency_id = :currency_id
+                      AND ip.quarter = :quarter
+                      AND ip.year = :year
+                      AND iip.artist_id = :artist_id
+              )
         ")
             ->bindValue(':artist_id', $artistId)
             ->bindValue(':currency_id', $currencyId)
             ->bindValue(':quarter', $quarter)
             ->bindValue(':year', $year)
-            ->queryScalar() ?? 0;
+            ->bindValue(':pay_type', InvoiceType::PAY)
+            ->queryScalar() ?? 0);
     }
 
     /**
@@ -46,6 +58,19 @@ class ArtistBalanceQueryBuilder
      */
     public static function getExpensesByType(int $artistId, int $currencyId, int $quarter, int $year): array
     {
+        $currentPayInvoiceSubQuery = (new Query())
+            ->select('MAX(ip.invoice_id)')
+            ->from(Invoice::tableName() . ' ip')
+            ->innerJoin(InvoiceItems::tableName() . ' iip', 'iip.invoice_id = ip.invoice_id')
+            ->where([
+                'ip.invoice_type' => InvoiceType::PAY,
+                'ip.invoice_status_id' => [2, 4],
+                'ip.currency_id' => $currencyId,
+                'ip.quarter' => $quarter,
+                'ip.year' => $year,
+                'iip.artist_id' => $artistId,
+            ]);
+
         return (new Query())
             ->from(InvoiceItems::tableName() . ' ii')
             ->select('i.invoice_type, SUM(ii.amount) as amount')
@@ -58,6 +83,7 @@ class ArtistBalanceQueryBuilder
                 'i.year' => $year,
                 'ii.artist_id' => $artistId
             ])
+            ->andWhere(['ii.payment_invoice_id' => $currentPayInvoiceSubQuery])
             ->groupBy('i.invoice_type')
             ->indexBy('invoice_type')
             ->all();
