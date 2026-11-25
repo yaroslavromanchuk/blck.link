@@ -17,51 +17,9 @@ use yii\db\Query;
  */
 class ArtistBalanceQueryBuilder
 {
-    /**
-     * Отримати попередній баланс артиста до вказаного кварталу
-     */
-    public static function getPreviousBalance(int $artistId, int $currencyId, int $quarter, int $year): float
+    private static function getCurrentPayInvoiceId(int $artistId, int $currencyId, int $quarter, int $year): ?int
     {
-        return (float) (Yii::$app->db->createCommand("
-            SELECT COALESCE(SUM(ii.amount), 0) AS dep
-            FROM `invoice_items` ii
-                INNER JOIN `invoice` i ON i.invoice_id = ii.invoice_id
-            WHERE i.currency_id = :currency_id
-              AND ii.artist_id = :artist_id
-              AND (
-                    i.year < :year
-                    OR (i.year = :year AND i.quarter < :quarter)
-              )
-              AND i.invoice_status_id IN (2, 4)
-              AND (
-                  ii.payment_invoice_id = (
-                    SELECT MAX(ip.invoice_id)
-                    FROM `invoice` ip
-                        INNER JOIN `invoice_items` iip ON iip.invoice_id = ip.invoice_id
-                    WHERE ip.invoice_type = :pay_type
-                      AND ip.invoice_status_id IN (2, 4)
-                      AND ip.currency_id = :currency_id
-                      AND ip.quarter = :quarter
-                      AND ip.year = :year
-                      AND iip.artist_id = :artist_id
-                )
-                      or ii.payment_invoice_id IS NULL
-                  )
-        ")
-            ->bindValue(':artist_id', $artistId)
-            ->bindValue(':currency_id', $currencyId)
-            ->bindValue(':quarter', $quarter)
-            ->bindValue(':year', $year)
-            ->bindValue(':pay_type', InvoiceType::PAY)
-            ->queryScalar() ?? 0);
-    }
-
-    /**
-     * Отримати всі витрати/авансові за період
-     */
-    public static function getExpensesByType(int $artistId, int $currencyId, int $quarter, int $year): array
-    {
-        $currentPayInvoiceSubQuery = (new Query())
+        $invoiceId = (new Query())
             ->select('MAX(ip.invoice_id)')
             ->from(Invoice::tableName() . ' ip')
             ->innerJoin(InvoiceItems::tableName() . ' iip', 'iip.invoice_id = ip.invoice_id')
@@ -72,9 +30,55 @@ class ArtistBalanceQueryBuilder
                 'ip.quarter' => $quarter,
                 'ip.year' => $year,
                 'iip.artist_id' => $artistId,
-            ]);
+            ])
+            ->scalar();
 
-        return (new Query())
+        return $invoiceId !== null ? (int)$invoiceId : null;
+    }
+
+    /**
+     * Отримати попередній баланс артиста до вказаного кварталу
+     */
+    public static function getPreviousBalance(int $artistId, int $currencyId, int $quarter, int $year): float
+    {
+        $currentPayInvoiceId = self::getCurrentPayInvoiceId($artistId, $currencyId, $quarter, $year);
+        $paymentCondition = $currentPayInvoiceId === null
+            ? 'ii.payment_invoice_id IS NULL'
+            : 'ii.payment_invoice_id = :current_pay_invoice_id';
+
+        $cmd = Yii::$app->db->createCommand("
+            SELECT COALESCE(SUM(ii.amount), 0) AS dep
+            FROM `invoice_items` ii
+                INNER JOIN `invoice` i ON i.invoice_id = ii.invoice_id
+            WHERE i.currency_id = :currency_id
+              AND ii.artist_id = :artist_id
+              AND (
+                    i.year < :year
+                    OR (i.year = :year AND i.quarter < :quarter)
+              )
+              AND i.invoice_status_id IN (2, 4)
+              AND {$paymentCondition}
+        ")
+            ->bindValue(':artist_id', $artistId)
+            ->bindValue(':currency_id', $currencyId)
+            ->bindValue(':quarter', $quarter)
+            ->bindValue(':year', $year);
+
+        if ($currentPayInvoiceId !== null) {
+            $cmd->bindValue(':current_pay_invoice_id', $currentPayInvoiceId);
+        }
+
+        return (float)($cmd->queryScalar() ?? 0);
+    }
+
+    /**
+     * Отримати всі витрати/авансові за період
+     */
+    public static function getExpensesByType(int $artistId, int $currencyId, int $quarter, int $year): array
+    {
+        $currentPayInvoiceId = self::getCurrentPayInvoiceId($artistId, $currencyId, $quarter, $year);
+
+        $query = (new Query())
             ->from(InvoiceItems::tableName() . ' ii')
             ->select('i.invoice_type, SUM(ii.amount) as amount')
             ->innerJoin(Invoice::tableName() . ' i', 'i.invoice_id = ii.invoice_id')
@@ -86,14 +90,16 @@ class ArtistBalanceQueryBuilder
                 'i.year' => $year,
                 'ii.artist_id' => $artistId
             ])
-            ->andWhere([
-                'or',
-                ['ii.payment_invoice_id' => $currentPayInvoiceSubQuery],
-                ['ii.payment_invoice_id' => null],
-            ])
             ->groupBy('i.invoice_type')
-            ->indexBy('invoice_type')
-            ->all();
+            ->indexBy('invoice_type');
+
+        if ($currentPayInvoiceId === null) {
+            $query->andWhere(['ii.payment_invoice_id' => null]);
+        } else {
+            $query->andWhere(['ii.payment_invoice_id' => $currentPayInvoiceId]);
+        }
+
+        return $query->all();
     }
 
     /**
