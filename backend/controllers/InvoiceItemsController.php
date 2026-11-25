@@ -36,6 +36,7 @@ use Yii;
 use backend\models\InvoiceItems;
 use backend\models\InvoiceItemsSearch;
 use yii\db\Exception;
+use yii\helpers\FileHelper;
 use yii\helpers\Url;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
@@ -560,8 +561,9 @@ class InvoiceItemsController extends Controller
 
     public function actionExportAct(int $id, bool $redirect = true, array $invoiceItemsIds = [])
     {
-        set_time_limit(0);
-        ini_set('memory_limit', '2048M');
+        // Avoid web-worker OOM kills (503) by using safer limits for HTTP requests.
+        set_time_limit(PHP_SAPI === 'cli' ? 0 : 300);
+        ini_set('memory_limit', PHP_SAPI === 'cli' ? '1536M' : '768M');
 
         $model = $this->findModel($id);
         ArtistDocumentTranslator::applyLanguage($model->artist);
@@ -591,9 +593,15 @@ class InvoiceItemsController extends Controller
         #endregion Звіт
 
         $writer = new Xlsx($spreadSheet);
-        $writer->setUseDiskCaching(true);
+        $cacheDir = Yii::getAlias('@backend/runtime/phpss-cache');
+        FileHelper::createDirectory($cacheDir);
+        $writer->setUseDiskCaching(true, $cacheDir);
+        $writer->setPreCalculateFormulas(false);
 
         $writer->save($filePath);
+        $spreadSheet->disconnectWorksheets();
+        unset($writer, $spreadSheet);
+        gc_collect_cycles();
 
         if ($redirect) {
             header("Location: /xls/".$filename);
@@ -893,13 +901,16 @@ class InvoiceItemsController extends Controller
         #region Звіт
         $data = [];
         $data2 = [];
+        $sum2 = [];
         foreach ($invoiceItemsIds['items'] as $id) {
             $_model = ($id == $model->id) ? $model : $this->findModel($id);
             $tracks = $this->getReportData($_model->invoice_id, $_model->artist_id);
             $curs[$_model->invoice->currency->currency_name] = $_model->invoice->exchange;
             
             if (!empty($tracks)) {
-                $data = array_merge($data, $tracks);
+                foreach ($tracks as $trackRow) {
+                    $data[] = $trackRow;
+                }
                 $sum2[$_model->invoice->currency->currency_name] = round(array_sum(array_column($tracks, 'amount_2')), 2);
             }
 
@@ -907,21 +918,27 @@ class InvoiceItemsController extends Controller
             
             if (!empty($feats)) {
                 $sum2[$_model->invoice->currency->currency_name] += round(array_sum(array_column($feats, 'amount_2')), 2);
-                $data = array_merge($data, $feats);
+                foreach ($feats as $featRow) {
+                    $data[] = $featRow;
+                }
             }
 
             // 2 аркуш
             $tracks = $this->getReportData($_model->invoice_id, $_model->artist_id, true);
 
             if (!empty($tracks)) {
-                $data2 = array_merge($data2, $tracks);
+                foreach ($tracks as $trackRow) {
+                    $data2[] = $trackRow;
+                }
             }
             
             $feats = $this->getReportDataFeat($_model->invoice_id, $_model->artist_id, true);
 
             if (!empty($feats)) {
                 //$sum2[$_model->invoice->currency->currency_name] += round(array_sum(array_column($feats, 'amount_2')), 2);
-                $data2 = array_merge($data2, $feats);
+                foreach ($feats as $featRow) {
+                    $data2[] = $featRow;
+                }
             }
 
         }
@@ -930,7 +947,9 @@ class InvoiceItemsController extends Controller
             foreach ($diff as $currency_id) {
                 $tracks = $this->getReportDataNoPay($model->artist_id, $model->invoice->quarter, $model->invoice->year, $currency_id);
                 if (!empty($tracks)) {
-                    $data = array_merge($data, $tracks);
+                    foreach ($tracks as $trackRow) {
+                        $data[] = $trackRow;
+                    }
                     $sum2[($currency_id == 1 ? 'EUR' : ($currency_id == 2 ? 'UAH' : 'USD'))] = round(array_sum(array_column($tracks, 'amount_2')), 2);
                 }
 
@@ -938,7 +957,9 @@ class InvoiceItemsController extends Controller
                 $tracks = $this->getReportDataNoPay($model->artist_id, $model->invoice->quarter, $model->invoice->year, $currency_id, true);
 
                 if (!empty($tracks)) {
-                    $data2 = array_merge($data2, $tracks);
+                    foreach ($tracks as $trackRow) {
+                        $data2[] = $trackRow;
+                    }
                 }
             }
         }
@@ -989,8 +1010,7 @@ class InvoiceItemsController extends Controller
             $workSheet->getColumnDimension('I')->setWidth(12);
             $workSheet->getStyle('A1:I1')->getFont()->setBold(true);
 
-            $tempData = []; // порожній ряд
-            $tempData[] = [
+            $workSheet->fromArray([[
                 $model->artist->translateDocument('№'),
                 $model->artist->translateDocument('Виконавець'),
                 $model->artist->translateDocument('Назва твору'),
@@ -1000,11 +1020,12 @@ class InvoiceItemsController extends Controller
                 $model->artist->translateDocument('Ставка винагороди правовласника за авторські та суміжні права, %'),
                 $model->artist->translateDocument('Сума Роялті'),
                 $model->artist->translateDocument('Валюта'),
-            ];
+            ]]);
 
             $i = 1;
+            $sheetRow = 2;
             foreach ($data2 as $item) {
-                $tempData[] = [
+                $workSheet->fromArray([[
                     $i,
                     $item['artist_name'],
                     rtrim($item['track_name'], '12'),
@@ -1014,11 +1035,10 @@ class InvoiceItemsController extends Controller
                     $item['percentage_label'],
                     $item['amount_2'],
                     $item['currency_name'],
-                ];
+                ]], null, 'A' . $sheetRow);
                 $i++;
+                $sheetRow++;
             }
-
-            $workSheet->fromArray($tempData);
         }
         
         if (!empty($data)) {
@@ -1072,8 +1092,7 @@ class InvoiceItemsController extends Controller
             $workSheet->getStyle('A1:N1')->getFont()->setBold(true);
             $workSheet->getRowDimension('1')->setRowHeight(100);
 
-            $tempData = [];
-            $tempData[] = [
+            $workSheet->fromArray([[
                 $model->artist->translateDocument('№'),
                 $model->artist->translateDocument('Виконавець'),
                 $model->artist->translateDocument('Назва Твору'),
@@ -1088,11 +1107,12 @@ class InvoiceItemsController extends Controller
                 $model->artist->translateDocument('Тип та/або ресурс використання'),
                 $model->artist->translateDocument('Країна'),
                 $model->artist->translateDocument('Період використання Об\'єкта'),
-            ];
+            ]]);
 
             $i = 1;
+            $sheetRow = 2;
             foreach ($data as $item) {
-                $tempData[] = [
+                $workSheet->fromArray([[
                     $i,
                     $item['artist_name'],
                     rtrim($item['track_name'], '1'),
@@ -1107,11 +1127,10 @@ class InvoiceItemsController extends Controller
                     $item['platform'],
                     $item['country'],
                     DateFormat::datumUah2($item['date_report'] ?? 'now', $model->artist->lang_id),
-                ];
+                ]], null, 'A' . $sheetRow);
                 $i++;
+                $sheetRow++;
             }
-
-            $workSheet->fromArray($tempData);
 
             // переключитись на 1 аркуш
             $spreadSheet->setActiveSheetIndex(0);
@@ -1254,14 +1273,8 @@ class InvoiceItemsController extends Controller
 
         $writer->close();
 
-
-        $writer->close();
-
         header("Location: /xls/" . $filename);
         exit;
-
-
-       // return basename($filePath);
     }
 
     private function generateReportPartner(InvoiceItems $model, array $invoiceItemsIds = [])
@@ -1330,9 +1343,10 @@ class InvoiceItemsController extends Controller
             $model->artist_id
         );
 
-        $trackRows = [];
         $foundCurrencyIds = [];
-        $row = 1;
+        $trackIndex = 1;
+        $trackRowNumber = 2;
+        $hasTrackRows = false;
 
         while ($item = $reader->read()) {
             // Initialize currency sum if not set
@@ -1345,9 +1359,8 @@ class InvoiceItemsController extends Controller
                 $foundCurrencyIds[(int)$item['currency_id']] = true;
             }
 
-            // Build row array instead of individual setCellValue calls
-            $trackRows[] = [
-                $row,
+            $workSheet->fromArray([[
+                $trackIndex,
                 $item['artist_name'],
                 rtrim($item['track_name'], '1'),
                 $item['count'],
@@ -1361,7 +1374,7 @@ class InvoiceItemsController extends Controller
                 (string)$item['platform'],
                 $item['country'],
                 DateFormat::datumUah2($item['date_report'], $model->artist->lang_id),
-            ];
+            ]], null, 'A' . $trackRowNumber);
 
             // OPTIMIZATION: Aggregate artist sums with simple key instead of nested array
             $key = $item['artist_name'] . '|' . $item['currency_name'];
@@ -1373,7 +1386,9 @@ class InvoiceItemsController extends Controller
                 ];
             }
             $artistSums[$key]['amount'] += abs($item['amount_2']);
-            $row++;
+            $trackIndex++;
+            $trackRowNumber++;
+            $hasTrackRows = true;
         }
 
         // Include currencies that have no linked payout rows yet.
@@ -1394,9 +1409,8 @@ class InvoiceItemsController extends Controller
 
                 $sum[$item['currency_name']] += $item['amount_2'];
 
-                // Build row array instead of individual setCellValue calls
-                $trackRows[] = [
-                    $row,
+                $workSheet->fromArray([[
+                    $trackIndex,
                     $item['artist_name'],
                     rtrim($item['track_name'], '1'),
                     $item['count'],
@@ -1410,7 +1424,7 @@ class InvoiceItemsController extends Controller
                     (string)$item['platform'],
                     $item['country'],
                     DateFormat::datumUah2($item['date_report']),
-                ];
+                ]], null, 'A' . $trackRowNumber);
 
                 // OPTIMIZATION: Aggregate artist sums with simple key instead of nested array
                 $key = $item['artist_name'] . '|' . $item['currency_name'];
@@ -1422,18 +1436,15 @@ class InvoiceItemsController extends Controller
                     ];
                 }
                 $artistSums[$key]['amount'] += abs($item['amount_2']);
-                $row++;
+                $trackIndex++;
+                $trackRowNumber++;
+                $hasTrackRows = true;
             }
         }
 
-        if ($trackRows) {
-            // Batch insert all track rows
-            $workSheet->fromArray($trackRows, null, "A2");
-
-            $row = count($trackRows) + 2;
-
+        if ($hasTrackRows) {
             // Add totals row
-            $this->addTotalsRow($model->artist, $workSheet, $row, $sum, $curs);
+            $this->addTotalsRow($model->artist, $workSheet, $trackRowNumber, $sum, $curs);
         }
 
         // Style sheet 2 as a readable report table.
@@ -1463,20 +1474,23 @@ class InvoiceItemsController extends Controller
         $workSheet->getColumnDimension('C')->setWidth(10);
         $workSheet->getStyle('A1:C1')->getFont()->setBold(true);
         
-        // Convert flat artist sums back to array format
-        $tempData2 = [
-            [
-                $model->artist->translateDocument('Виконавець'),
-                $model->artist->translateDocument('Сума Роялті'),
-                $model->artist->translateDocument('Валюта')
-            ]
-        ];
+        $workSheet->fromArray([[
+            $model->artist->translateDocument('Виконавець'),
+            $model->artist->translateDocument('Сума Роялті'),
+            $model->artist->translateDocument('Валюта')
+        ]]);
+
+        $artistRow = 2;
         foreach ($artistSums as $artistSum) {
-            $tempData2[] = [$artistSum['artist_name'], $artistSum['amount'], $artistSum['currency_name']];
+            $workSheet->fromArray([[
+                $artistSum['artist_name'],
+                $artistSum['amount'],
+                $artistSum['currency_name']
+            ]], null, 'A' . $artistRow);
+            $artistRow++;
         }
 
-        $workSheet->fromArray($tempData2);
-        $totalRow = count($tempData2) + 2;
+        $totalRow = $artistRow + 1;
 
         // Add totals
         $this->addTotalsRow($model->artist, $workSheet, $totalRow, $sum, $curs);
