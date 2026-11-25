@@ -1612,6 +1612,8 @@ class InvoiceItemsController extends Controller
             );
         }
 
+        exit;
+
         $diff = array_diff([Currency::EUR, Currency::UAH, Currency::USD], array_keys($balance));
         if ($diff) {
             foreach ($diff as $currencyId) {

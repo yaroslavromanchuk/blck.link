@@ -179,6 +179,8 @@ class ArtistBalanceService
             13 => $balance->paidAmount, // Сплачено за період
         ];
 
+        echo "Balance for report: " . print_r($valuesByType, true) . "\n";
+
         $result = [];
         $balanceTypes = ArtistLogType::find()
             ->where(['active' => 1])
