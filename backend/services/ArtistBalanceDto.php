@@ -64,7 +64,7 @@ class ArtistBalanceDto
             + $this->directIncome 
             + $this->featureIncome
             + $this->correction
-            - $this->totalExpenses;
+            - abs($this->totalExpenses);
     }
 
     /**
