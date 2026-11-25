@@ -2067,7 +2067,7 @@ class InvoiceItemsController extends Controller
                 GROUP BY aggregator_id
             ) as a2ow ON a2ow.aggregator_id = agg.aggregator_id
             LEFT JOIN ownership o ON o.id = agg.ownership_type
-            WHERE ii.payment_invoice_id is not null
+            WHERE ii.payment_invoice_id is null
             and ii.artist_id = :artist_id
             and i.quarter = :quarter
             and i.year = :year
