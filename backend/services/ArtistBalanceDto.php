@@ -15,6 +15,8 @@ class ArtistBalanceDto
     public float $previousBalance = 0.0;      // Баланс до цього періоду
     public float $directIncome = 0.0;         // Прямий дохід артиста
     public float $featureIncome = 0.0;        // Дохід з фітів
+
+    public float $correction = 0.0;   // Додаткові надходження, корекції, баланси
     public float $labelIncome = 0.0;          // Дохід лейбла від артиста
     public float $totalIncome = 0.0;          // Загальний дохід
     
@@ -24,7 +26,7 @@ class ArtistBalanceDto
     public float $totalExpenses = 0.0;        // Загальні витрати
     
     // Розраховані суми
-    public float $balanceBeforePayout = 0.0;  // Баланс перед виплатою (попередня сума + дохід - витрати)
+    public float $balanceBeforePayout = 0.0;  // Баланс перед виплатою (попередня сума + дохід - витрати - авансові)
     public float $nextQuarterAdvance = 0.0;   // Аванс на наступний квартал
     public float $paidAmount = 0.0;           // Вже виплачено за період
     public float $amountToPay = 0.0;          // Сума до виплати
@@ -50,7 +52,7 @@ class ArtistBalanceDto
      */
     public function calculateTotalExpenses(): void
     {
-        $this->totalExpenses = $this->costs + $this->advance;
+        $this->totalExpenses = $this->costs + $this->advance + $this->nextQuarterAdvance;
     }
 
     /**
@@ -60,7 +62,8 @@ class ArtistBalanceDto
     {
         $this->balanceBeforePayout = $this->previousBalance 
             + $this->directIncome 
-            + $this->featureIncome 
+            + $this->featureIncome
+            + $this->correction
             - $this->totalExpenses;
     }
 
@@ -70,6 +73,7 @@ class ArtistBalanceDto
     public function calculateAmountToPay(): void
     {
         $this->amountToPay = $this->balanceBeforePayout - $this->paidAmount;
+
         if ($this->amountToPay < 0) {
             $this->amountToPay = 0;
         }
@@ -99,6 +103,7 @@ class ArtistBalanceDto
             'previous_balance' => $this->previousBalance,
             'direct_income' => $this->directIncome,
             'feature_income' => $this->featureIncome,
+            'correction' => $this->correction,
             'label_income' => $this->labelIncome,
             'total_income' => $this->totalIncome,
             'costs' => $this->costs,

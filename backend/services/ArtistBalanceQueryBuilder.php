@@ -69,15 +69,19 @@ class ArtistBalanceQueryBuilder
      * ВИПРАВЛЕНО: Тепер правильно розраховує тільки прямий дохід артиста (ii.artist_id = :artist_id)
      * Не включає дохід лейбу (ii.from_artist_id)
      */
-    public static function getArtistDirectIncome(int $artistId, int $currencyId, int $quarter, int $year): float
+    public static function getArtistDirectIncome(int $artistId, int $currencyId, int $quarter, int $year, ?int $invoiceType = null): float
     {
-        return (float) Yii::$app->db->createCommand("
+        $incomeFilter = $invoiceType === null
+            ? 'i.invoice_type IN (' . implode(',', InvoiceType::INCOME_TYPES) . ')'
+            : 'i.invoice_type = :invoice_type';
+
+        $cmd = Yii::$app->db->createCommand(" 
             SELECT SUM(ii.amount) as amount
             FROM `invoice_items` ii
             INNER JOIN `invoice` i ON i.invoice_id = ii.invoice_id
             LEFT JOIN `track` t ON t.id = ii.track_id
             WHERE i.invoice_status_id = 2
-              AND i.invoice_type IN (" . implode(',', InvoiceType::INCOME_TYPES) . ")
+              AND {$incomeFilter}
               AND i.currency_id = :currency_id
               AND i.quarter = :quarter
               AND i.year = :year
@@ -87,8 +91,13 @@ class ArtistBalanceQueryBuilder
             ->bindValue(':artist_id', $artistId)
             ->bindValue(':currency_id', $currencyId)
             ->bindValue(':quarter', $quarter)
-            ->bindValue(':year', $year)
-            ->queryScalar() ?? 0;
+            ->bindValue(':year', $year);
+
+        if ($invoiceType !== null) {
+            $cmd->bindValue(':invoice_type', $invoiceType);
+        }
+
+        return (float) ($cmd->queryScalar() ?? 0);
     }
 
 
@@ -100,15 +109,19 @@ class ArtistBalanceQueryBuilder
      * - INNER JOIN `track` → LEFT JOIN `track`
      * - Додано обробка коли t.id IS NULL (трек видалено)
      */
-    public static function getArtistFeatureIncome(int $artistId, int $currencyId, int $quarter, int $year): float
+    public static function getArtistFeatureIncome(int $artistId, int $currencyId, int $quarter, int $year, ?int $invoiceType = null): float
     {
-        return (float) Yii::$app->db->createCommand("
+        $incomeFilter = $invoiceType === null
+            ? 'i.invoice_type IN (' . implode(',', InvoiceType::INCOME_TYPES) . ')'
+            : 'i.invoice_type = :invoice_type';
+
+        $cmd = Yii::$app->db->createCommand(" 
             SELECT SUM(ii.amount) as amount
             FROM `invoice_items` ii
             INNER JOIN `invoice` i ON i.invoice_id = ii.invoice_id
             LEFT JOIN `track` t ON t.id = ii.track_id
             WHERE i.invoice_status_id = 2
-              AND i.invoice_type IN (" . implode(',', InvoiceType::INCOME_TYPES) . ")
+              AND {$incomeFilter}
               AND i.currency_id = :currency_id
               AND i.quarter = :quarter
               AND i.year = :year
@@ -118,8 +131,13 @@ class ArtistBalanceQueryBuilder
             ->bindValue(':artist_id', $artistId)
             ->bindValue(':currency_id', $currencyId)
             ->bindValue(':quarter', $quarter)
-            ->bindValue(':year', $year)
-            ->queryScalar() ?? 0;
+            ->bindValue(':year', $year);
+
+        if ($invoiceType !== null) {
+            $cmd->bindValue(':invoice_type', $invoiceType);
+        }
+
+        return (float) ($cmd->queryScalar() ?? 0);
     }
 
     /**
@@ -134,14 +152,18 @@ class ArtistBalanceQueryBuilder
      * @param int $year Рік
      * @return float Загальний дохід для Partner (до розділення на паблішинг/дистрибуцію)
      */
-    public static function getPartnerTotalIncome(int $partnerId, int $currencyId, int $quarter, int $year): float
+    public static function getPartnerTotalIncome(int $partnerId, int $currencyId, int $quarter, int $year, ?int $invoiceType = null): float
     {
-        return (float) Yii::$app->db->createCommand("
+        $incomeFilter = $invoiceType === null
+            ? 'i.invoice_type IN (' . implode(',', InvoiceType::INCOME_TYPES) . ')'
+            : 'i.invoice_type = :invoice_type';
+
+        $cmd = Yii::$app->db->createCommand(" 
             SELECT SUM(ii.amount) as amount
             FROM `invoice_items` ii
             INNER JOIN `invoice` i ON i.invoice_id = ii.invoice_id
             WHERE i.invoice_status_id = 2
-              AND i.invoice_type IN (" . implode(',', InvoiceType::INCOME_TYPES) . ")
+              AND {$incomeFilter}
               AND i.currency_id = :currency_id
               AND i.quarter = :quarter
               AND i.year = :year
@@ -151,8 +173,13 @@ class ArtistBalanceQueryBuilder
             ->bindValue(':partner_id', $partnerId)
             ->bindValue(':currency_id', $currencyId)
             ->bindValue(':quarter', $quarter)
-            ->bindValue(':year', $year)
-            ->queryScalar() ?? 0;
+            ->bindValue(':year', $year);
+
+        if ($invoiceType !== null) {
+            $cmd->bindValue(':invoice_type', $invoiceType);
+        }
+
+        return (float) ($cmd->queryScalar() ?? 0);
     }
 
     /**
@@ -167,14 +194,18 @@ class ArtistBalanceQueryBuilder
      * @param int $year Рік
      * @return float Дохід лейбу від Partner
      */
-    public static function getLabelIncomeFromPartner(int $partnerId, int $currencyId, int $quarter, int $year): float
+    public static function getLabelIncomeFromPartner(int $partnerId, int $currencyId, int $quarter, int $year, ?int $invoiceType = null): float
     {
-        return (float) Yii::$app->db->createCommand("
+        $incomeFilter = $invoiceType === null
+            ? 'i.invoice_type IN (' . implode(',', InvoiceType::INCOME_TYPES) . ')'
+            : 'i.invoice_type = :invoice_type';
+
+        $cmd = Yii::$app->db->createCommand(" 
             SELECT SUM(ii.amount) as amount
             FROM `invoice_items` ii
             INNER JOIN `invoice` i ON i.invoice_id = ii.invoice_id
             WHERE i.invoice_status_id = 2
-              AND i.invoice_type IN (" . implode(',', InvoiceType::INCOME_TYPES) . ")
+              AND {$incomeFilter}
               AND i.currency_id = :currency_id
               AND i.quarter = :quarter
               AND i.year = :year
@@ -184,21 +215,30 @@ class ArtistBalanceQueryBuilder
             ->bindValue(':partner_id', $partnerId)
             ->bindValue(':currency_id', $currencyId)
             ->bindValue(':quarter', $quarter)
-            ->bindValue(':year', $year)
-            ->queryScalar() ?? 0;
+            ->bindValue(':year', $year);
+
+        if ($invoiceType !== null) {
+            $cmd->bindValue(':invoice_type', $invoiceType);
+        }
+
+        return (float) ($cmd->queryScalar() ?? 0);
     }
 
     /**
      * {@inheritdoc}
      */
-    public static function getLabelIncomeFromArtist(int $artistId, int $currencyId, int $quarter, int $year): float
+    public static function getLabelIncomeFromArtist(int $artistId, int $currencyId, int $quarter, int $year, ?int $invoiceType = null): float
     {
-        return (float) Yii::$app->db->createCommand("
+        $incomeFilter = $invoiceType === null
+            ? 'i.invoice_type IN (' . implode(',', InvoiceType::INCOME_TYPES) . ')'
+            : 'i.invoice_type = :invoice_type';
+
+        $cmd = Yii::$app->db->createCommand(" 
             SELECT SUM(ii.amount) as amount
             FROM `invoice_items` ii
             INNER JOIN `invoice` i ON i.invoice_id = ii.invoice_id
             WHERE i.invoice_status_id = 2
-              AND i.invoice_type IN (" . implode(',', InvoiceType::INCOME_TYPES) . ")
+              AND {$incomeFilter}
               AND i.currency_id = :currency_id
               AND i.quarter = :quarter
               AND i.year = :year
@@ -208,8 +248,13 @@ class ArtistBalanceQueryBuilder
             ->bindValue(':artist_id', $artistId)
             ->bindValue(':currency_id', $currencyId)
             ->bindValue(':quarter', $quarter)
-            ->bindValue(':year', $year)
-            ->queryScalar() ?? 0;
+            ->bindValue(':year', $year);
+
+        if ($invoiceType !== null) {
+            $cmd->bindValue(':invoice_type', $invoiceType);
+        }
+
+        return (float) ($cmd->queryScalar() ?? 0);
     }
 
     /**
@@ -218,14 +263,18 @@ class ArtistBalanceQueryBuilder
      * ВИПРАВЛЕНО: Тепер не включає дохід лейбу (ii.from_artist_id)
      * Тільки безпосередньо дохід артиста (ii.artist_id = :artist_id)
      */
-    public static function getTotalIncomeForArtist(int $artistId, int $currencyId, int $quarter, int $year): float
+    public static function getTotalIncomeForArtist(int $artistId, int $currencyId, int $quarter, int $year, ?int $invoiceType = null): float
     {
-        return (float) Yii::$app->db->createCommand("
+        $incomeFilter = $invoiceType === null
+            ? 'i.invoice_type IN (' . implode(',', InvoiceType::INCOME_TYPES) . ')'
+            : 'i.invoice_type = :invoice_type';
+
+        $cmd = Yii::$app->db->createCommand(" 
             SELECT SUM(ii.amount) as amount
             FROM `invoice_items` ii
             INNER JOIN `invoice` i ON i.invoice_id = ii.invoice_id
             WHERE i.invoice_status_id = 2
-              AND i.invoice_type IN (" . implode(',', InvoiceType::INCOME_TYPES) . ")
+              AND {$incomeFilter}
               AND i.currency_id = :currency_id
               AND i.quarter = :quarter
               AND i.year = :year
@@ -235,8 +284,13 @@ class ArtistBalanceQueryBuilder
             ->bindValue(':artist_id', $artistId)
             ->bindValue(':currency_id', $currencyId)
             ->bindValue(':quarter', $quarter)
-            ->bindValue(':year', $year)
-            ->queryScalar() ?? 0;
+            ->bindValue(':year', $year);
+
+        if ($invoiceType !== null) {
+            $cmd->bindValue(':invoice_type', $invoiceType);
+        }
+
+        return (float) ($cmd->queryScalar() ?? 0);
     }
 
     /**
@@ -286,7 +340,7 @@ class ArtistBalanceQueryBuilder
             FROM `invoice_items` ii
             INNER JOIN `invoice` i ON i.invoice_id = ii.invoice_id
             WHERE i.invoice_status_id = 2
-              AND i.invoice_type = " . InvoiceType::ADVANCE . "
+              AND i.invoice_type = " . InvoiceType::COSTS . "
               AND i.currency_id = :currency_id
               AND ii.artist_id = :artist_id
               AND i.year = :year
