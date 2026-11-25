@@ -574,10 +574,6 @@ class Artist extends \yii\db\ActiveRecord
             $sql->bindValue(':currency_id', $currency_id);
         }
 
-        if (!is_null($invoiceId)) {
-            $sql->bindValue(':payment_invoice_id', $invoiceId);
-        }
-
         return $sql->queryAll();
     }
     
