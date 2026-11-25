@@ -80,13 +80,13 @@ $helpUrl = 'https://help.vchasno.com.ua/poperednij-pereglyad-dokumentiv-pidpysuj
                                         <div style="width:32px; height:32px; line-height:32px; border-radius:50%; background:#5b67f1; color:#ffffff; font-weight:bold;">2</div>
                                     </td>
                                     <td style="padding:16px 18px 18px 8px;">
-                                        <h3 style="margin:0 0 8px; font-size:16px; color:#171a2b;"><?= Html::encode($t('Підписати акт-звіт у сервісі «Вчасно»')) ?></h3>
+                                        <h3 style="margin:0 0 8px; font-size:16px; color:#171a2b;"><?= Html::encode($t('Підписати акт у сервісі «Вчасно»')) ?></h3>
                                         <p style="margin:0 0 12px; font-size:14px; line-height:22px; color:#4b5563;">
-                                            <?= Html::encode($t('Посилання на документ для підписання надійде Вам окремим листом на електронну пошту.')) ?>
-                                            <?= Html::encode($t('Для здійснення виплати необхідно підписати акт-звіт до 10 числа наступного місяця.')) ?>
+                                            <?= Html::encode($t('Посилання на документ для підписання надійде Вам окремим електронним листом.')) ?>
+                                            <?= Html::encode($t('Для отримання виплати необхідно підписати акт до 10-го числа наступного місяця.')) ?>
                                         </p>
                                         <div style="padding:10px 12px; background:#fff7ed; border-left:3px solid #f59e0b; font-size:13px; line-height:21px; color:#7c2d12;">
-                                            <?= Html::encode($t('Якщо акт-звіт не буде підписаний до 10 числа наступного місяця, виплата автоматично переноситься на наступний квартал.')) ?>
+                                            <?= Html::encode($t('Якщо акт не буде підписаний до 10 числа наступного місяця, виплата автоматично переноситься на наступний квартал.')) ?>
                                         </div>
                                     </td>
                                 </tr>
@@ -100,7 +100,7 @@ $helpUrl = 'https://help.vchasno.com.ua/poperednij-pereglyad-dokumentiv-pidpysuj
                                     <td style="padding:16px 18px 18px 8px;">
                                         <h3 style="margin:0 0 8px; font-size:16px; color:#171a2b;"><?= Html::encode($t('Отримати виплату')) ?></h3>
                                         <p style="margin:0; font-size:14px; line-height:22px; color:#4b5563;">
-                                            <?= Html::encode($t('Після підписання документа у сервісі «Вчасно» роялті будуть виплачені протягом 5 робочих днів.')) ?>
+                                            <?= Html::encode($t('Якщо акт підписано вчасно, ми виплатимо роялті протягом 5 робочих днів після його підписання.')) ?>
                                         </p>
                                     </td>
                                 </tr>
