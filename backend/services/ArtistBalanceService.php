@@ -179,6 +179,8 @@ class ArtistBalanceService
             13 => $balance->paidAmount, // Сплачено за період
         ];
 
+        echo $balance->totalExpenses;
+
         var_dump($valuesByType); // Debugging line to check the values by type
 
         $result = [];
