@@ -1435,7 +1435,7 @@ class InvoiceItemsController extends Controller
             $row = count($trackRows) + 2;
 
             // Add totals row
-            $this->addTotalsRow($workSheet, $row, $sum, $curs);
+            $this->addTotalsRow($model->artist, $workSheet, $row, $sum, $curs);
         }
 
         // Style sheet 2 as a readable report table.
@@ -1481,7 +1481,7 @@ class InvoiceItemsController extends Controller
         $totalRow = count($tempData2) + 2;
 
         // Add totals
-        $this->addTotalsRow($workSheet, $totalRow, $sum, $curs);
+        $this->addTotalsRow($model->artist, $workSheet, $totalRow, $sum, $curs);
 
         // Style sheet 3.
         $sheet3LastRow = $workSheet->getHighestRow();
@@ -1790,16 +1790,16 @@ class InvoiceItemsController extends Controller
     /**
      * OPTIMIZATION: Extract repeated totals row logic into helper method
      */
-    private function addTotalsRow($workSheet, int $startRow, array $sum, array $curs): void
+    private function addTotalsRow(Artist $artistModel, $workSheet, int $startRow, array $sum, array $curs): void
     {
         $j = $startRow;
-        $workSheet->setCellValue('A' . $j, 'Всього:');
+        $workSheet->setCellValue('A' . $j, $artistModel->translateDocument('Всього:'));
         $workSheet->getStyle('A' . $j)->getFont()->setBold(true);
         ++$j;
 
-        $workSheet->setCellValue('A' . $j, 'Валюта');
-        $workSheet->setCellValue('B' . $j, 'Сума');
-        $workSheet->setCellValue('C' . $j, 'Курс');
+        $workSheet->setCellValue('A' . $j, $artistModel->translateDocument('Валюта'));
+        $workSheet->setCellValue('B' . $j, $artistModel->translateDocument('Сума'));
+        $workSheet->setCellValue('C' . $j, $artistModel->translateDocument('Курс'));
         foreach (['A', 'B', 'C'] as $col) {
             $workSheet->getStyle($col . $j)->getFont()->setBold(true);
         }
