@@ -1020,11 +1020,12 @@ class InvoiceController extends Controller
 
         $this->redirect("/xls/".$filename);
     }
-    
+
     /**
      * @param int $currentInvoiceId
      * @param int $artistId
      * @param int $currencyId
+     * @param float $sum
      * @return Response
      * @throws Exception
      * @throws NotFoundHttpException
@@ -1046,6 +1047,19 @@ class InvoiceController extends Controller
             ->one();
         
         if ($payInvoice) {
+            $existInPayInvoice = InvoiceItems::find()
+                ->where([
+                    'invoice_id' => $payInvoice->invoice_id,
+                    'artist_id' => $artistId,
+                ])
+                ->one();
+
+            if ($existInPayInvoice) {
+                Yii::$app->session->setFlash('error', 'Артист вже доданий до інвойсу виплат №' . $payInvoice->invoice_id);
+
+                return $this->redirect(['invoice/view', 'id' => $currentInvoiceId]);
+            }
+
             $payInvoiceItems = new InvoiceItems();
             $payInvoiceItems->invoice_id = $payInvoice->invoice_id;
             $payInvoiceItems->artist_id = $artistId;
@@ -1064,56 +1078,6 @@ class InvoiceController extends Controller
             Yii::$app->session->setFlash('success', 'Записи артиста додано до інвойсу виплат №' . $payInvoice->invoice_id);
             
             return $this->redirect(['invoice/view', 'id' => $currentInvoiceId]);
-           
-           /* $artist = Artist::findOne($artistId);
-            
-            if (!is_null($artist)) {
-                switch ($payInvoice->currency_id) {
-                    case Currency::EUR:
-                        if ($artist->deposit_1 > 0) {
-                            $payInvoiceItems->amount = $artist->deposit_1 * -1;
-                        } else {
-                            Yii::$app->session->setFlash('error', 'Артист з мінуосвим депозитом EUR, не можна додати в інвойс на виплату.');
-                            
-                            return $this->redirect(['invoice/view', 'id' => $currentInvoiceId]);
-                        }
-                        break;
-                    case Currency::UAH:
-                        if ($artist->deposit > 0) {
-                            $payInvoiceItems->amount = $artist->deposit * -1;
-                        } else {
-                            Yii::$app->session->setFlash('error', 'Артист з мінуосвим депозитом UAH, не можна додати в інвойс на виплату.');
-                            
-                            return $this->redirect(['invoice/view', 'id' => $currentInvoiceId]);
-                        }
-                        break;
-                    case Currency::USD:
-                        if ($artist->deposit_3 > 0) {
-                            $payInvoiceItems->amount = $artist->deposit_3 * -1;
-                        } else {
-                            Yii::$app->session->setFlash('error', 'Артист з мінуосвим депозитом USD, не можна додати в інвойс на виплату.');
-                            
-                            return $this->redirect(['invoice/view', 'id' => $currentInvoiceId]);
-                        }
-                        break;
-                }
-                
-                if (!$payInvoiceItems->save()) {
-                    $errors = $payInvoiceItems->getErrors();
-                    Yii::$app->session->setFlash('error', current($errors));
-                    
-                    return $this->redirect(['invoice/view', 'id' => $currentInvoiceId]);
-                }
-                
-                $payInvoice->calculate();
-                
-                Yii::$app->session->setFlash('success', 'Записи артиста додано до інвойсу виплат №' . $payInvoice->invoice_id);
-                
-                return $this->redirect(['invoice/view', 'id' => $currentInvoiceId]);
-            } else {
-                Yii::$app->session->setFlash('error', 'Артиста не знайдений.');
-                return $this->redirect(['invoice/view', 'id' => $currentInvoiceId]);
-            }*/
         } else {
             Yii::$app->session->setFlash('error', 'Інвойс виплат не знайдено для валюти '. Currency::findOne($currencyId)->currency_name);
         }
