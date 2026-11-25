@@ -562,8 +562,8 @@ class InvoiceItemsController extends Controller
     public function actionExportAct(int $id, bool $redirect = true, array $invoiceItemsIds = [])
     {
         // Avoid web-worker OOM kills (503) by using safer limits for HTTP requests.
-        set_time_limit(PHP_SAPI === 'cli' ? 0 : 300);
-        ini_set('memory_limit', PHP_SAPI === 'cli' ? '1536M' : '768M');
+        set_time_limit(0);
+        ini_set('memory_limit', '2048M');
 
         $model = $this->findModel($id);
         ArtistDocumentTranslator::applyLanguage($model->artist);
