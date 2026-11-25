@@ -16,6 +16,7 @@ use backend\models\ReleaseSearch;
 use backend\models\SubLabel;
 use backend\models\UploadReport;
 use backend\models\UserBalance;
+use backend\services\ArtistBalanceService;
 use common\models\t;
 use PhpOffice\PhpSpreadsheet\Reader\Xlsx;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -61,7 +62,6 @@ class TrackController extends Controller
                    // 'percentage-update' => ['POST', 'GET'],
                 ],
             ],
-
             // Фільтр доступу
             'access' => [
                 'class' => AccessControl::class,
@@ -103,30 +103,10 @@ class TrackController extends Controller
         $searchModel = new TrackSearch();
         $dataProvider = $searchModel->search(Yii::$app->request->queryParams);
 
-        //$this->getT();
         return $this->render('index', [
             'searchModel' => $searchModel,
             'dataProvider' => $dataProvider,
         ]);
-    }
-
-    private function getT()
-    {
-        $traks = Track::find()->all();
-
-        foreach ($traks as $track) {
-
-            $pc = $track->getPercentage();
-
-           // print_r($pc); exit();
-
-           if (!empty($pc) && $pc[4]['type_name'] == 'Загальний відсоток' && $pc[4]['percentage'] == 0) {
-               echo $track->id;
-                $track->getPR();
-                echo ' +'.PHP_EOL;
-            }
-        }
-        exit;
     }
 
     /**
@@ -150,7 +130,6 @@ class TrackController extends Controller
     public function actionCreate()
     {
         $model = new Track();
-
 		if(Yii::$app->request->isAjax && Yii::$app->request->post('ajax')) {
         	if ($model->load(Yii::$app->request->post())){
                 if (is_array($model->servise)) {
@@ -169,7 +148,7 @@ class TrackController extends Controller
         	    return ActiveForm::validate($model);
        		}
         	return true;
-      }
+        }
 
         if (Yii::$app->request->isAjax) {
             Yii::$app->response->format = Response::FORMAT_JSON;
@@ -199,9 +178,8 @@ class TrackController extends Controller
                 $model->name = trim($model->name);
                 
                 if (empty($model->url)) {
-                    $model->url = trim(Yii::$app->translit->t($model->name));//     Yii::$app->getSecurity()->generateRandomString(8);
+                    $model->url = trim(Yii::$app->translit->t($model->name));
                 }
-                
 
                 $isrcObject = new Isrc(str_replace("-", "", trim($model->isrc)));
                 $model->isrc = $isrcObject->getIsrc(false);
@@ -281,7 +259,7 @@ class TrackController extends Controller
             if ($model->load(Yii::$app->request->post())) {
                 $model->name = trim($model->name);
                 if (empty($model->url)) {
-                    $model->url = trim(Yii::$app->translit->t($model->name));//     Yii::$app->getSecurity()->generateRandomString(8);
+                    $model->url = trim(Yii::$app->translit->t($model->name));
                 }
 
                 $model->isrc = trim($model->isrc);
@@ -497,7 +475,6 @@ class TrackController extends Controller
             'dataProvider' => $dataProvider,
             'trackId' => $id,
         ]);
-
     }
 
     public function actionPercentageCreate(int $id)
@@ -551,22 +528,17 @@ class TrackController extends Controller
         Yii::$app->response->format = Response::FORMAT_JSON;
 
         if (!empty($Percentage) && is_array($Percentage)) {
-
             foreach ($Percentage as $type1 => $sub) {
                 foreach ($sub as $type2 => $form) {
                     if ($type2 != 5) {
                         $sum = array_sum($form);
 
                         if ($sum != 0 && $sum != 100) {
-                            // throw new \InvalidArgumentException($sum);
-                            // Yii::$app->response->format = Response::FORMAT_JSON;
                             $model = new Percentage();
                             $model->percentage = $sum;
                             $validate = ActiveForm::validate($model, 'percentage');
 
                             if (!empty($validate)) {
-
-
                                 return $validate;
                             }
                         }
@@ -575,40 +547,35 @@ class TrackController extends Controller
                 }
             }
 
+            $res = "";
+            foreach ($Percentage as $sub) {
+                foreach ($sub as $form) {
+                    foreach ($form as $id => $percentage) {
+                        $model = Percentage::findOne($id);
+                        if ($model->percentage != $percentage) {
+                            $temp = [
+                                'id' => $id,
+                                'old' => $model->percentage,
+                                'new' => $percentage,
+                            ];
 
-        $res = "";
-
-        foreach ($Percentage as $sub) {
-            foreach ($sub as $form) {
-                foreach ($form as $id => $percentage) {
-                    $model = Percentage::findOne($id);
-
-                    if ($model->percentage != $percentage) {
-                        $temp = [
-                            'id' => $id,
-                            'old' => $model->percentage,
-                            'new' => $percentage,
-                        ];
-
-                        $model->percentage = $percentage;
-                        if($model->save()) {
-                            $res .= "{$temp['id']} :<s>{$temp['old']}</s> => {$temp['new']}\n";
+                            $model->percentage = $percentage;
+                            if($model->save()) {
+                                $res .= "{$temp['id']} :<s>{$temp['old']}</s> => {$temp['new']}\n";
+                            }
                         }
                     }
                 }
             }
-        }
 
-        if (!empty($res)) {
-            $track =  $this->findModel($trackId);
-            t::log(Yii::$app->user->identity->getFullName() . "\nОнеовлено % для треку.\n $track->artist_name:$track->name ({$track->isrc})\n" .  $res);
+            if (!empty($res)) {
+                $track =  $this->findModel($trackId);
+                t::log(Yii::$app->user->identity->getFullName() . "\nОнеовлено % для треку.\n $track->artist_name:$track->name ({$track->isrc})\n" .  $res);
+            }
         }
-    }
 
         echo 'Дані збережено!';
         die;
-
-      //  return $this->redirect(['index']);
     }
 
     public function actionLoadModal(int $trackId)
@@ -651,7 +618,6 @@ class TrackController extends Controller
 
         return $this->redirect(['percentage', 'id' => $id]);
     }
-
     #endregion Percentage
 
     #region load track
@@ -680,14 +646,9 @@ class TrackController extends Controller
             $importResults = $worksheet->toArray();
             unset($importResults[0]);
 
-            $errorTrack = [];
-            $errorArtist = [];
             $foundTrack = 0;
             $addedTrack = 0;
-            $addedArtist = 0;
-            
             $result = [];
-
             foreach ($importResults as $item) {
                 $isrc = str_replace("-", "", trim($item[0]));
 
@@ -708,7 +669,6 @@ class TrackController extends Controller
                 }
 
                 $isrc = $isrcObject->getIsrc(false);
-                
                 $track = Track::getTrackByIsrc($isrc);
 
                 if (!is_null($track)) {
@@ -742,11 +702,8 @@ class TrackController extends Controller
                     if (!$artist->save()) {
                         $temp['import_status'][] = 'error add artist';
                         $result[] = $temp;
-                        //$errorArtist[] = $item;
                         continue;
                     }
-
-                   // $addedArtist++;
                 }
 
                 if (is_null($artist)) {
@@ -773,7 +730,6 @@ class TrackController extends Controller
                 if(!$track->save()) {
                     $temp['import_status'] =  $track->getFirstErrors();
                     $result[] = $temp;
-                   // $errorTrack[] = $item;
                     continue;
                 }
 
@@ -792,10 +748,8 @@ class TrackController extends Controller
                 'foundTrack' => $foundTrack ?? 0,
                 'addedTrack' => $addedTrack ?? 0,
                 'result' => $result ?? [],
-                //'addedArtist' => $addedArtist ?? 0,
             ]
         );
-
     }
     #endregion load track
 
@@ -916,7 +870,7 @@ class TrackController extends Controller
             }
 
             // Перераховуємо депозити всіх артистів
-            Artist::calculationDeposit();
+            ArtistBalanceService::updateArtistDeposits();
 
             $transaction->commit();
             Yii::$app->session->setFlash(
