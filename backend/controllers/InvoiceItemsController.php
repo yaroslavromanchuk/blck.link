@@ -1761,10 +1761,6 @@ class InvoiceItemsController extends Controller
                 $balanceRow++;
             }
         }
-echo "<pre>";
-        print_r($balanceData);
-        echo "</pre>";
-        exit;
 
         $workSheet->fromArray($balanceData, null, 'A1');
         $workSheet->setCellValue('I3', $model->artist->translateDocument('Валюта'));
