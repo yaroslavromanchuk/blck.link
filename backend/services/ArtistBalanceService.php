@@ -75,7 +75,7 @@ class ArtistBalanceService
             $balance->featureIncome = $totalIncome - $directIncome;  // Feature = Total - Direct
             $balance->labelIncome = $labelDebitIncome;
             $balance->correction = $totalCorrection + $labelCorrectionIncome;
-            $balance->totalIncome = $totalIncome;
+            $balance->totalIncome = $totalIncome + $labelDebitIncome + $totalCorrection;
         }
 
         // Витрати
