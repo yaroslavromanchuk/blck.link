@@ -384,10 +384,9 @@ class InvoiceController extends Controller
                             AND ii.payment_invoice_id is null
                             AND i.currency_id = {$model->currency_id}
                             AND (
-                                i.year < {$model->year}
-                                OR (i.year = {$model->year} AND i.quarter <= {$model->quarter})
-                            )
-                            #and ii.invoice_id < {$model->invoice_id}
+                                (i.year < {$model->year} OR (i.year = {$model->year} AND i.quarter <= {$model->quarter}))
+                                OR (i.invoice_type = 3 AND (i.year > {$model->year} OR i.quarter > {$model->quarter}))
+                                )
                             "
                     )->execute();
                     
