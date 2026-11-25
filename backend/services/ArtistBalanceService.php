@@ -169,8 +169,7 @@ class ArtistBalanceService
             2 => $balance->costs, // Витрати за поточний період
             3 => $balance->nextQuarterAdvance, // Витрати за майбутній період
             4 => $balance->balanceBeforePayout,
-            // Надходження за типом DEBIT (1): артист + фіти + лейбл.
-            5 => $balance->totalIncome,
+            5 => $balance->totalIncome, // Надходження за типом DEBIT (1) артист + фіти + лейбл.
             6 => $balance->directIncome, // Частка артиста
             7 => $balance->featureIncome, // Частка артиста з фітів
             8 => $balance->labelIncome, // Частка лейбла
@@ -179,6 +178,8 @@ class ArtistBalanceService
             12 => $balance->correction, // Надходження за типом CORRECTION (5)
             13 => $balance->paidAmount, // Сплачено за період
         ];
+
+        var_dump($valuesByType); // Debugging line to check the values by type
 
         $result = [];
         $balanceTypes = ArtistLogType::find()
