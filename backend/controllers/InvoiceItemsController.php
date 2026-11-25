@@ -1664,8 +1664,11 @@ class InvoiceItemsController extends Controller
 
         // Fetch income and costs for the current and next quarter
         $income = $model->artist->getIncome($model->invoice->quarter, $model->invoice->year, $model->invoice->invoice_id);
-        $costs = $model->artist->getCosts($model->invoice->quarter, $model->invoice->year);
+        // Fetch costs for the current quarter and the next quarter
+        $costs = $model->artist->getCosts($model->invoice->quarter, $model->invoice->year, null, true);
+        // Fetch costs for the next quarter
         $nextQuarter = DateFormat::getNextQuarterYear($model->invoice->quarter, $model->invoice->year);
+        // Fetch costs for the next quarter
         $costsNext = $model->artist->getCosts($nextQuarter['quarter'], $nextQuarter['year']);
 
         if (count($income) + count($costs) + count($costsNext) > 0) {

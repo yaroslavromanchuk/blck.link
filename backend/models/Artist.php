@@ -522,7 +522,7 @@ class Artist extends \yii\db\ActiveRecord
     /**
      * отримати витрати артиста за період
      */
-    public function getCosts(int $quarter, int $year, ?int $currency_id = null): array
+    public function getCosts(int $quarter, int $year, ?int $currency_id = null, bool $onlyCurrentQuarter = false): array
     {
         // витрати за період
         $sql = "SELECT it.invoice_type_name,
@@ -543,7 +543,22 @@ class Artist extends \yii\db\ActiveRecord
                           AND ii.artist_id =:artist_id
                           AND i.quarter = :quarter
                           AND i.year = :year";
-        
+
+
+        if ($onlyCurrentQuarter) {
+            $sql .= " AND ii.payment_invoice_id IN (
+                        SELECT ip.invoice_id
+                        FROM invoice ip
+                            INNER JOIN invoice_items iip ON iip.invoice_id = ip.invoice_id
+                        WHERE ip.invoice_type = 2
+                          AND ip.invoice_status_id IN (2, 4)
+                          AND ip.quarter = :quarter
+                          AND ip.year = :year
+                          AND ip.currency_id = i.currency_id
+                          AND iip.artist_id = :artist_id
+                    )";
+        }
+
         if (!is_null($currency_id)) {
             $sql .= " AND i.currency_id =:currency_id";
         }
@@ -558,7 +573,11 @@ class Artist extends \yii\db\ActiveRecord
         if (!is_null($currency_id)) {
             $sql->bindValue(':currency_id', $currency_id);
         }
-        
+
+        if (!is_null($invoiceId)) {
+            $sql->bindValue(':payment_invoice_id', $invoiceId);
+        }
+
         return $sql->queryAll();
     }
     
