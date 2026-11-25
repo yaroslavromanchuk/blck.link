@@ -66,10 +66,13 @@ $helpUrl = 'https://help.vchasno.com.ua/poperednij-pereglyad-dokumentiv-pidpysuj
                                         <p style="margin:12px 0 6px; font-size:14px; line-height:22px; color:#4b5563;">
                                             <?= Html::encode($t('Якщо реквізити змінилися, надішліть нам у відповіді:')) ?>
                                         </p>
-                                        <ul style="margin:0; padding:0 0 0 18px; font-size:14px; line-height:24px; color:#111827;">
-                                            <li><?= Html::encode($t('IBAN рахунку')) ?></li>
-                                            <li><?= Html::encode($t('Назва банку')) ?></li>
-                                        </ul>
+                                        <div style="padding:10px 12px; background:#f6f7fb; border-left:3px solid #5b67f1; font-size:14px; color:#111827;">
+                                            <ul style="margin:0; padding:0 0 0 18px; font-size:14px; line-height:24px; color:#111827;">
+                                                <li><?= Html::encode($t('IBAN рахунку')) ?></li>
+                                                <li><?= Html::encode($t('Назва банку')) ?></li>
+                                            </ul>
+                                        </div>
+
                                     </td>
                                 </tr>
                             </table>
