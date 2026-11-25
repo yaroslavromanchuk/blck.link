@@ -561,10 +561,6 @@ class InvoiceItemsController extends Controller
 
     public function actionExportAct(int $id, bool $redirect = true, array $invoiceItemsIds = [])
     {
-        // Avoid web-worker OOM kills (503) by using safer limits for HTTP requests.
-        set_time_limit(0);
-        ini_set('memory_limit', '2048M');
-
         $model = $this->findModel($id);
         ArtistDocumentTranslator::applyLanguage($model->artist);
 
@@ -1326,14 +1322,16 @@ class InvoiceItemsController extends Controller
         $artistSums = [];  // OPTIMIZATION: Flattened aggregation instead of nested array
         $curs = ['EUR' => 1, 'UAH' => 1, 'USD' => 1];
 
-        // OPTIMIZATION: Preload all invoices with eager loading
-        $invoices = Invoice::find()
-            ->where(['in', 'invoice_id', $invoiceItemsIds['invoice']])
-            ->indexBy('invoice_id')
+        // Load only currency + exchange pairs for selected invoices (lighter than AR + relations).
+        $invoiceRates = (new \yii\db\Query())
+            ->select(['c.currency_name', 'i.exchange'])
+            ->from('invoice i')
+            ->innerJoin('currency c', 'c.currency_id = i.currency_id')
+            ->where(['in', 'i.invoice_id', $invoiceItemsIds['invoice']])
             ->all();
 
-        foreach ($invoices as $inv) {
-            $curs[$inv->currency->currency_name] = $inv->exchange;
+        foreach ($invoiceRates as $rateRow) {
+            $curs[(string)$rateRow['currency_name']] = (float)$rateRow['exchange'];
         }
 
         $reader = $this->getReportDataXlsSpout(
@@ -1345,6 +1343,21 @@ class InvoiceItemsController extends Controller
         $trackIndex = 1;
         $trackRowNumber = 2;
         $hasTrackRows = false;
+        $trackChunk = [];
+        $trackChunkStartRow = 2;
+        $chunkSize = 750;
+        $translationCache = [];
+
+        $translate = function (string $value) use ($model, &$translationCache): string {
+            if ($value === '') {
+                return '';
+            }
+            if (!array_key_exists($value, $translationCache)) {
+                $translationCache[$value] = $model->artist->translateDocument($value);
+            }
+
+            return $translationCache[$value];
+        };
 
         while ($item = $reader->read()) {
             $sum[$item['currency_name']] = ($sum[$item['currency_name']] ?? 0) + $item['amount_2'];
@@ -1352,7 +1365,7 @@ class InvoiceItemsController extends Controller
                 $foundCurrencyIds[(int)$item['currency_id']] = true;
             }
 
-            $workSheet->fromArray([[
+            $trackChunk[] = [
                 $trackIndex,
                 $item['artist_name'],
                 rtrim($item['track_name'], '1'),
@@ -1362,12 +1375,12 @@ class InvoiceItemsController extends Controller
                 $item['percentage_label'],
                 $item['amount_2'],
                 $item['currency_name'],
-                $model->artist->translateDocument((string)$item['prav1']),
-                $model->artist->translateDocument((string)$item['prav2']),
+                $translate((string)$item['prav1']),
+                $translate((string)$item['prav2']),
                 (string)$item['platform'],
                 $item['country'],
                 DateFormat::datumUah2($item['date_report'], $model->artist->lang_id),
-            ]], null, 'A' . $trackRowNumber);
+            ];
 
             // OPTIMIZATION: Aggregate artist sums with simple key instead of nested array
             $key = $item['artist_name'] . '|' . $item['currency_name'];
@@ -1382,6 +1395,13 @@ class InvoiceItemsController extends Controller
             $trackIndex++;
             $trackRowNumber++;
             $hasTrackRows = true;
+
+            if (count($trackChunk) >= $chunkSize) {
+                $workSheet->fromArray($trackChunk, null, 'A' . $trackChunkStartRow);
+                $trackChunkStartRow += count($trackChunk);
+                $trackChunk = [];
+                gc_collect_cycles();
+            }
         }
 
         // Include currencies that have no linked payout rows yet.
@@ -1397,7 +1417,7 @@ class InvoiceItemsController extends Controller
             while ($item = $reader->read()) {
                 $sum[$item['currency_name']] = ($sum[$item['currency_name']] ?? 0) + $item['amount_2'];
 
-                $workSheet->fromArray([[
+                $trackChunk[] = [
                     $trackIndex,
                     $item['artist_name'],
                     rtrim($item['track_name'], '1'),
@@ -1407,12 +1427,12 @@ class InvoiceItemsController extends Controller
                     $item['percentage_label'],
                     $item['amount_2'],
                     $item['currency_name'],
-                    $model->artist->translateDocument((string)$item['prav1']),
-                    $model->artist->translateDocument((string)$item['prav2']),
+                    $translate((string)$item['prav1']),
+                    $translate((string)$item['prav2']),
                     (string)$item['platform'],
                     $item['country'],
-                    DateFormat::datumUah2($item['date_report']),
-                ]], null, 'A' . $trackRowNumber);
+                    DateFormat::datumUah2($item['date_report'], $model->artist->lang_id),
+                ];
 
                 // OPTIMIZATION: Aggregate artist sums with simple key instead of nested array
                 $key = $item['artist_name'] . '|' . $item['currency_name'];
@@ -1427,7 +1447,20 @@ class InvoiceItemsController extends Controller
                 $trackIndex++;
                 $trackRowNumber++;
                 $hasTrackRows = true;
+
+                if (count($trackChunk) >= $chunkSize) {
+                    $workSheet->fromArray($trackChunk, null, 'A' . $trackChunkStartRow);
+                    $trackChunkStartRow += count($trackChunk);
+                    $trackChunk = [];
+                    gc_collect_cycles();
+                }
             }
+        }
+
+        if (!empty($trackChunk)) {
+            $workSheet->fromArray($trackChunk, null, 'A' . $trackChunkStartRow);
+            $trackChunkStartRow += count($trackChunk);
+            $trackChunk = [];
         }
 
         if ($hasTrackRows) {
@@ -1437,6 +1470,7 @@ class InvoiceItemsController extends Controller
 
         // Style sheet 2 as a readable report table.
         $sheet2LastRow = $workSheet->getHighestRow();
+        $heavyStyleThreshold = 12000;
         $workSheet->freezePane('A2');
         $workSheet->setAutoFilter('A1:N1');
         $workSheet->getStyle('A1:N1')->getFill()
@@ -1445,9 +1479,14 @@ class InvoiceItemsController extends Controller
             ->setRGB('D9D9D9');
         $workSheet->getStyle('A1:N1')->getBorders()->getOutline()->setBorderStyle(Border::BORDER_THIN);
         if ($sheet2LastRow >= 1) {
-            $workSheet->getStyle('A1:N' . $sheet2LastRow)->getBorders()->getInside()->setBorderStyle(Border::BORDER_THIN);
-            $workSheet->getStyle('A1:N' . $sheet2LastRow)->getBorders()->getOutline()->setBorderStyle(Border::BORDER_THIN);
-            $workSheet->getStyle('A2:N' . $sheet2LastRow)->getAlignment()->setVertical(Alignment::VERTICAL_TOP);
+            if ($sheet2LastRow <= $heavyStyleThreshold) {
+                $workSheet->getStyle('A1:N' . $sheet2LastRow)->getBorders()->getInside()->setBorderStyle(Border::BORDER_THIN);
+                $workSheet->getStyle('A1:N' . $sheet2LastRow)->getBorders()->getOutline()->setBorderStyle(Border::BORDER_THIN);
+                $workSheet->getStyle('A2:N' . $sheet2LastRow)->getAlignment()->setVertical(Alignment::VERTICAL_TOP);
+            } else {
+                // Large exports: keep header style + outside frame, skip cell-by-cell borders/alignment.
+                $workSheet->getStyle('A1:N' . $sheet2LastRow)->getBorders()->getOutline()->setBorderStyle(Border::BORDER_THIN);
+            }
         }
 
         #endregion Звіт по акту
@@ -1469,13 +1508,25 @@ class InvoiceItemsController extends Controller
         ]]);
 
         $artistRow = 2;
+        $artistChunk = [];
+        $artistChunkStartRow = 2;
         foreach ($artistSums as $artistSum) {
-            $workSheet->fromArray([[
+            $artistChunk[] = [
                 $artistSum['artist_name'],
                 $artistSum['amount'],
                 $artistSum['currency_name']
-            ]], null, 'A' . $artistRow);
+            ];
             $artistRow++;
+
+            if (count($artistChunk) >= $chunkSize) {
+                $workSheet->fromArray($artistChunk, null, 'A' . $artistChunkStartRow);
+                $artistChunkStartRow += count($artistChunk);
+                $artistChunk = [];
+            }
+        }
+
+        if (!empty($artistChunk)) {
+            $workSheet->fromArray($artistChunk, null, 'A' . $artistChunkStartRow);
         }
 
         $totalRow = $artistRow + 1;
@@ -1492,8 +1543,12 @@ class InvoiceItemsController extends Controller
             ->getStartColor()
             ->setRGB('D9D9D9');
         if ($sheet3LastRow >= 1) {
-            $workSheet->getStyle('A1:C' . $sheet3LastRow)->getBorders()->getInside()->setBorderStyle(Border::BORDER_THIN);
-            $workSheet->getStyle('A1:C' . $sheet3LastRow)->getBorders()->getOutline()->setBorderStyle(Border::BORDER_THIN);
+            if ($sheet3LastRow <= $heavyStyleThreshold) {
+                $workSheet->getStyle('A1:C' . $sheet3LastRow)->getBorders()->getInside()->setBorderStyle(Border::BORDER_THIN);
+                $workSheet->getStyle('A1:C' . $sheet3LastRow)->getBorders()->getOutline()->setBorderStyle(Border::BORDER_THIN);
+            } else {
+                $workSheet->getStyle('A1:C' . $sheet3LastRow)->getBorders()->getOutline()->setBorderStyle(Border::BORDER_THIN);
+            }
         }
         #endregion Звіт по артистам
 
