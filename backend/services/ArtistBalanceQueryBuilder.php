@@ -347,7 +347,7 @@ class ArtistBalanceQueryBuilder
             FROM `invoice_items` ii 
                 INNER JOIN `invoice` i ON i.invoice_id = ii.invoice_id 
                     AND i.invoice_type = " . InvoiceType::PAY . "
-                    AND i.invoice_status_id IN (2, 4)
+                    AND i.invoice_status_id = 2
             WHERE i.currency_id = :currency_id
               AND ii.artist_id = :artist_id 
               AND i.quarter = :quarter 
