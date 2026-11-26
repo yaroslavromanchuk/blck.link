@@ -2048,52 +2048,51 @@ class InvoiceItemsController extends Controller
                     COALESCE(atu.name, a2ow.name) as prav2,
                     COALESCE(a_s.name, qq.p3) as platform,
                     c.currency_name
-                    FROM (SELECT  t.artist_name as artist_name,
-                    t.name as track_name,
-                    ii2.artist_percentage as percentage,
-                  	ii2.percentage as percentage_label,
-                    ari.platform as p3,
-                    ari.date_report,
-                    ari.country,
-      				ari.track_id,
-            	sum(ari.count) as count,
-               	ROUND(sum(ari.amount), 5) as amount,
-               	ROUND(sum(ari.amount * ii2.percentage / 100), 5) as amount_2,
-                
-                ar.aggregator_id,
-                i.currency_id
-                
-			FROM `invoice_items` ii
-			    INNER JOIN invoice i2 ON i2.invoice_id = ii.invoice_id
-                INNER JOIN invoice_items ii2 ON ii2.payment_invoice_id = ii.invoice_id AND ii.artist_id = ii2.artist_id
-				INNER JOIN invoice i ON i.invoice_id = ii2.invoice_id
-				
-				INNER JOIN aggregator_report ar ON ar.id = i.aggregator_report_id
-					and ar.report_status_id = 2
-				INNER JOIN aggregator_report_item ari ON ari.report_id = ar.id
-					and ii2.track_id = ari.track_id
-				INNER JOIN track t ON t.id = ii2.track_id
-					and ii.artist_id = t.artist_id
-				
-                WHERE ii.invoice_id in ($invoiceIds)
-                  AND ii2.artist_id = :artist_id
-                  and i2.quarter = i.quarter
-                  and i2.year = i.year
-                  GROUP BY i.currency_id, ari.track_id, ari.platform, ari.country, ari.date_report
-              ) as qq
-                LEFT JOIN currency c ON c.currency_id= qq.currency_id
-				LEFT JOIN aggregator agg ON agg.aggregator_id = qq.aggregator_id
-				LEFT JOIN aggregator_type_use atu ON atu.type_id = agg.type_use_id
-				LEFT JOIN aggregator_service a_s ON a_s.service_id = agg.service_id
-                LEFT JOIN ownership o ON o.id = agg.ownership_type
-				LEFT JOIN (
-					SELECT aggregator_id, GROUP_CONCAT(ot_.name) as name
-					FROM aggregator_to_ownership_type
-						INNER JOIN ownership_type ot_ ON ot_.id = ownership_type_id
-					GROUP BY aggregator_id
-				) as a2ow ON a2ow.aggregator_id = agg.aggregator_id
-        WHERE qq.amount_2 <> 0
-        ORDER BY qq.currency_id ASC, qq.track_id ASC, qq.date_report ASC";
+                    FROM (
+                        SELECT  t.artist_name as artist_name,
+                            t.name as track_name,
+                            ii2.artist_percentage as percentage,
+                            ii2.percentage as percentage_label,
+                            ari.platform as p3,
+                            ari.date_report,
+                            ari.country,
+                            ari.track_id,
+                            sum(ari.count) as count,
+                            ROUND(sum(ari.amount), 5) as amount,
+                            ROUND(sum(ari.amount * ii2.percentage / 100), 5) as amount_2,
+                            ar.aggregator_id,
+                            i.currency_id
+                        FROM `invoice_items` ii
+                            INNER JOIN invoice i2 ON i2.invoice_id = ii.invoice_id
+                            INNER JOIN invoice_items ii2 ON ii2.payment_invoice_id = ii.invoice_id AND ii.artist_id = ii2.artist_id
+				            INNER JOIN invoice i ON i.invoice_id = ii2.invoice_id
+                            
+                            INNER JOIN aggregator_report ar ON ar.id = i.aggregator_report_id
+                                and ar.report_status_id = 2
+                            INNER JOIN aggregator_report_item ari ON ari.report_id = ar.id
+                                and ii2.track_id = ari.track_id
+                            INNER JOIN track t ON t.id = ii2.track_id
+                                and ii.artist_id = t.artist_id
+                    
+                        WHERE ii.invoice_id in ($invoiceIds)
+                          AND ii.artist_id = :artist_id
+                          AND i2.quarter = i.quarter
+                          AND i2.year = i.year
+                        GROUP BY i.currency_id, ari.track_id, ari.platform, ari.country, ari.date_report
+                        ) as qq
+                    LEFT JOIN currency c ON c.currency_id= qq.currency_id
+                    LEFT JOIN aggregator agg ON agg.aggregator_id = qq.aggregator_id
+                    LEFT JOIN aggregator_type_use atu ON atu.type_id = agg.type_use_id
+                    LEFT JOIN aggregator_service a_s ON a_s.service_id = agg.service_id
+                    LEFT JOIN ownership o ON o.id = agg.ownership_type
+                    LEFT JOIN (
+                        SELECT aggregator_id, GROUP_CONCAT(ot_.name) as name
+                        FROM aggregator_to_ownership_type
+                            INNER JOIN ownership_type ot_ ON ot_.id = ownership_type_id
+                        GROUP BY aggregator_id
+                    ) as a2ow ON a2ow.aggregator_id = agg.aggregator_id
+                WHERE qq.amount_2 <> 0
+                ORDER BY qq.currency_id ASC, qq.track_id ASC, qq.date_report ASC";
 
         return Yii::$app->db->createCommand($query)
             ->bindValue(':artist_id', $artist_id)
