@@ -1511,7 +1511,7 @@ class InvoiceItemsController extends Controller
         #region Баланс
         $this->buildBalanceSheet($spreadSheet, $model, $invoiceItemsIds);
         #endregion Баланс
-exit;
+
         #region Звіт по акту
         $spreadSheet->createSheet();
         $spreadSheet->setActiveSheetIndex(1);
