@@ -578,8 +578,8 @@ class InvoiceItemsController extends Controller
             if ($redirect === false) {
                 return $filename;
             }
-            header('Location: /xls/' . $filename);
-            exit;
+          //  header('Location: /xls/' . $filename);
+          //  exit;
         }
 
         try {
@@ -1511,7 +1511,7 @@ class InvoiceItemsController extends Controller
         #region Баланс
         $this->buildBalanceSheet($spreadSheet, $model, $invoiceItemsIds);
         #endregion Баланс
-
+exit;
         #region Звіт по акту
         $spreadSheet->createSheet();
         $spreadSheet->setActiveSheetIndex(1);

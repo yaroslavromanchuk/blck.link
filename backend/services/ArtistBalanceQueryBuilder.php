@@ -43,8 +43,8 @@ class ArtistBalanceQueryBuilder
     {
         $currentPayInvoiceId = self::getCurrentPayInvoiceId($artistId, $currencyId, $quarter, $year);
         $paymentCondition = $currentPayInvoiceId === null
-            ? 'ii.payment_invoice_id IS NULL'
-            : 'ii.payment_invoice_id = :current_pay_invoice_id';
+            ? ''
+            : ' AND ii.payment_invoice_id != :current_pay_invoice_id';
 
         $cmd = Yii::$app->db->createCommand("
             SELECT COALESCE(SUM(ii.amount), 0) AS dep
@@ -52,12 +52,11 @@ class ArtistBalanceQueryBuilder
                 INNER JOIN `invoice` i ON i.invoice_id = ii.invoice_id
             WHERE i.currency_id = :currency_id
               AND ii.artist_id = :artist_id
+                AND i.invoice_status_id IN (2, 4)
               AND (
-                    i.year < :year
-                    OR (i.year = :year AND i.quarter < :quarter)
+                    (i.year < :year OR (i.year = :year AND i.quarter < :quarter))
+                  OR (i.year = :year AND i.quarter = :quarter AND i.invoice_type = 3 and ii.payment_invoice_id IS not NULL {$paymentCondition}) -- include payouts for the current quarter
               )
-              AND i.invoice_status_id IN (2, 4)
-              AND {$paymentCondition}
         ")
             ->bindValue(':artist_id', $artistId)
             ->bindValue(':currency_id', $currencyId)
@@ -74,7 +73,7 @@ class ArtistBalanceQueryBuilder
     /**
      * Отримати всі витрати/авансові за період
      */
-    public static function getCostaForPeriod(int $artistId, int $currencyId, int $quarter, int $year): float
+    public static function getCostForPeriod(int $artistId, int $currencyId, int $quarter, int $year): float
     {
         $currentPayInvoiceId = self::getCurrentPayInvoiceId($artistId, $currencyId, $quarter, $year);
 

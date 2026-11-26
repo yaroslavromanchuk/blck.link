@@ -64,7 +64,7 @@ class ArtistBalanceService
         $balance->totalIncome = $balance->directIncome + $balance->labelIncome + $balance->correction + $balance->featureIncome;
 
         // Витрати
-        $balance->costs = $this->queryBuilder::getCostaForPeriod($artistId, $currencyId, $quarter, $year);
+        $balance->costs = $this->queryBuilder::getCostForPeriod($artistId, $currencyId, $quarter, $year);
 
         // Виплати та авансові
         $balance->paidAmount = $this->queryBuilder::getPayoutAmountForPeriod($artistId, $currencyId, $quarter, $year);
@@ -160,8 +160,6 @@ class ArtistBalanceService
             13 => $balance->paidAmount, // Сплачено за період
             11 => $balance->amountToPay, // Сума до виплати
         ];
-
-       // echo "Balance for report: " . print_r($valuesByType, true) . "\n";
 
         $result = [];
         $balanceTypes = ArtistLogType::find()
