@@ -561,57 +561,48 @@ class InvoiceItemsController extends Controller
 
     public function actionExportAct(int $id, bool $redirect = true, array $invoiceItemsIds = [])
     {
-
-        set_time_limit(0);
-        ini_set('memory_limit', '2048M');
-
         $model = $this->findModel($id);
         ArtistDocumentTranslator::applyLanguage($model->artist);
 
-        $invoiceItemsIds = !empty($invoiceItemsIds) ? $invoiceItemsIds : $this->getAllInvoiceItemsForArtist($model, $model->invoice->invoice_status_id);
-		$invoiceIds = $invoiceItemsIds['invoice'];
-		sort($invoiceIds);
+        $invoiceItemsIds = !empty($invoiceItemsIds)
+            ? $invoiceItemsIds
+            : $this->getAllInvoiceItemsForArtist($model, $model->invoice->invoice_status_id);
+        $invoiceIds = $invoiceItemsIds['invoice'];
+        sort($invoiceIds);
 
-        $name = Str::transliterate($model->artist->name) . "_" . implode('_', $invoiceIds);
+        $name = Str::transliterate($model->artist->name) . '_' . implode('_', $invoiceIds);
         $languageCode = $model->artist->getDocumentLanguageCode();
         $filename = "report_{$name}_q{$model->invoice->quarter}_year_{$model->invoice->year}_{$languageCode}.xlsx";
         $filePath = ReportFilePath::xls($filename);
-        // Force fresh export each time and avoid stale file_exists/stat cache behavior.
         clearstatcache(true, $filePath);
 
-       if (file_exists($filePath) === true) {
+        if (file_exists($filePath)) {
             if ($redirect === false) {
                 return $filename;
             }
-
-            header("Location: /xls/".$filename);
+            header('Location: /xls/' . $filename);
             exit;
         }
 
-       try {
-           $spreadSheet = $model->artist->type_id == 1 ? $this->generateReportInternalArtist($model, $invoiceItemsIds) : $this->generateReportPartner($model, $invoiceItemsIds);
+        try {
+            $model->artist->type_id == 1
+                ? $this->generateReportInternalArtist($model, $invoiceItemsIds, $filename)
+                : $this->generateReportPartner($model, $invoiceItemsIds, $filename);
 
-       } catch (\InvalidArgumentException $e) {
-           return $this->redirect(['invoice/view', 'id' => $model->invoice_id]);
-       }
-        #endregion Звіт
+        } catch (\Throwable $e) {
+            Yii::$app->session->setFlash('error', $e->getMessage());
+            if ($redirect) {
+                return $this->redirect(['invoice/view', 'id' => $model->invoice_id]);
+            }
 
-        $writer = new Xlsx($spreadSheet);
-        $cacheDir = Yii::getAlias('@backend/runtime/phpss-cache');
-        FileHelper::createDirectory($cacheDir);
-        $writer->setUseDiskCaching(true, $cacheDir);
-        $writer->setPreCalculateFormulas(false);
-
-        $writer->save($filePath);
-        $spreadSheet->disconnectWorksheets();
-        unset($writer, $spreadSheet);
-        gc_collect_cycles();
+            throw $e;
+        }
 
         if ($redirect) {
-            header("Location: /xls/".$filename);
+            header('Location: /xls/' . $filename);
             exit;
         }
-        
+
         return $filename;
     }
 
@@ -642,7 +633,7 @@ class InvoiceItemsController extends Controller
         
         $reportFileName = $this->actionExportAct($id, false, $invoiceItemsIds);
         
-        $excel =  self::getHomePage() .  'xls/' .$reportFileName;
+        $excel =  ReportFilePath::xls($reportFileName);
         $attach[] = [$excel, ['fileName' => $reportFileName]];
 
         $mail = new Mail([
@@ -892,7 +883,7 @@ class InvoiceItemsController extends Controller
         throw new NotFoundHttpException(Yii::t('app', 'The requested page does not exist.'));
     }
     
-    private function generateReportInternalArtist(InvoiceItems $model, array $invoiceItemsIds = [])
+    private function generateReportInternalArtist(InvoiceItems $model, array $invoiceItemsIds = [], string $fileName = '')
     {
         $spreadSheet = new Spreadsheet();
         #region Баланс
@@ -1140,29 +1131,148 @@ class InvoiceItemsController extends Controller
             // переключитись на 1 аркуш
             $spreadSheet->setActiveSheetIndex(0);
         }
-        
-        return $spreadSheet;
+
+        $writer = new Xlsx($spreadSheet);
+        $cacheDir = Yii::getAlias('@backend/runtime/phpss-cache');
+        FileHelper::createDirectory($cacheDir);
+        $writer->setUseDiskCaching(true, $cacheDir);
+        $writer->setPreCalculateFormulas(false);
+        $writer->save(ReportFilePath::xls($fileName));
+        $spreadSheet->disconnectWorksheets();
+        unset($writer, $spreadSheet);
+        gc_collect_cycles();
+
+        return ReportFilePath::xls($fileName);
     }
 
     /**
      * @param InvoiceItems $model
      * @param array $invoiceItemsIds
-     * @param string $filename
-     * @return void
-     * @deprecated
+     * @param string $fileName
+     * @return string
      * @throws \Box\Spout\Common\Exception\IOException
      * @throws \Box\Spout\Writer\Exception\WriterNotOpenedException
      */
-    private function generateReportPartnerSpout(InvoiceItems $model, array $invoiceItemsIds = [], string $filename = '')
+    /**
+     * Streaming XLSX export for partner reports over 100,000 rows.
+     * It writes rows directly to disk and preserves the same three-sheet data layout
+     * as generateReportPartner(), without PhpSpreadsheet formatting/materialization.
+     */
+    private function generateReportPartnerSpout(InvoiceItems $model, array $invoiceItemsIds = [], string $fileName = '', $reader = null): string
     {
-        $filePath = self::getHomePage() . 'xls/' .$filename;
+        $filePath = ReportFilePath::xls($fileName);
 
         $writer = WriterEntityFactory::createXLSXWriter();
         $writer->openToFile($filePath);
 
-        // ======================
-        // ✅ Sheet 1: Детальний звіт
-        // ======================
+        $headerStyle = (new StyleBuilder())
+            ->setFontBold()
+            ->setFontSize(12)
+            ->setBackgroundColor(Color::rgb(217, 217, 217))
+            ->build();
+
+        // Sheet 1: Balance, with exactly the same balance rows and currency columns.
+        $writer->getCurrentSheet()->setName($model->artist->translateDocument('Баланс'));
+        $writer->addRow(WriterEntityFactory::createRowFromArray([
+            $model->artist->translateDocument('Звіт за ') . $model->invoice->quarter
+            . $model->artist->translateDocument(' кв. ') . $model->invoice->year
+            . ', ' . $model->artist->name,
+        ], $headerStyle));
+
+        $balanceService = new ArtistBalanceService();
+        $balances = [];
+        foreach ([Currency::EUR, Currency::UAH, Currency::USD] as $currencyId) {
+            $currencyName = $currencyId == Currency::EUR ? 'EUR'
+                : ($currencyId == Currency::UAH ? 'UAH' : 'USD');
+            $balances[$currencyId] = $balanceService->getBalanceForReport(
+                $model->artist_id,
+                $model->invoice->quarter,
+                $model->invoice->year,
+                $currencyId,
+                $currencyName,
+                $model->invoice_id
+            );
+        }
+
+        $writer->addRow(WriterEntityFactory::createRowFromArray([
+            $model->artist->translateDocument('Фінансовий звіт'),
+            $model->artist->translateDocument('Сума'),
+            $model->artist->translateDocument('Валюта'),
+            $model->artist->translateDocument('Сума'),
+            $model->artist->translateDocument('Валюта'),
+            $model->artist->translateDocument('Сума'),
+            $model->artist->translateDocument('Валюта'),
+        ], $headerStyle));
+
+        $baseBalance = $balances[Currency::EUR]
+            ?: ($balances[Currency::UAH] ?: $balances[Currency::USD]);
+        foreach ($baseBalance as $key => $item) {
+            $writer->addRow(WriterEntityFactory::createRowFromArray([
+                strip_tags((string)$item['name']),
+                number_format((float)($balances[Currency::EUR][$key]['value'] ?? 0), 2, '.', ''),
+                $balances[Currency::EUR][$key]['currency_name'] ?? 'EUR',
+                number_format((float)($balances[Currency::USD][$key]['value'] ?? 0), 2, '.', ''),
+                $balances[Currency::USD][$key]['currency_name'] ?? 'USD',
+                number_format((float)($balances[Currency::UAH][$key]['value'] ?? 0), 2, '.', ''),
+                $balances[Currency::UAH][$key]['currency_name'] ?? 'UAH',
+            ]));
+        }
+
+        $income = $model->artist->getIncome($model->invoice->quarter, $model->invoice->year, $model->invoice->invoice_id);
+        $costs = $model->artist->getCosts($model->invoice->quarter, $model->invoice->year, null, true);
+        $nextQuarter = DateFormat::getNextQuarterYear($model->invoice->quarter, $model->invoice->year);
+        $costsNext = $model->artist->getCosts($nextQuarter['quarter'], $nextQuarter['year']);
+
+        if (count($income) + count($costs) + count($costsNext) > 0) {
+            $writer->addRow(WriterEntityFactory::createRowFromArray([
+                $model->artist->translateDocument('Перелік фінансових операцій'),
+            ], $headerStyle));
+            $writer->addRow(WriterEntityFactory::createRowFromArray([
+                $model->artist->translateDocument('Назва'),
+                $model->artist->translateDocument('Тип'),
+                $model->artist->translateDocument('Сума'),
+                $model->artist->translateDocument('Валюта'),
+                $model->artist->translateDocument('Квартал'),
+                $model->artist->translateDocument('Дата'),
+            ], $headerStyle));
+
+            foreach ($income as $item) {
+                $writer->addRow(WriterEntityFactory::createRowFromArray([
+                    $item['description'],
+                    $item['invoice_type_name'] == 'Баланс'
+                        ? $model->artist->translateDocument('Нарахування')
+                        : $item['invoice_type_name'],
+                    number_format((float)$item['amount'], 2, '.', ''),
+                    $item['currency_name'],
+                    $model->invoice->quarter . ' кв.',
+                    $item['date_item'],
+                ]));
+            }
+            foreach ($costs as $item) {
+                $writer->addRow(WriterEntityFactory::createRowFromArray([
+                    $item['description'],
+                    $item['invoice_type_name'],
+                    number_format((float)$item['amount'], 2, '.', ''),
+                    $item['currency_name'],
+                    $model->invoice->quarter . $model->artist->translateDocument(' кв.'),
+                    $item['date_item'],
+                ]));
+            }
+            foreach ($costsNext as $item) {
+                $writer->addRow(WriterEntityFactory::createRowFromArray([
+                    $item['description'],
+                    $item['invoice_type_name'],
+                    number_format((float)$item['amount'], 2, '.', ''),
+                    $item['currency_name'],
+                    $nextQuarter['quarter'] . ' кв.',
+                    $item['date_item'],
+                ]));
+            }
+        }
+
+        // Sheet 2: exact 14-column detailed track report.
+        $writer->addNewSheetAndMakeItCurrent();
+        $writer->getCurrentSheet()->setName($model->artist->translateDocument('Звіт по трекам'));
 
         $headers = [
             $model->artist->translateDocument('№'),
@@ -1180,115 +1290,116 @@ class InvoiceItemsController extends Controller
             $model->artist->translateDocument('Країна'),
             $model->artist->translateDocument('Період використання Об\'єкта'),
         ];
+        $writer->addRow(WriterEntityFactory::createRowFromArray($headers, $headerStyle));
 
-// ✅ стиль header
-        $headerStyle = (new StyleBuilder())
-            ->setFontBold()
-            ->setFontSize(12)
-            //->setBorder(\Box\Spout\Common\Entity\Style\Border::)
-            //->setFontColor(Color::WHITE)
-            //->setBackgroundColor(Color::rgb(0, 102, 204))
-            ->build();
-
-
-        $writer->addRow(
-            WriterEntityFactory::createRowFromArray($headers, $headerStyle)
-        );
-
-        $invoices = Invoice::find()
-            ->where(['in', 'invoice_id', $invoiceItemsIds['invoice']])
-            ->indexBy('invoice_id')
-            ->all();
-
-        $reader = $this->getReportDataXlsSpout(
-            $invoiceItemsIds['invoice'],
-            $model->artist_id
-        );
-
-        $i = 1;
         $sum = [];
         $artistSums = [];
+        $foundCurrencyIds = [];
+        $rowNumber = 1;
+
+        $addDetailRow = function (array $item) use (
+            $writer,
+            $model,
+            &$rowNumber,
+            &$sum,
+            &$artistSums,
+            &$foundCurrencyIds
+        ): void {
+            $currencyName = (string)($item['currency_name'] ?? '');
+            $amount2 = (float)($item['amount_2'] ?? 0);
+
+            $sum[$currencyName] = ($sum[$currencyName] ?? 0.0) + $amount2;
+            if (isset($item['currency_id'])) {
+                $foundCurrencyIds[(int)$item['currency_id']] = true;
+            }
+
+            $writer->addRow(WriterEntityFactory::createRowFromArray([
+                $rowNumber++,
+                $item['artist_name'],
+                rtrim($item['track_name'], '1'),
+                $item['count'],
+                $item['percentage'],
+                $item['amount'],
+                $item['percentage_label'],
+                $item['amount_2'],
+                $currencyName,
+                $model->artist->translateDocument((string)$item['prav1']),
+                $model->artist->translateDocument((string)$item['prav2']),
+                (string)$item['platform'],
+                $item['country'],
+                DateFormat::datumUah2($item['date_report'], $model->artist->lang_id),
+            ]));
+
+            $key = $item['artist_name'] . '|' . $currencyName;
+            $artistSums[$key] = $artistSums[$key] ?? [
+                'artist_name' => $item['artist_name'],
+                'amount' => 0.0,
+                'currency_name' => $currencyName,
+            ];
+            $artistSums[$key]['amount'] += abs($amount2);
+        };
+
+        $reader = is_null($reader) ? $this->getReportDataXlsSpout($invoiceItemsIds['invoice'], $model->artist_id) : $reader;
 
         while ($item = $reader->read()) {
+            $addDetailRow($item);
+        }
 
-            // ✅ пишемо рядок одразу
-            $writer->addRow(
-                WriterEntityFactory::createRowFromArray([
-                    $i++,
-                    $item['artist_name'],
-                    rtrim($item['track_name'], '1'),
-                    (int)$item['count'],
-                    (int)$item['percentage'],
-                    (double)$item['amount'],
-                    (int)$item['percentage_label'],
-                    (double)$item['amount_2'],
-                    $item['currency_name'],
-                    $item['prav1'],
-                    $item['prav2'],
-                    $item['platform'],
-                    $item['country'],
-                    DateFormat::datumUah2($item['date_report']),
-                ])
+        $excludeCurrencyIds = array_keys($foundCurrencyIds);
+        if (count($excludeCurrencyIds) < 3) {
+            $reader = $this->getReportDataXlsSpoutNoPay(
+                $model->artist_id,
+                $model->invoice->quarter,
+                $model->invoice->year,
+                $excludeCurrencyIds
             );
-
-            // ✅ підсумки (малий масив — ок)
-            $cur = $item['currency_name'];
-
-            $sum[$cur] = ($sum[$cur] ?? 0) + $item['amount_2'];
-
-            // ✅ агрегація по артисту
-            $key = $item['artist_name'] . '|' . $cur;
-
-            if (!isset($artistSums[$key])) {
-                $artistSums[$key] = [
-                    $item['artist_name'],
-                    0,
-                    $cur
-                ];
-            }
-
-            $artistSums[$key][1] = ($artistSums[$key][1] ?? 0) + abs($item['amount_2']);
-
-            // ✅ debug памʼяті
-            if ($i % 5000 === 0) {
-                echo "Memory: " . round(memory_get_usage()/1024/1024, 2) . " MB\n";
+            while ($item = $reader->read()) {
+                $addDetailRow($item);
             }
         }
 
-        // ======================
-        // ✅ Sheet 2: По артистам
-        // ======================
+        // Totals block matching generateReportPartner layout.
+        $curs = ['EUR' => 1, 'UAH' => 1, 'USD' => 1];
+        $writer->addRow(WriterEntityFactory::createRowFromArray([
+            $model->artist->translateDocument('Всього:'),
+        ], $headerStyle));
+        foreach ($sum as $currencyName => $amount) {
+            if (!empty($amount)) {
+                $writer->addRow(WriterEntityFactory::createRowFromArray([
+                    $model->artist->translateDocument('Валюта'),
+                    $model->artist->translateDocument('Сума'),
+                    $model->artist->translateDocument('Курс'),
+                ], $headerStyle));
+                $writer->addRow(WriterEntityFactory::createRowFromArray([
+                    $currencyName,
+                    round($amount, 4),
+                    isset($curs[$currencyName]) ? $curs[$currencyName] : '',
+                ]));
+            }
+        }
 
+        // Sheet 3: exactly the three artist-summary columns.
         $writer->addNewSheetAndMakeItCurrent();
+        $writer->getCurrentSheet()->setName($model->artist->translateDocument('Звіт по артистам'));
+        $writer->addRow(WriterEntityFactory::createRowFromArray([
+            $model->artist->translateDocument('Виконавець'),
+            $model->artist->translateDocument('Сума Роялті'),
+            $model->artist->translateDocument('Валюта'),
+        ], $headerStyle));
 
-        $writer->addRow(
-            WriterEntityFactory::createRowFromArray([
-                'Виконавець', 'Сума Роялті', 'Валюта'
-            ])
-        );
-
-        foreach ($artistSums as $row) {
-            $writer->addRow(
-                WriterEntityFactory::createRowFromArray($row)
-            );
-        }
-
-        // ✅ підсумки
-        foreach ($sum as $currency => $amount) {
-            $writer->addRow(
-                WriterEntityFactory::createRowFromArray([
-                    'TOTAL', $amount, $currency
-                ])
-            );
+        foreach ($artistSums as $artistSum) {
+            $writer->addRow(WriterEntityFactory::createRowFromArray([
+                $artistSum['artist_name'],
+                $artistSum['amount'],
+                $artistSum['currency_name'],
+            ]));
         }
 
         $writer->close();
 
-        header("Location: /xls/" . $filename);
-        exit;
+        return $filePath;
     }
-
-    private function generateReportPartner(InvoiceItems $model, array $invoiceItemsIds = [])
+    private function generateReportPartner(InvoiceItems $model, array $invoiceItemsIds = [], string $fileName = '')
     {
         $reader = $this->getReportDataXlsSpout(
             $invoiceItemsIds['invoice'],
@@ -1296,8 +1407,7 @@ class InvoiceItemsController extends Controller
         );
 
         if($reader->count() > 100000) {
-            Yii::$app->session->setFlash('error', "Занадто великий звіт, більше 100000 рядків ({$reader->count()}). Спробуйте завантажити звіт по частинах.");
-           throw new \InvalidArgumentException('Занадто великий звіт, більше 100000 рядків.');
+            return $this->generateReportPartnerSpout($model, $invoiceItemsIds, $fileName, $reader);
         }
 
         $spreadSheet = new Spreadsheet();
@@ -1577,7 +1687,17 @@ class InvoiceItemsController extends Controller
         // переключитись на 1 аркуш
         $spreadSheet->setActiveSheetIndex(0);
 
-        return $spreadSheet;
+        $writer = new Xlsx($spreadSheet);
+        $cacheDir = Yii::getAlias('@backend/runtime/phpss-cache');
+        FileHelper::createDirectory($cacheDir);
+        $writer->setUseDiskCaching(true, $cacheDir);
+        $writer->setPreCalculateFormulas(false);
+        $writer->save(ReportFilePath::xls($fileName));
+        $spreadSheet->disconnectWorksheets();
+        unset($writer, $spreadSheet);
+        gc_collect_cycles();
+
+        return ReportFilePath::xls($fileName);
     }
 
     /**
