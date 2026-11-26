@@ -1180,19 +1180,60 @@ class InvoiceItemsController extends Controller
         ], $headerStyle));
 
         $balanceService = new ArtistBalanceService();
-        $balances = [];
-        foreach ([Currency::EUR, Currency::UAH, Currency::USD] as $currencyId) {
-            $currencyName = $currencyId == Currency::EUR ? 'EUR'
+        $balance = [];
+        $sum = ['USD' => 0, 'EUR' => 0, 'UAH' => 0];
+        $curs = ['EUR' => 1, 'UAH' => 1, 'USD' => 1];
+
+        $invoiceIdsForBalance = !empty($invoiceItemsIds['invoice'])
+            ? array_unique(array_map('intval', $invoiceItemsIds['invoice']))
+            : [$model->invoice_id];
+        foreach ($invoiceIdsForBalance as $invoiceId) {
+            $invoiceModel = ((int)$invoiceId === (int)$model->invoice_id)
+                ? $model->invoice
+                : Invoice::findOne((int)$invoiceId);
+            if ($invoiceModel === null || $invoiceModel->currency === null) {
+                continue;
+            }
+
+            $currencyName = $invoiceModel->currency->currency_name;
+            $curs[$currencyName] = (float)$invoiceModel->exchange;
+        }
+
+        $itemsForBalance = !empty($invoiceItemsIds['items'])
+            ? $invoiceItemsIds['items']
+            : [$model->id];
+        foreach ($itemsForBalance as $id) {
+            $_model = ((int)$id === (int)$model->id) ? $model : $this->findModel((int)$id);
+            $currencyName = $_model->invoice->currency->currency_name;
+            $curs[$currencyName] = (float)$_model->invoice->exchange;
+
+            $balance[$_model->invoice->currency_id] = $balanceService->getBalanceForReport(
+                $_model->artist_id,
+                $_model->invoice->quarter,
+                $_model->invoice->year,
+                $_model->invoice->currency_id,
+                $currencyName,
+                $_model->invoice_id
+            );
+        }
+
+        $diff = array_diff([Currency::EUR, Currency::UAH, Currency::USD], array_keys($balance));
+        foreach ($diff as $currencyId) {
+            $currencyName = $currencyId == Currency::EUR
+                ? 'EUR'
                 : ($currencyId == Currency::UAH ? 'UAH' : 'USD');
-            $balances[$currencyId] = $balanceService->getBalanceForReport(
+            $balance[$currencyId] = $balanceService->getBalanceForReport(
                 $model->artist_id,
                 $model->invoice->quarter,
                 $model->invoice->year,
                 $currencyId,
-                $currencyName,
-                $model->invoice_id
+                $currencyName
             );
         }
+
+        $sum['EUR'] = round(abs((float)($balance[Currency::EUR][11]['value'] ?? 0)), 2);
+        $sum['USD'] = round(abs((float)($balance[Currency::USD][11]['value'] ?? 0)), 2);
+        $sum['UAH'] = round(abs((float)($balance[Currency::UAH][11]['value'] ?? 0)), 2);
 
         $writer->addRow(WriterEntityFactory::createRowFromArray([
             $model->artist->translateDocument('Фінансовий звіт'),
@@ -1202,71 +1243,37 @@ class InvoiceItemsController extends Controller
             $model->artist->translateDocument('Валюта'),
             $model->artist->translateDocument('Сума'),
             $model->artist->translateDocument('Валюта'),
+            null,
+            $model->artist->translateDocument('Валюта'),
+            $model->artist->translateDocument('Сума'),
+            $model->artist->translateDocument('Курс'),
         ], $headerStyle));
 
-        $baseBalance = $balances[Currency::EUR]
-            ?: ($balances[Currency::UAH] ?: $balances[Currency::USD]);
-        foreach ($baseBalance as $key => $item) {
+        $cur = isset($balance[Currency::EUR])
+            ? Currency::EUR
+            : (isset($balance[Currency::UAH]) ? Currency::UAH : Currency::USD);
+
+        foreach ($balance[$cur] as $key => $item) {
             $writer->addRow(WriterEntityFactory::createRowFromArray([
                 strip_tags((string)$item['name']),
-                (float)($balances[Currency::EUR][$key]['value'] ?? 0),
-                $balances[Currency::EUR][$key]['currency_name'] ?? 'EUR',
-                (float)($balances[Currency::USD][$key]['value'] ?? 0),
-                $balances[Currency::USD][$key]['currency_name'] ?? 'USD',
-                (float)($balances[Currency::UAH][$key]['value'] ?? 0),
-                $balances[Currency::UAH][$key]['currency_name'] ?? 'UAH',
+                number_format($balance[Currency::EUR][$key]['value'] ?? 0, 2, '.', ''),
+                $balance[Currency::EUR][$key]['currency_name'] ?? 'EUR',
+                number_format($balance[Currency::USD][$key]['value'] ?? 0, 2, '.', ''),
+                $balance[Currency::USD][$key]['currency_name'] ?? 'USD',
+                number_format($balance[Currency::UAH][$key]['value'] ?? 0, 2, '.', ''),
+                $balance[Currency::UAH][$key]['currency_name'] ?? 'UAH',
             ]));
         }
 
-        $income = $model->artist->getIncome($model->invoice->quarter, $model->invoice->year, $model->invoice->invoice_id);
-        $costs = $model->artist->getCosts($model->invoice->quarter, $model->invoice->year, null, true);
-        $nextQuarter = DateFormat::getNextQuarterYear($model->invoice->quarter, $model->invoice->year);
-        $costsNext = $model->artist->getCosts($nextQuarter['quarter'], $nextQuarter['year']);
-
-        if (count($income) + count($costs) + count($costsNext) > 0) {
-            $writer->addRow(WriterEntityFactory::createRowFromArray([
-                $model->artist->translateDocument('Перелік фінансових операцій'),
-            ], $headerStyle));
-            $writer->addRow(WriterEntityFactory::createRowFromArray([
-                $model->artist->translateDocument('Назва'),
-                $model->artist->translateDocument('Тип'),
-                $model->artist->translateDocument('Сума'),
-                $model->artist->translateDocument('Валюта'),
-                $model->artist->translateDocument('Квартал'),
-                $model->artist->translateDocument('Дата'),
-            ], $headerStyle));
-
-            foreach ($income as $item) {
-                $writer->addRow(WriterEntityFactory::createRowFromArray([
-                    $item['description'],
-                    $item['invoice_type_name'] == 'Баланс'
-                        ? $model->artist->translateDocument('Нарахування')
-                        : $item['invoice_type_name'],
-                    (float)$item['amount'],
-                    $item['currency_name'],
-                    $model->invoice->quarter . ' кв.',
-                    $item['date_item'],
-                ]));
-            }
-            foreach ($costs as $item) {
-                $writer->addRow(WriterEntityFactory::createRowFromArray([
-                    $item['description'],
-                    $item['invoice_type_name'],
-                    number_format((float)$item['amount'], 2, '.', ''),
-                    $item['currency_name'],
-                    $model->invoice->quarter . $model->artist->translateDocument(' кв.'),
-                    $item['date_item'],
-                ]));
-            }
-            foreach ($costsNext as $item) {
-                $writer->addRow(WriterEntityFactory::createRowFromArray([
-                    $item['description'],
-                    $item['invoice_type_name'],
-                    (float)$item['amount'],
-                    $item['currency_name'],
-                    $nextQuarter['quarter'] . ' кв.',
-                    $item['date_item'],
-                ]));
+        foreach ($sum as $currencyName => $value) {
+            if ($value > 0) {
+                $row = array_fill(0, 11, null);
+                $row[8] = $currencyName;
+                $row[9] = number_format($value, 4, '.', '');
+                if (isset($curs[$currencyName]) && $curs[$currencyName] != 1) {
+                    $row[10] = number_format($curs[$currencyName], 4, '.', '');
+                }
+                $writer->addRow(WriterEntityFactory::createRowFromArray($row));
             }
         }
 
@@ -2166,7 +2173,7 @@ class InvoiceItemsController extends Controller
                     t.name as track_name,
                     ii2.artist_percentage as percentage,
                   	ii2.percentage as percentage_label,
-                   ari.platform as p3,
+                    ari.platform as p3,
                     ari.date_report,
                     ari.country,
       				ari.track_id,
