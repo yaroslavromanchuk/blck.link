@@ -2064,7 +2064,8 @@ class InvoiceItemsController extends Controller
                 i.currency_id
                 
 			FROM `invoice_items` ii
-                INNER JOIN invoice_items ii2 ON ii2.payment_invoice_id = ii.invoice_id and ii.artist_id = ii2.artist_id
+			    INNER JOIN invoice i2 ON i2.invoice_id = ii.invoice_id
+                INNER JOIN invoice_items ii2 ON ii2.payment_invoice_id = ii.invoice_id AND ii.artist_id = ii2.artist_id
 				INNER JOIN invoice i ON i.invoice_id = ii2.invoice_id
 				
 				INNER JOIN aggregator_report ar ON ar.id = i.aggregator_report_id
@@ -2076,15 +2077,15 @@ class InvoiceItemsController extends Controller
 				
                 WHERE ii.invoice_id in ($invoiceIds)
                   AND ii2.artist_id = :artist_id
-                   GROUP BY i.currency_id, ari.track_id, ari.platform, ari.country, ari.date_report
+                  and i2.quarter = i.quarter
+                  and i2.year = i.year
+                  GROUP BY i.currency_id, ari.track_id, ari.platform, ari.country, ari.date_report
               ) as qq
                 LEFT JOIN currency c ON c.currency_id= qq.currency_id
-    
 				LEFT JOIN aggregator agg ON agg.aggregator_id = qq.aggregator_id
 				LEFT JOIN aggregator_type_use atu ON atu.type_id = agg.type_use_id
 				LEFT JOIN aggregator_service a_s ON a_s.service_id = agg.service_id
                 LEFT JOIN ownership o ON o.id = agg.ownership_type
-                
 				LEFT JOIN (
 					SELECT aggregator_id, GROUP_CONCAT(ot_.name) as name
 					FROM aggregator_to_ownership_type
