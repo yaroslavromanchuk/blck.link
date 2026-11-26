@@ -587,9 +587,13 @@ class InvoiceItemsController extends Controller
             header("Location: /xls/".$filename);
             exit;
         }
-        
-        $spreadSheet = $model->artist->type_id == 1 ? $this->generateReportInternalArtist($model, $invoiceItemsIds) : $this->generateReportPartner($model, $invoiceItemsIds);
-        
+
+       try {
+           $spreadSheet = $model->artist->type_id == 1 ? $this->generateReportInternalArtist($model, $invoiceItemsIds) : $this->generateReportPartner($model, $invoiceItemsIds);
+
+       } catch (\InvalidArgumentException $e) {
+           return $this->redirect(['invoice/view', 'id' => $model->invoice_id]);
+       }
         #endregion Звіт
 
         $writer = new Xlsx($spreadSheet);
@@ -1293,7 +1297,7 @@ class InvoiceItemsController extends Controller
 
         if($reader->count() > 100000) {
             Yii::$app->session->setFlash('error', "Занадто великий звіт, більше 100000 рядків ({$reader->count()}). Спробуйте завантажити звіт по частинах.");
-            return $this->redirect(['invoice/view', 'id' => $model->invoice_id]);
+           throw new \InvalidArgumentException('Занадто великий звіт, більше 100000 рядків.');
         }
 
         $spreadSheet = new Spreadsheet();
