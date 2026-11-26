@@ -578,8 +578,8 @@ class InvoiceItemsController extends Controller
             if ($redirect === false) {
                 return $filename;
             }
-          //  header('Location: /xls/' . $filename);
-          //  exit;
+            header('Location: /xls/' . $filename);
+            exit;
         }
 
         try {
@@ -2164,7 +2164,7 @@ class InvoiceItemsController extends Controller
                                 and ii.artist_id = t.artist_id
                     
                         WHERE ii.invoice_id in ($invoiceIds)
-                          AND ii.artist_id = :artist_id
+                          AND ii2.artist_id = :artist_id
                           AND i2.quarter = i.quarter
                           AND i2.year = i.year
                         GROUP BY i.currency_id, ari.track_id, ari.platform, ari.country, ari.date_report
