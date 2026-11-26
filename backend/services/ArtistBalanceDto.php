@@ -52,7 +52,7 @@ class ArtistBalanceDto
      */
     public function calculateTotalExpenses(): void
     {
-        $this->totalExpenses = $this->costs + $this->advance + $this->nextQuarterAdvance;
+        $this->totalExpenses = abs($this->costs) + abs($this->advance) + abs($this->nextQuarterAdvance);
     }
 
     /**
@@ -64,7 +64,7 @@ class ArtistBalanceDto
             + $this->directIncome 
             + $this->featureIncome
             + $this->correction
-            - abs($this->totalExpenses);
+            - $this->totalExpenses;
     }
 
     /**
@@ -108,7 +108,7 @@ class ArtistBalanceDto
             'total_income' => $this->totalIncome,
             'costs' => $this->costs,
             'advance' => $this->advance,
-            'total_expenses' => $this->totalExpenses,
+            'total_expenses' => abs($this->totalExpenses),
             'balance_before_payout' => $this->balanceBeforePayout,
             'next_quarter_advance' => $this->nextQuarterAdvance,
             'paid_amount' => $this->paidAmount,

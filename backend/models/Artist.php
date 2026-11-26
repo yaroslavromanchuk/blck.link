@@ -611,7 +611,7 @@ class Artist extends \yii\db\ActiveRecord
     public static function getLog(int $artist_id, int $quarter, int $year, int $currency_id, string $currency_name, ?int $invoice_id = null)
     {
         $service = new ArtistBalanceService();
-        return $service->getBalanceForReport($artist_id, $quarter, $year, $currency_id, $currency_name, $invoice_id);
+        return $service->getBalanceForReport($artist_id, $quarter, $year, $currency_id, $currency_name);
     }
 
     public function translateDocument(string $source, array $params = []): string

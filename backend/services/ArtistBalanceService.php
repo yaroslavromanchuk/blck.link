@@ -33,8 +33,7 @@ class ArtistBalanceService
         int $artistId,
         int $quarter,
         int $year,
-        int $currencyId,
-        ?int $excludeInvoiceId = null
+        int $currencyId
     ): ArtistBalanceDto {
         $balance = new ArtistBalanceDto($artistId, $currencyId, $quarter, $year);
 
@@ -48,43 +47,27 @@ class ArtistBalanceService
 
         // Розрахувати всі суми
         $balance->previousBalance = $this->queryBuilder::getPreviousBalance($artistId, $currencyId, $quarter, $year);
-        $debitType = InvoiceType::DEBIT;
-        $correctionType = InvoiceType::CORRECTION;
+        $balance->directIncome = $this->queryBuilder::getArtistDirectIncome($artistId, $currencyId, $quarter, $year, InvoiceType::DEBIT);
+        $balance->correction = $this->queryBuilder::getArtistDirectIncome($artistId, $currencyId, $quarter, $year, InvoiceType::CORRECTION);
+        $balance->labelIncome = $this->queryBuilder::getLabelIncomeFromArtist($artistId, $currencyId, $quarter, $year, InvoiceType::DEBIT);
 
         if ($isPartner) {
-            // Для Partner: окремо тип 1 (DEBIT) та тип 5 (CORRECTION)
-            $partnerDebitIncome = $this->queryBuilder::getPartnerTotalIncome($artistId, $currencyId, $quarter, $year, $debitType);
-            $partnerCorrectionIncome = $this->queryBuilder::getPartnerTotalIncome($artistId, $currencyId, $quarter, $year, $correctionType);
-            $labelDebitIncome = $this->queryBuilder::getLabelIncomeFromPartner($artistId, $currencyId, $quarter, $year, $debitType);
-            $labelCorrectionIncome = $this->queryBuilder::getLabelIncomeFromPartner($artistId, $currencyId, $quarter, $year, $correctionType);
-
-            $balance->directIncome = $partnerDebitIncome;
             $balance->featureIncome = 0;  // Partner не має фітів
-            $balance->labelIncome = $labelDebitIncome;
-            $balance->correction = $partnerCorrectionIncome + $labelCorrectionIncome;
-            $balance->totalIncome = $balance->directIncome + $balance->labelIncome;
         } else {
             // Для Artist: окремо рахуємо надходження з типів 1 і 5
-            $directIncome = $this->queryBuilder::getArtistDirectIncome($artistId, $currencyId, $quarter, $year, $debitType);
-            $totalIncome = $this->queryBuilder::getTotalIncomeForArtist($artistId, $currencyId, $quarter, $year, $debitType);
-            $totalCorrection = $this->queryBuilder::getTotalIncomeForArtist($artistId, $currencyId, $quarter, $year, $correctionType);
-            $labelDebitIncome = $this->queryBuilder::getLabelIncomeFromArtist($artistId, $currencyId, $quarter, $year, $debitType);
-            $labelCorrectionIncome = $this->queryBuilder::getLabelIncomeFromArtist($artistId, $currencyId, $quarter, $year, $correctionType);
-
-            $balance->directIncome = $directIncome;
-            $balance->featureIncome = $totalIncome - $directIncome;  // Feature = Total - Direct
-            $balance->labelIncome = $labelDebitIncome;
-            $balance->correction = $totalCorrection + $labelCorrectionIncome;
-            $balance->totalIncome = $totalIncome + $labelDebitIncome + $totalCorrection;
+            //$labelCorrectionIncome = $this->queryBuilder::getLabelIncomeFromArtist($artistId, $currencyId, $quarter, $year, InvoiceType::CORRECTION);
+            $balance->featureIncome = $this->queryBuilder::getTotalIncomeForArtist($artistId, $currencyId, $quarter, $year, InvoiceType::DEBIT) - $balance->directIncome;  // Feature = Total - Direct
         }
 
+        // Загальна сума надходжень (DEBIT + CORRECTION)
+        $balance->amountToPay = $balance->directIncome + $balance->featureIncome;
+        $balance->totalIncome = $balance->directIncome + $balance->labelIncome + $balance->correction + $balance->featureIncome;
+
         // Витрати
-        $expenses = $this->queryBuilder::getExpensesByType($artistId, $currencyId, $quarter, $year);
-        $balance->costs = $expenses[InvoiceType::COSTS]['amount'] ?? 0;
-        $balance->advance = $expenses[InvoiceType::ADVANCE]['amount'] ?? 0;
+        $balance->costs = $this->queryBuilder::getCostaForPeriod($artistId, $currencyId, $quarter, $year);
 
         // Виплати та авансові
-        $balance->paidAmount = $this->queryBuilder::getPayoutAmountForPeriod($artistId, $currencyId, $quarter, $year, $excludeInvoiceId);
+        $balance->paidAmount = $this->queryBuilder::getPayoutAmountForPeriod($artistId, $currencyId, $quarter, $year);
         $balance->nextQuarterAdvance = $this->queryBuilder::getNextQuarterAdvance($artistId, $currencyId, $quarter, $year);
 
         // Виконати розрахунки
@@ -157,26 +140,25 @@ class ArtistBalanceService
         int $quarter,
         int $year,
         int $currencyId,
-        string $currencyName,
-        ?int $invoiceId = null
+        string $currencyName
     ): array {
-        $balance = $this->calculateBalance($artistId, $quarter, $year, $currencyId, $invoiceId);
+        $balance = $this->calculateBalance($artistId, $quarter, $year, $currencyId);
         $balance->currencyName = $currencyName;
 
         // Заповнити значення
         $valuesByType = [
-            1 => $balance->previousBalance,
+            1 => $balance->previousBalance, // Попередній баланс
             2 => $balance->costs, // Витрати за поточний період
             3 => $balance->nextQuarterAdvance, // Витрати за майбутній період
-            4 => $balance->balanceBeforePayout,
+            12 => $balance->correction, // Надходження за типом CORRECTION (5)
+            //4 => $balance->balanceBeforePayout, // Баланс (загальний)
             5 => $balance->totalIncome, // Надходження за типом DEBIT (1) артист + фіти + лейбл.
             6 => $balance->directIncome, // Частка артиста
             7 => $balance->featureIncome, // Частка артиста з фітів
             8 => $balance->labelIncome, // Частка лейбла
             10 => $balance->balanceBeforePayout, // Баланс на кінець періоду
-            11 => $balance->amountToPay, // Сума до виплати
-            12 => $balance->correction, // Надходження за типом CORRECTION (5)
             13 => $balance->paidAmount, // Сплачено за період
+            11 => $balance->amountToPay, // Сума до виплати
         ];
 
        // echo "Balance for report: " . print_r($valuesByType, true) . "\n";

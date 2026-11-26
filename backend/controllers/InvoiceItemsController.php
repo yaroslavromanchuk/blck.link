@@ -325,8 +325,7 @@ class InvoiceItemsController extends Controller
                     $model->invoice->quarter,
                     $model->invoice->year,
                     $model->invoice->currency_id,
-                    $model->invoice->currency->currency_name,
-                    $model->invoice_id
+                    $model->invoice->currency->currency_name
                 ),
                 'costs' => $vutraty,
             ]
@@ -408,8 +407,7 @@ class InvoiceItemsController extends Controller
                     $model->invoice->quarter,
                     $model->invoice->year,
                     $model->invoice->currency_id,
-                    $model->invoice->currency->currency_name,
-                    $model->invoice_id
+                    $model->invoice->currency->currency_name
                 ),
                 'costs' => $vutraty,
             ]
@@ -1212,8 +1210,7 @@ class InvoiceItemsController extends Controller
                 $_model->invoice->quarter,
                 $_model->invoice->year,
                 $_model->invoice->currency_id,
-                $currencyName,
-                $_model->invoice_id
+                $currencyName
             );
         }
 
@@ -1904,8 +1901,7 @@ class InvoiceItemsController extends Controller
                 $_model->invoice->quarter,
                 $_model->invoice->year,
                 $_model->invoice->currency_id,
-                $currencyName,
-                $_model->invoice_id
+                $currencyName
             );
         }
 

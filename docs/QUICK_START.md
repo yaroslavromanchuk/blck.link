@@ -63,8 +63,7 @@ $reportData = $service->getBalanceForReport(
     quarter: 1,
     year: 2024,
     currencyId: 2,
-    currencyName: 'UAH',
-    invoiceId: null  // опціонально
+    currencyName: 'UAH'
 );
 
 // Результат - масив типів балансу
