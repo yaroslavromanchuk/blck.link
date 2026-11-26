@@ -1140,6 +1140,15 @@ class InvoiceItemsController extends Controller
         return $spreadSheet;
     }
 
+    /**
+     * @param InvoiceItems $model
+     * @param array $invoiceItemsIds
+     * @param string $filename
+     * @return void
+     * @deprecated
+     * @throws \Box\Spout\Common\Exception\IOException
+     * @throws \Box\Spout\Writer\Exception\WriterNotOpenedException
+     */
     private function generateReportPartnerSpout(InvoiceItems $model, array $invoiceItemsIds = [], string $filename = '')
     {
         $filePath = self::getHomePage() . 'xls/' .$filename;
@@ -1277,6 +1286,16 @@ class InvoiceItemsController extends Controller
 
     private function generateReportPartner(InvoiceItems $model, array $invoiceItemsIds = [])
     {
+        $reader = $this->getReportDataXlsSpout(
+            $invoiceItemsIds['invoice'],
+            $model->artist_id
+        );
+
+        if($reader->count() > 100000) {
+            Yii::$app->session->setFlash('error', "Занадто великий звіт, більше 100000 рядків ({$reader->count()}). Спробуйте завантажити звіт по частинах.");
+            return $this->redirect(['invoice/view', 'id' => $model->invoice_id]);
+        }
+
         $spreadSheet = new Spreadsheet();
         #region Баланс
         $this->buildBalanceSheet($spreadSheet, $model, $invoiceItemsIds);
@@ -1337,11 +1356,6 @@ class InvoiceItemsController extends Controller
         foreach ($invoiceRates as $rateRow) {
             $curs[(string)$rateRow['currency_name']] = (float)$rateRow['exchange'];
         }
-
-        $reader = $this->getReportDataXlsSpout(
-            $invoiceItemsIds['invoice'],
-            $model->artist_id
-        );
 
         $foundCurrencyIds = [];
         $trackIndex = 1;
