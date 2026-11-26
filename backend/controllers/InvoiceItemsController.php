@@ -2612,9 +2612,6 @@ class InvoiceItemsController extends Controller
 
         if (!empty($statusId)) {
             if (in_array((int)$statusId, [InvoiceStatus::Calculated, InvoiceStatus::InProgress], true)) {
-                $q .= " AND i.invoice_status_id IN (" . InvoiceStatus::Calculated . ", " . InvoiceStatus::InProgress . ")
-                ";
-            } else {
                 $q .= " AND i.invoice_status_id = {$statusId}
                 ";
             }
