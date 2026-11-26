@@ -36,6 +36,7 @@ use yii\grid\GridView;
             //'count',
             'amount',
             'description:text',
+            'payment_invoice_id',
             //'date_item',
         ],
     ]);
