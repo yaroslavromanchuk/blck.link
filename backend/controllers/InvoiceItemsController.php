@@ -1209,11 +1209,11 @@ class InvoiceItemsController extends Controller
         foreach ($baseBalance as $key => $item) {
             $writer->addRow(WriterEntityFactory::createRowFromArray([
                 strip_tags((string)$item['name']),
-                number_format((float)($balances[Currency::EUR][$key]['value'] ?? 0), 2, '.', ''),
+                (float)($balances[Currency::EUR][$key]['value'] ?? 0),
                 $balances[Currency::EUR][$key]['currency_name'] ?? 'EUR',
-                number_format((float)($balances[Currency::USD][$key]['value'] ?? 0), 2, '.', ''),
+                (float)($balances[Currency::USD][$key]['value'] ?? 0),
                 $balances[Currency::USD][$key]['currency_name'] ?? 'USD',
-                number_format((float)($balances[Currency::UAH][$key]['value'] ?? 0), 2, '.', ''),
+                (float)($balances[Currency::UAH][$key]['value'] ?? 0),
                 $balances[Currency::UAH][$key]['currency_name'] ?? 'UAH',
             ]));
         }
@@ -1242,7 +1242,7 @@ class InvoiceItemsController extends Controller
                     $item['invoice_type_name'] == 'Баланс'
                         ? $model->artist->translateDocument('Нарахування')
                         : $item['invoice_type_name'],
-                    number_format((float)$item['amount'], 2, '.', ''),
+                    (float)$item['amount'],
                     $item['currency_name'],
                     $model->invoice->quarter . ' кв.',
                     $item['date_item'],
@@ -1262,7 +1262,7 @@ class InvoiceItemsController extends Controller
                 $writer->addRow(WriterEntityFactory::createRowFromArray([
                     $item['description'],
                     $item['invoice_type_name'],
-                    number_format((float)$item['amount'], 2, '.', ''),
+                    (float)$item['amount'],
                     $item['currency_name'],
                     $nextQuarter['quarter'] . ' кв.',
                     $item['date_item'],
@@ -1317,11 +1317,11 @@ class InvoiceItemsController extends Controller
                 $rowNumber++,
                 $item['artist_name'],
                 rtrim($item['track_name'], '1'),
-                $item['count'],
-                $item['percentage'],
-                $item['amount'],
-                $item['percentage_label'],
-                $item['amount_2'],
+                (int)$item['count'],
+                (int)$item['percentage'],
+                (float)$item['amount'],
+                (int)$item['percentage_label'],
+                (float)$item['amount_2'],
                 $currencyName,
                 $model->artist->translateDocument((string)$item['prav1']),
                 $model->artist->translateDocument((string)$item['prav2']),
