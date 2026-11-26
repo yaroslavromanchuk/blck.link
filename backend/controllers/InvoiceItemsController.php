@@ -1181,7 +1181,7 @@ class InvoiceItemsController extends Controller
 
         $balanceService = new ArtistBalanceService();
         $balance = [];
-        $sum = ['USD' => 0, 'EUR' => 0, 'UAH' => 0];
+        //$sum = ['USD' => 0, 'EUR' => 0, 'UAH' => 0];
         $curs = ['EUR' => 1, 'UAH' => 1, 'USD' => 1];
 
         $invoiceIdsForBalance = !empty($invoiceItemsIds['invoice'])
@@ -1231,9 +1231,18 @@ class InvoiceItemsController extends Controller
             );
         }
 
-        $sum['EUR'] = round(abs((float)($balance[Currency::EUR][11]['value'] ?? 0)), 2);
-        $sum['USD'] = round(abs((float)($balance[Currency::USD][11]['value'] ?? 0)), 2);
-        $sum['UAH'] = round(abs((float)($balance[Currency::UAH][11]['value'] ?? 0)), 2);
+        $sum = [];
+        if ($balance[Currency::EUR][11]['value'] > 1) {
+            $sum['EUR'] = round(abs((float)($balance[Currency::EUR][11]['value'] ?? 0)), 2);
+        }
+
+        if ($balance[Currency::USD][11]['value'] > 1) {
+            $sum['USD'] = round(abs((float)($balance[Currency::USD][11]['value'] ?? 0)), 2);
+        }
+
+        if ($balance[Currency::UAH][11]['value'] > 1) {
+            $sum['UAH'] = round(abs((float)($balance[Currency::UAH][11]['value'] ?? 0)), 2);
+        }
 
         $writer->addRow(WriterEntityFactory::createRowFromArray([
             $model->artist->translateDocument('Фінансовий звіт'),
@@ -1243,10 +1252,6 @@ class InvoiceItemsController extends Controller
             $model->artist->translateDocument('Валюта'),
             $model->artist->translateDocument('Сума'),
             $model->artist->translateDocument('Валюта'),
-            null,
-            $model->artist->translateDocument('Валюта'),
-            $model->artist->translateDocument('Сума'),
-            $model->artist->translateDocument('Курс'),
         ], $headerStyle));
 
         $cur = isset($balance[Currency::EUR])
@@ -1256,24 +1261,90 @@ class InvoiceItemsController extends Controller
         foreach ($balance[$cur] as $key => $item) {
             $writer->addRow(WriterEntityFactory::createRowFromArray([
                 strip_tags((string)$item['name']),
-                number_format($balance[Currency::EUR][$key]['value'] ?? 0, 2, '.', ''),
+                (float)$balance[Currency::EUR][$key]['value'] ?? 0,
                 $balance[Currency::EUR][$key]['currency_name'] ?? 'EUR',
-                number_format($balance[Currency::USD][$key]['value'] ?? 0, 2, '.', ''),
+                (float)$balance[Currency::USD][$key]['value'] ?? 0,
                 $balance[Currency::USD][$key]['currency_name'] ?? 'USD',
-                number_format($balance[Currency::UAH][$key]['value'] ?? 0, 2, '.', ''),
+                (float)$balance[Currency::UAH][$key]['value'] ?? 0,
                 $balance[Currency::UAH][$key]['currency_name'] ?? 'UAH',
             ]));
         }
 
-        foreach ($sum as $currencyName => $value) {
-            if ($value > 0) {
-                $row = array_fill(0, 11, null);
-                $row[8] = $currencyName;
-                $row[9] = number_format($value, 4, '.', '');
-                if (isset($curs[$currencyName]) && $curs[$currencyName] != 1) {
-                    $row[10] = number_format($curs[$currencyName], 4, '.', '');
+        if (!empty($sum)) {
+            $writer->addRow(WriterEntityFactory::createRowFromArray([]));
+            $writer->addRow(WriterEntityFactory::createRowFromArray([
+                $model->artist->translateDocument('Валюта'),
+                $model->artist->translateDocument('Сума'),
+                $model->artist->translateDocument('Курс')
+            ], $headerStyle));
+
+            foreach ($sum as $currencyName => $value) {
+                if ($value > 0) {
+                    $writer->addRow(WriterEntityFactory::createRowFromArray([
+                        $currencyName,
+                        (float)$value,
+                        (float)$curs[$currencyName],
+                    ]));
                 }
-                $writer->addRow(WriterEntityFactory::createRowFromArray($row));
+            }
+        }
+
+        // Fetch income and costs for the current and next quarter
+        $income = $model->artist->getIncome($model->invoice->quarter, $model->invoice->year, $model->invoice->invoice_id);
+        // Fetch costs for the current quarter and the next quarter
+        $costs = $model->artist->getCosts($model->invoice->quarter, $model->invoice->year, null, true);
+        // Fetch costs for the next quarter
+        $nextQuarter = DateFormat::getNextQuarterYear($model->invoice->quarter, $model->invoice->year);
+        // Fetch costs for the next quarter
+        $costsNext = $model->artist->getCosts($nextQuarter['quarter'], $nextQuarter['year']);
+
+        if (count($income) + count($costs) + count($costsNext) > 0) {
+            $writer->addRow(WriterEntityFactory::createRowFromArray([]));
+
+            $writer->addRow(WriterEntityFactory::createRowFromArray([
+                $model->artist->translateDocument('Перелік фінансовиих операцій'),
+            ]));
+
+            $writer->addRow(WriterEntityFactory::createRowFromArray([
+                0 => $model->artist->translateDocument('Назва'),
+                1 => $model->artist->translateDocument('Тип'),
+                2 => $model->artist->translateDocument('Сума'),
+                3 => $model->artist->translateDocument('Валюта'),
+                4 => $model->artist->translateDocument('Квартал'),
+                5 => $model->artist->translateDocument('Дата'),
+            ], $headerStyle));
+
+            foreach ($income as $item) {
+                $writer->addRow(WriterEntityFactory::createRowFromArray([
+                    0 => $item['description'],
+                    1 => $item['invoice_type_name'] == 'Баланс' ? $model->artist->translateDocument('Нарахування') : $item['invoice_type_name'],
+                    2 => number_format($item['amount'], 2, '.', ''),
+                    3 => $item['currency_name'],
+                    4 => $model->invoice->quarter . $model->artist->translateDocument(' кв.'),
+                    5 => $item['date_item'],
+                ]));
+            }
+
+            foreach ($costs as $item) {
+                $writer->addRow(WriterEntityFactory::createRowFromArray([
+                    0 => $item['description'],
+                    1 => $item['invoice_type_name'],
+                    2 => number_format($item['amount'], 2, '.', ''),
+                    3 => $item['currency_name'],
+                    4 => $model->invoice->quarter . $model->artist->translateDocument(' кв.'),
+                    5 => $item['date_item'],
+                ]));
+            }
+
+            foreach ($costsNext as $item) {
+                $writer->addRow(WriterEntityFactory::createRowFromArray([
+                    0 => $item['description'],
+                    1 => $item['invoice_type_name'],
+                    2 => number_format($item['amount'], 2, '.', ''),
+                    3 => $item['currency_name'],
+                    4 => $nextQuarter['quarter'] . $model->artist->translateDocument(' кв.'),
+                    5 => $item['date_item'],
+                ]));
             }
         }
 
@@ -1343,7 +1414,7 @@ class InvoiceItemsController extends Controller
                 'amount' => 0.0,
                 'currency_name' => $currencyName,
             ];
-            $artistSums[$key]['amount'] += abs($amount2);
+            $artistSums[$key]['amount'] += $amount2;
         };
 
         $reader = is_null($reader) ? $this->getReportDataXlsSpout($invoiceItemsIds['invoice'], $model->artist_id) : $reader;
@@ -1365,23 +1436,24 @@ class InvoiceItemsController extends Controller
             }
         }
 
-        // Totals block matching generateReportPartner layout.
-        $curs = ['EUR' => 1, 'UAH' => 1, 'USD' => 1];
-        $writer->addRow(WriterEntityFactory::createRowFromArray([
-            $model->artist->translateDocument('Всього:'),
-        ], $headerStyle));
-        foreach ($sum as $currencyName => $amount) {
-            if (!empty($amount)) {
-                $writer->addRow(WriterEntityFactory::createRowFromArray([
-                    $model->artist->translateDocument('Валюта'),
-                    $model->artist->translateDocument('Сума'),
-                    $model->artist->translateDocument('Курс'),
-                ], $headerStyle));
-                $writer->addRow(WriterEntityFactory::createRowFromArray([
-                    $currencyName,
-                    round($amount, 4),
-                    isset($curs[$currencyName]) ? $curs[$currencyName] : '',
-                ]));
+        if (!empty($sum)) {
+            // Totals block matching generateReportPartner layout.
+            $writer->addRow(WriterEntityFactory::createRowFromArray([]));
+            $writer->addRow(WriterEntityFactory::createRowFromArray([
+                $model->artist->translateDocument('Всього:'),
+            ], $headerStyle));
+            $writer->addRow(WriterEntityFactory::createRowFromArray([
+                $model->artist->translateDocument('Валюта'),
+                $model->artist->translateDocument('Сума'),
+            ], $headerStyle));
+
+            foreach ($sum as $currencyName => $amount) {
+                if (!empty($amount)) {
+                    $writer->addRow(WriterEntityFactory::createRowFromArray([
+                        $currencyName,
+                        round($amount, 4),
+                    ]));
+                }
             }
         }
 
@@ -1400,6 +1472,27 @@ class InvoiceItemsController extends Controller
                 $artistSum['amount'],
                 $artistSum['currency_name'],
             ]));
+        }
+
+        if (!empty($sum)) {
+            // Totals block matching generateReportPartner layout.
+            $writer->addRow(WriterEntityFactory::createRowFromArray([]));
+            $writer->addRow(WriterEntityFactory::createRowFromArray([
+                $model->artist->translateDocument('Всього:'),
+            ], $headerStyle));
+            $writer->addRow(WriterEntityFactory::createRowFromArray([
+                $model->artist->translateDocument('Валюта'),
+                $model->artist->translateDocument('Сума'),
+            ], $headerStyle));
+
+            foreach ($sum as $currencyName => $amount) {
+                if (!empty($amount)) {
+                    $writer->addRow(WriterEntityFactory::createRowFromArray([
+                        $currencyName,
+                        round($amount, 4),
+                    ]));
+                }
+            }
         }
 
         $writer->close();
