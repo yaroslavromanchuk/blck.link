@@ -367,7 +367,9 @@ class TrackController extends Controller
                 
                 if ($model->validate() && $model->save()) {
                     
-                    if (!$model->is_album && count(Percentage::findAll(['track_id' => $model->id, 'artist_id' => $model->artist_id])) != 4) {
+                    if (!$model->is_album
+                        && count(Percentage::findAll(['track_id' => $model->id, 'artist_id' => $model->artist_id])) != 4
+                    ) {
                         $model->updateArtistPercentage();
                     }
                     
@@ -381,9 +383,12 @@ class TrackController extends Controller
                     
                     if (!$client) {
                         $model->saveFeeds($feeds);
+                    } else {
+                        $feeds = [];
+                        $model->saveFeeds($feeds);
                     }
                    
-                    $model->saveLog($oldModel, $model->toArray());
+                    $model->saveLog($oldModel, array_merge($model->toArray(), ['feeds' => $feeds]));
                     
                     $success = true;
                     $redirect = Url::to(['view', 'id' => $model->id]);
